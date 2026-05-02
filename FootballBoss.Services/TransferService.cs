@@ -1,0 +1,233 @@
+using FootballBoss.Models;
+
+namespace FootballBoss.Services;
+
+/// <summary>
+/// Calculates transfer fees, evaluates negotiation offers, resolves deals,
+/// and estimates match attendance.
+///
+/// Corresponds to subroutines 4022–4062, 2601–2654, and 3801 in FOOT.BAS.
+/// </summary>
+public static class TransferService
+{
+    // ── Asking price (lines 4043–4045) ────────────────────────────────────────
+
+    /// <summary>
+    /// Calculates the selling club's asking price for a player.
+    ///
+    /// BASIC lines 4043–4045:
+    ///   If INT(skill) = 1: askingPrice = 6500
+    ///   Otherwise: askingPrice = 5000 * (INT(H)-1)^2 * 2 + (H>9.6 ? 310000 : 0)
+    ///   Add random spread = INT(askingPrice/3)+6000
+    ///   Age deduction: penalty = (Age-28), clamped ≥ 0;
+    ///                  askingPrice -= INT(askingPrice/10) * penalty
+    /// </summary>
+    public static double CalculateAskingPrice(Player player, Random rng)
+    {
+        int integerSkill = (int)player.Skill;
+
+        double askingPrice;
+        if (integerSkill <= 1)
+        {
+            askingPrice = 6_500;
+        }
+        else
+        {
+            askingPrice = 5_000.0 * (integerSkill - 1) * (integerSkill - 1) * 2
+                        + (player.Skill > 9.6 ? 310_000 : 0);
+        }
+
+        double priceSpread = (int)(askingPrice / 3) + 6_000;
+        askingPrice        = askingPrice + (int)(rng.NextDouble() * priceSpread);
+
+        // Age deduction — players over 28 are worth less (line 4378)
+        int agePenalty = Math.Max(0, player.DisplayAge - 28);
+        askingPrice    = (int)(askingPrice - (int)(askingPrice / 10.0) * agePenalty);
+
+        return askingPrice;
+    }
+
+    // ── Deal sweetener deductions (lines 4046–4050) ──────────────────────────
+
+    /// <summary>
+    /// Reduces the asking price based on sweeteners offered in the deal
+    /// (a loan player and/or a free transfer player).
+    ///
+    /// BASIC lines 4046–4050:
+    ///   Loan sweetener:    effectiveSkill = INT(skill) − agePenalty (clamped ≥ 1)
+    ///                      sweetenerReduction += effectiveSkill * loanWeeks * 100
+    ///   Free xfer:         effectiveSkill = INT(skill) − agePenalty (clamped ≥ 1)
+    ///                      sweetenerReduction += effectiveSkill^2 * 5000
+    /// </summary>
+    public static double ApplySweetenerDeductions(
+        double askingPrice,
+        Player? loanPlayer,       int loanWeeks,
+        Player? freeTransferPlayer,
+        int     buyingDivision)
+    {
+        double sweetenerReduction   = 0;
+        double divisionSkillFloor   = 4.0 / buyingDivision;
+
+        if (loanPlayer != null && loanWeeks > 0 && (int)loanPlayer.Skill > divisionSkillFloor)
+        {
+            int agePenalty       = Math.Max(0, loanPlayer.DisplayAge - 26);
+            int effectiveSkill   = Math.Max(1, (int)loanPlayer.Skill - agePenalty);
+            sweetenerReduction  += effectiveSkill * loanWeeks * 100;
+        }
+
+        if (freeTransferPlayer != null && (int)freeTransferPlayer.Skill > divisionSkillFloor)
+        {
+            int agePenalty      = Math.Max(0, freeTransferPlayer.DisplayAge - 26);
+            int effectiveSkill  = Math.Max(1, (int)freeTransferPlayer.Skill - agePenalty);
+            sweetenerReduction += (double)effectiveSkill * effectiveSkill * 5_000;
+        }
+
+        return askingPrice - sweetenerReduction;
+    }
+
+    // ── Offer evaluation (lines 2611–2615) ───────────────────────────────────
+
+    /// <summary>
+    /// Tests whether the player accepts the contract offer.
+    /// Returns the reason for refusal, or <see cref="RefusalReason.None"/> if agreed.
+    ///
+    /// BASIC lines 2611–2615:
+    ///   Wage too low (OX=1):         offeredWage ≤ minimumAcceptableWage
+    ///   Signing fee too low (OX=2):  offeredSigningFee ≤ minimumAcceptableSigningFee
+    ///   Contract too long (OX=3):    maxAcceptableContractWeeks ≤ offeredContractWeeks
+    /// </summary>
+    public static RefusalReason EvaluateContractOffer(
+        Player player,
+        double offeredWeeklyWage,
+        double offeredSigningFee,
+        int    offeredContractWeeks,
+        int    buyingDivision,
+        Random rng)
+    {
+        // Minimum acceptable weekly wage — HU (lines 2610–2115)
+        double minimumAcceptableWage =
+            (1 + rng.Next(20) + 50) * (int)player.Skill
+            + (player.Skill > 9.6 ? 1_000 : 0);
+        int ageDivisor               = Math.Max(1, player.DisplayAge - 27);
+        minimumAcceptableWage        = minimumAcceptableWage / ageDivisor;
+        minimumAcceptableWage        = Math.Max(50, minimumAcceptableWage);
+
+        if (offeredWeeklyWage <= minimumAcceptableWage)
+            return RefusalReason.WageTooLow;
+
+        // Minimum acceptable signing fee — HV (lines 2612–2613)
+        double minimumAcceptableSigningFee = (int)(1_000.0 * (int)player.Skill / buyingDivision);
+        if (offeredSigningFee <= minimumAcceptableSigningFee)
+            return RefusalReason.SigningFeeTooLow;
+
+        // Maximum acceptable contract length — IA (lines 2614–2615)
+        int maxAcceptableContractWeeks = Math.Max(1, player.DisplayAge - 23);
+        maxAcceptableContractWeeks    += rng.Next(2) == 1 ? 1 : 0;
+        maxAcceptableContractWeeks    *= 53;
+
+        if (maxAcceptableContractWeeks <= offeredContractWeeks)
+            return RefusalReason.ContractTooLong;
+
+        // Random late refusal — 1/20 chance even when all terms are met (line 2638)
+        if (rng.Next(20) == 0)
+            return RefusalReason.JustRefused;
+
+        return RefusalReason.None;
+    }
+
+    // ── Apply completed deal (lines 2616–2619) ────────────────────────────────
+
+    /// <summary>
+    /// Commits a successful transfer: sets the player's contract, deducts fees
+    /// from bank balance, and updates the record signing fee if applicable.
+    ///
+    /// Caller is responsible for physically moving the player into the correct
+    /// squad slot via <see cref="PlayerService.SwapPlayers"/>.
+    /// </summary>
+    public static void CommitDeal(
+        Player   player,
+        Finances finances,
+        double   transferFee,
+        double   signingFee,
+        double   weeklyWage,
+        int      contractWeeks)
+    {
+        player.ContractWeeksRemaining = contractWeeks;
+        player.WeeklyWage             = weeklyWage;
+        player.GamesPlayed            = 0;   // x(IB)=0 when NT=0 (line 2136)
+
+        double totalCost = transferFee + signingFee;
+        finances.BankBalance -= (int)totalCost;
+
+        if (totalCost > finances.RecordSigningFee)
+            finances.RecordSigningFee = totalCost;
+    }
+
+    // ── Attendance / gate money calculation (subroutine 3801) ────────────────
+
+    /// <summary>
+    /// Estimates home gate attendance for a league match.
+    ///
+    /// BASIC subroutine 3801 (lines 3197–3229):
+    ///   Base: (50,000 + RND*10,000) ÷ division ÷ division
+    ///   Reduced by league position of both teams (1250/div/div per place)
+    ///   Division 1 gets +1/3 bonus
+    ///   Ticket price adjustment: too high reduces attendance; too low increases it
+    ///   Hard cap for divisions 3+: ≤ 18,721
+    /// </summary>
+    public static double EstimateAttendance(
+        int    division,
+        int    ourLeaguePosition,
+        int    opponentLeaguePosition,
+        double ticketPriceInPounds,
+        Random rng)
+    {
+        double baseAttendance       = 50_000 + rng.Next(10_000);
+        baseAttendance              = (int)(baseAttendance / division) / division;
+
+        double deductionPerPosition = (1_250.0 / division) / division;
+        baseAttendance             -= deductionPerPosition * ourLeaguePosition;
+        baseAttendance             -= deductionPerPosition * opponentLeaguePosition;
+
+        if (division == 1) baseAttendance += baseAttendance / 3.0;
+
+        // Ticket price effect (lines 3808–3809)
+        double idealTicketPrice = 5 - division;
+        if (ticketPriceInPounds > idealTicketPrice)
+        {
+            int priceExcess = (int)(ticketPriceInPounds - idealTicketPrice);
+            if (priceExcess > 0) baseAttendance = baseAttendance / priceExcess;
+        }
+        else if (ticketPriceInPounds < idealTicketPrice)
+        {
+            int priceDiscount = (int)(idealTicketPrice - ticketPriceInPounds);
+            baseAttendance   += priceDiscount * (1_000.0 / division);
+        }
+
+        // Maximum attendance cap (line 3811)
+        double attendanceCap = (100_000.0 / division) / division;
+        if (baseAttendance > attendanceCap) baseAttendance = attendanceCap;
+
+        baseAttendance = Math.Max(0, baseAttendance) + 1 + rng.Next(50);
+
+        // Lower-division hard cap (line 3813)
+        if (division >= 3) baseAttendance = Math.Min(baseAttendance, 18_721);
+
+        return (int)baseAttendance;
+    }
+
+    /// <summary>
+    /// Converts attendance to gate money: attendance × ticket price.
+    /// </summary>
+    public static double CalculateGateMoney(double attendance, double ticketPriceInPounds)
+        => (int)(attendance * ticketPriceInPounds);
+}
+
+public enum RefusalReason
+{
+    None,
+    WageTooLow,
+    SigningFeeTooLow,
+    ContractTooLong,
+    JustRefused      // random late refusal even when all terms are met
+}

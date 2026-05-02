@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="FootballBos.Models/FootballBoss.Models.csproj" />
+  <Project Path="FootballBoss.Services/FootballBoss.Services.csproj" />
+  <Project Path="FootballBoss/FootballBoss.csproj" />
+</Solution>

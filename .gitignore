@@ -1,0 +1,67 @@
+## .NET / C# Solution
+
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+**/[Pp]ackages/
+!**/[Pp]ackages/build/
+nuget.exe
+project.lock.json
+project.fragment.lock.json
+artifacts/
+.nuget/
+
+# MSBuild / Rider / VS
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+_ReSharper*/
+*.DotSettings.user
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VC.db
+*.VC.opendb
+*.pidb
+*.svclog
+*.scc
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# User secrets (ASP.NET Core)
+**/secrets.json
+
+# Coverage
+*.coverage
+*.coveragexml
+[Tt]est[Rr]esult*/
+coverage*/
+
+# Publish
+**/publish/
+PublishProfiles/
+
+# Temporary files
+*.tmp
+*.temp
+~$*
