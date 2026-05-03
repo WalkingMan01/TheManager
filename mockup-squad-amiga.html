@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FootballBoss — Amiga Style Squad</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    /* ── Page ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1a1a;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 32px 16px;
+      font-family: 'VT323', 'Courier New', monospace;
+    }
+
+    /* ── CRT monitor shell ── */
+    .monitor {
+      background: #2a2a2a;
+      border-radius: 16px;
+      padding: 20px 24px 28px;
+      box-shadow:
+        0 0 0 2px #111,
+        0 4px 32px rgba(0,0,0,0.8),
+        inset 0 2px 4px rgba(255,255,255,0.06);
+      width: 680px;
+    }
+    .monitor-label {
+      text-align: center;
+      color: #555;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      font-family: sans-serif;
+    }
+
+    /* ── CRT screen ── */
+    .screen {
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        inset 0 0 40px rgba(0, 60, 120, 0.25),
+        0 0 12px rgba(0, 100, 255, 0.08);
+    }
+    /* Scanlines overlay */
+    .screen::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* ── Amiga Workbench window chrome ── */
+    .amiga-window {
+      border: 2px solid #aaa;
+      margin: 6px;
+    }
+    .title-bar {
+      background: #aaaaaa;
+      display: flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 2px;
+      gap: 2px;
+    }
+    .gadget {
+      width: 18px; height: 18px;
+      border: 2px solid #000;
+      background: #aaaaaa;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      cursor: pointer;
+      color: #000;
+      font-family: monospace;
+    }
+    .gadget:hover { background: #ccc; }
+    .title-text {
+      flex: 1;
+      text-align: center;
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      color: #000;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+    .title-depth {
+      width: 18px; height: 18px;
+      border: 2px solid #000;
+      background: #aaaaaa;
+      flex-shrink: 0;
+    }
+
+    /* ── Screen content ── */
+    .content {
+      background: #000;
+      padding: 4px 8px 2px;
+      font-size: 18px;
+      line-height: 1.28;
+      min-height: 420px;
+      position: relative;
+    }
+
+    /* ── Amiga colour palette ── */
+    .c-white   { color: #ffffff; }
+    .c-cyan    { color: #55ccff; }
+    .c-yellow  { color: #ffdd00; }
+    .c-amber   { color: #ff9900; }   /* PA2 — transfer listed / alerts */
+    .c-green   { color: #55ff55; }
+    .c-lime    { color: #aaff00; }
+    .c-red     { color: #ff4444; }
+    .c-orange  { color: #ff8844; }
+    .c-gray    { color: #888888; }
+    .c-dimwhite{ color: #aaaaaa; }
+    /* Position colours matching GDMACOL T(I) */
+    .pos-gk    { color: #ffdd00; }   /* GK  — yellow  */
+    .pos-def   { color: #55ccff; }   /* DEF — cyan    */
+    .pos-mid   { color: #55ff55; }   /* MID — green   */
+    .pos-atk   { color: #ff6644; }   /* ATK — orange  */
+    /* Transfer-listed override (PA2) */
+    .transfer  { color: #ff9900; }
+
+    /* ── Squad rows ── */
+    .squad-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 0;
+    }
+    .col-header {
+      font-size: 16px;
+      letter-spacing: 1px;
+    }
+    .squad-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0;
+      cursor: pointer;
+      padding: 0 2px;
+      height: 23px;
+    }
+    .squad-row:hover .row-bg {
+      text-decoration: underline;
+    }
+    .squad-row.selected-row .slot-num { color: #ffdd00; }
+
+    .slot-num  { width: 22px; text-align: right; color: #aaaaaa; flex-shrink: 0; }
+    .p-name    { width: 76px; padding-left: 4px; flex-shrink: 0; overflow: hidden; }
+    .p-skill   { width: 20px; text-align: right; flex-shrink: 0; }
+    .p-status  { width: 18px; text-align: center; flex-shrink: 0; }
+
+    /* ── Sub separator ── */
+    .sub-label {
+      font-size: 16px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      padding-left: 6px;
+    }
+
+    /* ── Divider ── */
+    .hdiv {
+      border-top: 1px solid #444;
+      margin: 3px 0;
+    }
+
+    /* ── Footer info bar ── */
+    .info-bar {
+      display: flex;
+      gap: 0;
+      padding: 3px 2px 2px;
+      font-size: 17px;
+    }
+    .info-item {
+      flex: 1;
+    }
+
+    /* ── Menu bar ── */
+    .menu-bar {
+      background: #0000bb;
+      padding: 2px 8px;
+      font-size: 18px;
+      display: flex;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .menu-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      cursor: pointer;
+      padding: 1px 6px 1px 0;
+      color: #ffffff;
+    }
+    .menu-key {
+      color: #ffdd00;
+      margin-right: 1px;
+    }
+    .menu-item.active-menu {
+      background: #ffffff;
+      color: #000;
+      padding: 1px 3px;
+    }
+    .menu-item.active-menu .menu-key { color: #0000bb; }
+
+    /* ── Injuries screen ── */
+    .inj-row {
+      display: flex;
+      height: 22px;
+      align-items: baseline;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+    .inj-row:hover { text-decoration: underline; }
+    .inj-slot  { width: 22px; text-align: right; color: #888; flex-shrink: 0; }
+    .inj-name  { width: 78px; padding-left: 4px; flex-shrink: 0; }
+    .inj-age   { width: 30px; text-align: right; flex-shrink: 0; color: #aaa; }
+    .inj-goals { width: 36px; text-align: right; flex-shrink: 0; }
+    .inj-pld   { width: 36px; text-align: right; flex-shrink: 0; color: #aaa; }
+    .inj-note  { flex: 1; padding-left: 8px; }
+
+    /* ── Flash animation for status ── */
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    .blink { animation: blink 1s step-end infinite; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="monitor">
+    <div class="monitor-label">Football Director II</div>
+    <div class="screen">
+      <div class="amiga-window">
+
+        <!-- Title bar -->
+        <div class="title-bar">
+          <div class="gadget" @click="closeGadget" title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <line x1="2" y1="2" x2="8" y2="8" stroke="#000" stroke-width="1.5"/>
+              <line x1="8" y1="2" x2="2" y2="8" stroke="#000" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="title-text">{{ titleText }}</div>
+          <div class="title-depth"></div>
+        </div>
+
+        <!-- Screen content -->
+        <div class="content">
+
+          <!-- ══ SQUAD SCREEN ══════════════════════════════════════════════ -->
+          <template v-if="screen === 'squad'">
+            <div style="padding: 4px 2px 2px;">
+
+              <!-- Club heading -->
+              <div style="text-align:center; margin-bottom:4px;">
+                <span class="c-yellow" style="font-size:20px; letter-spacing:2px;">{{ clubName }}</span>
+              </div>
+
+              <!-- Column headers -->
+              <div class="squad-grid" style="margin-bottom:2px;">
+                <div class="col-header c-cyan" style="padding-left:26px;">
+                  1st TEAM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SK
+                </div>
+                <div class="col-header c-cyan" style="padding-left:26px;">
+                  RESERVES&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SK
+                </div>
+              </div>
+              <div class="hdiv"></div>
+
+              <!-- Squad rows (first team left, reserves right) -->
+              <div class="squad-grid">
+                <!-- First team col (slots 1–11) -->
+                <div>
+                  <template v-for="p in firstTeam" :key="p.slot">
+                    <div class="squad-row"
+                      :class="{ 'selected-row': selectedSlot === p.slot }"
+                      @click="selectedSlot = selectedSlot === p.slot ? null : p.slot">
+                      <span class="slot-num c-dimwhite">{{ p.slot }}</span>
+                      <span class="p-name" :class="nameClass(p)">{{ p.name.padEnd(8) }}</span>
+                      <span class="p-skill" :class="skillClass(p)">{{ p.displaySkill }}</span>
+                      <span class="p-status" :class="statusCharClass(p)">{{ statusChar(p) }}</span>
+                    </div>
+                  </template>
+                  <!-- Sub separator -->
+                  <div class="sub-label">
+                    <span class="c-cyan" style="font-size:15px;">───</span>
+                    <span class="c-cyan" style="font-size:15px; padding:0 4px;">SUB</span>
+                    <span class="c-cyan" style="font-size:15px;">───</span>
+                  </div>
+                  <div v-if="sub" class="squad-row"
+                    :class="{ 'selected-row': selectedSlot === sub.slot }"
+                    @click="selectedSlot = selectedSlot === sub.slot ? null : sub.slot">
+                    <span class="slot-num c-dimwhite">{{ sub.slot }}</span>
+                    <span class="p-name" :class="nameClass(sub)">{{ sub.name.padEnd(8) }}</span>
+                    <span class="p-skill" :class="skillClass(sub)">{{ sub.displaySkill }}</span>
+                    <span class="p-status" :class="statusCharClass(sub)">{{ statusChar(sub) }}</span>
+                  </div>
+                </div>
+
+                <!-- Reserves col (slots 13–20) -->
+                <div>
+                  <template v-for="p in reserves" :key="p.slot">
+                    <div class="squad-row"
+                      :class="{ 'selected-row': selectedSlot === p.slot }"
+                      @click="selectedSlot = selectedSlot === p.slot ? null : p.slot">
+                      <span class="slot-num c-dimwhite">{{ p.slot }}</span>
+                      <span class="p-name" :class="nameClass(p)">{{ p.name.padEnd(8) }}</span>
+                      <span class="p-skill" :class="skillClass(p)">{{ p.displaySkill }}</span>
+                      <span class="p-status" :class="statusCharClass(p)">{{ statusChar(p) }}</span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="hdiv" style="margin-top:4px;"></div>
+
+              <!-- Selected player detail -->
+              <div v-if="selected" style="padding: 2px 4px; min-height:46px;">
+                <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:17px;">
+                  <span :class="posClass(selected)">
+                    {{ selected.name }}&nbsp;[{{ posLabel(selected) }}]
+                  </span>
+                  <span class="c-white">
+                    SKL <span class="c-yellow">{{ selected.skill.toFixed(1) }}</span>
+                  </span>
+                  <span class="c-white">
+                    AGE <span class="c-cyan">{{ selected.displayAge }}</span>
+                  </span>
+                  <span class="c-white">
+                    WAGE <span class="c-green">£{{ selected.wage }}</span>
+                  </span>
+                  <span class="c-white">
+                    CNTR <span :class="contractClass(selected)">{{ selected.contractWeeks }}W</span>
+                  </span>
+                  <span class="c-white">
+                    TMP <span :class="temperClass(selected)">{{ selected.temper }}</span>
+                  </span>
+                  <span v-if="selected.transferListed" class="c-amber">
+                    ★ TRANSFER LISTED
+                  </span>
+                  <span v-if="selected.status === 'Injured'" class="c-red">
+                    INJURED {{ selected.weeksUnavail }} WKS
+                  </span>
+                  <span v-if="selected.status === 'Suspended'" class="c-orange">
+                    SUSPENDED {{ selected.weeksUnavail }} WK
+                  </span>
+                  <span v-if="selected.status === 'Star'" class="c-yellow">
+                    ★ STAR PLAYER
+                  </span>
+                </div>
+              </div>
+              <div v-else style="min-height:46px; padding:2px 4px;">
+                <span class="c-gray" style="font-size:16px;">SELECT A PLAYER FOR DETAILS</span>
+              </div>
+
+              <div class="hdiv"></div>
+
+              <!-- Footer: morale / bank / temper / wages -->
+              <div class="info-bar">
+                <span class="info-item">
+                  <span class="c-cyan">MORALE </span>
+                  <span class="c-white">{{ morale }}</span>
+                </span>
+                <span class="info-item">
+                  <span class="c-cyan">BANK </span>
+                  <span class="c-green">£{{ bank }}</span>
+                </span>
+                <span class="info-item">
+                  <span class="c-cyan">TEMPER </span>
+                  <span :class="temper >= 7 ? 'c-red' : temper >= 5 ? 'c-orange' : 'c-white'">{{ temper }}</span>
+                </span>
+                <span class="info-item">
+                  <span class="c-cyan">WAGES </span>
+                  <span class="c-white">£{{ wageBill }}<span class="c-gray">/WK</span></span>
+                </span>
+              </div>
+            </div>
+          </template>
+
+          <!-- ══ INJURIES SCREEN ════════════════════════════════════════════ -->
+          <template v-if="screen === 'injuries'">
+            <div style="padding: 4px 2px 2px;">
+              <div style="margin-bottom:4px;">
+                <span class="c-white" style="font-size:16px; letter-spacing:1px;">
+                  &nbsp;P&nbsp;&nbsp;PLAYER&nbsp;&nbsp;AGE&nbsp;&nbsp;GOALS&nbsp;&nbsp;PLD&nbsp;&nbsp;INJURIES
+                </span>
+              </div>
+              <div class="hdiv"></div>
+              <template v-for="p in allSquad" :key="p.slot">
+                <div class="inj-row">
+                  <span class="inj-slot">{{ p.slot }}</span>
+                  <span class="inj-name" :class="nameClass(p)">{{ p.name }}</span>
+                  <span class="inj-age">{{ p.displayAge }}</span>
+                  <span class="inj-goals" :class="p.position === 'GK' ? 'c-yellow' : 'c-white'">
+                    {{ String(p.goals).padStart(3) }}
+                  </span>
+                  <span class="inj-pld">{{ String(p.apps).padStart(3) }}</span>
+                  <span class="inj-note" :class="injNoteClass(p)">{{ injNote(p) }}</span>
+                </div>
+              </template>
+            </div>
+          </template>
+
+        </div><!-- /content -->
+
+        <!-- Menu bar -->
+        <div class="menu-bar">
+          <span class="menu-item" @click="screen = 'squad'"
+            :class="{ 'active-menu': screen === 'squad' }">
+            <span class="menu-key">M</span>ENU
+          </span>
+          <span class="menu-item" @click="screen = 'injuries'"
+            :class="{ 'active-menu': screen === 'injuries' }">
+            <span class="menu-key">I</span>NJURIES
+          </span>
+          <span class="menu-item">
+            <span class="menu-key">C</span>HANGE
+          </span>
+          <span class="menu-item">
+            <span class="menu-key">E</span>DIT
+          </span>
+          <span class="menu-item">
+            <span class="menu-key">T</span>RAN
+          </span>
+          <span class="menu-item">
+            <span class="menu-key">F</span>IELD
+          </span>
+          <span class="menu-item" style="margin-left:auto;">
+            <span class="menu-key">S</span>ACK
+          </span>
+        </div>
+
+      </div><!-- /amiga-window -->
+    </div><!-- /screen -->
+  </div><!-- /monitor -->
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue;
+
+createApp({
+  setup() {
+    const screen = ref('squad');
+    const selectedSlot = ref(null);
+
+    const clubName  = 'ANYTOWN FC';
+    const morale    = '7.3';
+    const bank      = '12,450';
+    const temper    = 4;
+    const wageBill  = '8,950';
+
+    const titleText = computed(() =>
+      screen.value === 'injuries' ? 'INJURIES' : clubName + ' - SQUAD'
+    );
+
+    // Players — all data matches the C# Player model fields
+    // status chars: ' '=Normal, '#'=Injured, 'S'=Suspended, 'I'=Improving,
+    //               'R'=Retiring, 'L'=Loan, '*'=Star, 'T'=transfer listed (age<0)
+    const players = ref([
+      { slot:  1, name:'CLEMENS', position:'GK',  skill:8.4, age: 29, status:'Normal',    weeksUnavail:0, wage:650,  contractWeeks:52,  goals: 3, apps:28, temper:2, transferListed:false },
+      { slot:  2, name:'HANSEN',  position:'DEF', skill:7.8, age: 27, status:'Normal',    weeksUnavail:0, wage:550,  contractWeeks:78,  goals: 0, apps:30, temper:3, transferListed:false },
+      { slot:  3, name:'WRIGHT',  position:'DEF', skill:7.2, age: 24, status:'Normal',    weeksUnavail:0, wage:450,  contractWeeks:104, goals: 1, apps:25, temper:5, transferListed:false },
+      { slot:  4, name:'ADAMS',   position:'DEF', skill:8.1, age: 31, status:'Improving', weeksUnavail:0, wage:600,  contractWeeks:26,  goals: 2, apps:30, temper:4, transferListed:false },
+      { slot:  5, name:'PEARCE',  position:'DEF', skill:6.9, age: 26, status:'Normal',    weeksUnavail:0, wage:420,  contractWeeks:52,  goals: 1, apps:28, temper:8, transferListed:false },
+      { slot:  6, name:'ROBSON',  position:'MID', skill:9.8, age: 32, status:'Star',      weeksUnavail:0, wage:1200, contractWeeks:52,  goals: 8, apps:30, temper:3, transferListed:false },
+      { slot:  7, name:'MCALSTR', position:'MID', skill:7.5, age: 25, status:'Normal',    weeksUnavail:0, wage:480,  contractWeeks:78,  goals: 4, apps:28, temper:2, transferListed:false },
+      { slot:  8, name:'INCE',    position:'MID', skill:7.1, age: 22, status:'Suspended', weeksUnavail:1, wage:380,  contractWeeks:104, goals: 3, apps:26, temper:7, transferListed:false },
+      { slot:  9, name:'SHEARER', position:'ATK', skill:9.1, age: 21, status:'Normal',    weeksUnavail:0, wage:850,  contractWeeks:104, goals:18, apps:30, temper:2, transferListed:false },
+      { slot: 10, name:'FOWLER',  position:'ATK', skill:8.3, age: 19, status:'Improving', weeksUnavail:0, wage:550,  contractWeeks:78,  goals:12, apps:29, temper:3, transferListed:false },
+      { slot: 11, name:'COLE',    position:'ATK', skill:7.8, age: 23, status:'Normal',    weeksUnavail:0, wage:500,  contractWeeks:52,  goals: 9, apps:30, temper:4, transferListed:false },
+      { slot: 12, name:'JONES',   position:'MID', skill:6.5, age: 24, status:'Normal',    weeksUnavail:0, wage:320,  contractWeeks:52,  goals: 2, apps:12, temper:3, transferListed:false },
+      { slot: 13, name:'SEAMAN',  position:'GK',  skill:7.0, age: 26, status:'Normal',    weeksUnavail:0, wage:400,  contractWeeks:78,  goals: 0, apps: 8, temper:1, transferListed:false },
+      { slot: 14, name:'SOUTHG',  position:'DEF', skill:6.8, age: 24, status:'Normal',    weeksUnavail:0, wage:320,  contractWeeks:52,  goals: 0, apps: 6, temper:2, transferListed:false },
+      { slot: 15, name:'BOULD',   position:'DEF', skill:6.2, age: 28, status:'Injured',   weeksUnavail:4, wage:280,  contractWeeks:26,  goals: 0, apps:10, temper:3, transferListed:false },
+      { slot: 16, name:'THOMAS',  position:'MID', skill:5.8, age: 30, status:'Normal',    weeksUnavail:0, wage:240,  contractWeeks: 8,  goals: 1, apps: 7, temper:5, transferListed:false },
+      { slot: 17, name:'PLATT',   position:'MID', skill:6.5, age:-27, status:'Normal',    weeksUnavail:0, wage:350,  contractWeeks:20,  goals: 3, apps: 9, temper:2, transferListed:true  },
+      { slot: 18, name:'HARFORD', position:'ATK', skill:5.9, age: 32, status:'Normal',    weeksUnavail:0, wage:260,  contractWeeks:30,  goals: 2, apps: 8, temper:6, transferListed:false },
+      { slot: 19, name:'QUINN',   position:'ATK', skill:6.1, age: 25, status:'Injured',   weeksUnavail:2, wage:280,  contractWeeks:52,  goals: 1, apps: 5, temper:4, transferListed:false },
+      { slot: 20, name:'SCALES',  position:'DEF', skill:5.5, age: 22, status:'Normal',    weeksUnavail:0, wage:220,  contractWeeks:104, goals: 0, apps: 3, temper:1, transferListed:false },
+    ]);
+
+    // Derived helpers
+    const withHelpers = (p) => ({
+      ...p,
+      displayAge:   Math.abs(p.age),
+      displaySkill: Math.floor(p.skill),
+    });
+
+    const firstTeam = computed(() =>
+      players.value.filter(p => p.slot >= 1 && p.slot <= 11).map(withHelpers)
+    );
+    const sub = computed(() => {
+      const s = players.value.find(p => p.slot === 12);
+      return s ? withHelpers(s) : null;
+    });
+    const reserves = computed(() =>
+      players.value.filter(p => p.slot >= 13 && p.slot <= 20).map(withHelpers)
+    );
+    const allSquad = computed(() =>
+      players.value.filter(p => p.slot >= 1 && p.slot <= 20).map(withHelpers)
+    );
+
+    const selected = computed(() => {
+      if (selectedSlot.value === null) return null;
+      const p = players.value.find(p => p.slot === selectedSlot.value);
+      return p ? withHelpers(p) : null;
+    });
+
+    // Status character — matches CHR$(J(I)) in FOOT.BAS
+    function statusChar(p) {
+      if (p.status === 'Star')      return '*';
+      if (p.status === 'Injured')   return '#';
+      if (p.status === 'Suspended') return 'S';
+      if (p.status === 'Improving') return 'I';
+      if (p.status === 'OnLoan')    return 'L';
+      if (p.status === 'Retiring')  return 'R';
+      if (p.transferListed)         return 'T';
+      return ' ';
+    }
+
+    function statusCharClass(p) {
+      if (p.status === 'Star')      return 'c-yellow blink';
+      if (p.status === 'Injured')   return 'c-red';
+      if (p.status === 'Suspended') return 'c-orange';
+      if (p.status === 'Improving') return 'c-lime';
+      if (p.status === 'OnLoan')    return 'c-cyan';
+      if (p.status === 'Retiring')  return 'c-gray';
+      if (p.transferListed)         return 'c-amber';
+      return 'c-gray';
+    }
+
+    // Name colour: position colour, overridden by amber if transfer listed
+    function nameClass(p) {
+      if (p.transferListed) return 'transfer';
+      return posClass(p);
+    }
+
+    function posClass(p) {
+      return { GK:'pos-gk', DEF:'pos-def', MID:'pos-mid', ATK:'pos-atk' }[p.position] || 'c-white';
+    }
+
+    function posLabel(p) {
+      return p.position;
+    }
+
+    function skillClass(p) {
+      if (p.skill >= 9.7) return 'c-yellow';
+      if (p.skill >= 8.0) return 'c-white';
+      if (p.skill >= 6.5) return 'c-dimwhite';
+      return 'c-gray';
+    }
+
+    function contractClass(p) {
+      if (p.contractWeeks <= 12) return 'c-red';
+      if (p.contractWeeks <= 26) return 'c-orange';
+      return 'c-green';
+    }
+
+    function temperClass(p) {
+      if (p.temper >= 7) return 'c-red';
+      if (p.temper >= 5) return 'c-orange';
+      return 'c-white';
+    }
+
+    // Injuries screen note + colour
+    function injNote(p) {
+      if (p.status === 'Retiring')  return 'RETIRING';
+      if (p.status === 'Suspended') return p.weeksUnavail + ' WK SUS';
+      if (p.status === 'Injured')   return p.weeksUnavail + ' WEEKS';
+      if (p.status === 'OnLoan')    return p.weeksUnavail + ' LOAN';
+      if (p.transferListed)         return 'LISTED';
+      if (p.status === 'Star')      return '* STAR';
+      if (p.status === 'Improving') return 'IMPROVING';
+      return '';
+    }
+
+    function injNoteClass(p) {
+      if (p.status === 'Injured')   return 'c-red';
+      if (p.status === 'Suspended') return 'c-orange';
+      if (p.status === 'Retiring')  return 'c-gray';
+      if (p.status === 'Star')      return 'c-yellow';
+      if (p.status === 'Improving') return 'c-lime';
+      if (p.transferListed)         return 'c-amber';
+      return 'c-gray';
+    }
+
+    function closeGadget() {
+      screen.value = 'squad';
+      selectedSlot.value = null;
+    }
+
+    return {
+      screen, selectedSlot, selected,
+      clubName, morale, bank, temper, wageBill, titleText,
+      firstTeam, sub, reserves, allSquad,
+      statusChar, statusCharClass,
+      nameClass, posClass, posLabel,
+      skillClass, contractClass, temperClass,
+      injNote, injNoteClass,
+      closeGadget,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

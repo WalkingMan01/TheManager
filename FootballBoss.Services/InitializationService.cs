@@ -180,11 +180,11 @@ public static class InitializationService
         // Cup draws (BASIC lines 4900–4904)
         var lcBracket = CupService.SetupInitialBracket(gameState.AllTeamNames, rng);
         gameState.LeagueCup.CurrentRoundFixtures =
-            CupService.DrawRound(lcBracket, gameState.AllTeamNames, rng);
+            [..CupService.DrawRound(lcBracket, gameState.AllTeamNames, rng).Select(ToCupFixture)];
 
         var faBracket = CupService.SetupInitialBracket(gameState.AllTeamNames, rng);
         gameState.FACup.CurrentRoundFixtures =
-            CupService.DrawRound(faBracket, gameState.AllTeamNames, rng);
+            [..CupService.DrawRound(faBracket, gameState.AllTeamNames, rng).Select(ToCupFixture)];
 
         // Reset counters
         gameState.CurrentWeek              = 1;
@@ -262,4 +262,14 @@ public static class InitializationService
 
         FixtureSchedulerService.ResetOpponentPointer(gameState);
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static CupFixture ToCupFixture(CupFixturePair pair) => new()
+    {
+        HomeTeam     = pair.HomeTeamName,
+        AwayTeam     = pair.AwayTeamName,
+        HomeDivision = (Division)Math.Clamp(pair.HomeDivision, 1, 4),
+        AwayDivision = (Division)Math.Clamp(pair.AwayDivision, 1, 4)
+    };
 }
