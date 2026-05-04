@@ -110,10 +110,17 @@ public class MatchEngine
     ///
     /// Corresponds to subroutine 4651 (lines 3808–3868) in FOOT.BAS.
     /// </summary>
+    /// <param name="physioSkillPercent">
+    /// Physio skill (1–99), or 0 if no physio is employed. Used to reduce
+    /// injury duration per BASIC line 4657:
+    ///   RA = INT((60/100)*Y(2,2)); RB = INT((ABS(weeks)/100)*RA);
+    ///   weeks = MAX(1, ABS(weeks) − RB)
+    /// </param>
     public IncidentResult? ResolveIncident(
         Player?[] squad,
         bool incidentBeforeMinute81,
-        bool hasSubstituted)
+        bool hasSubstituted,
+        int physioSkillPercent = 0)
     {
         int playerSlot = 1 + _rng.Next(20);
         var player = squad[playerSlot];
@@ -137,9 +144,13 @@ public class MatchEngine
                 PlayerName = player.Name
             };
 
-        // Injury — duration reduced by physio skill (line 4657)
-        int rawInjuryWeeks      = _rng.Next(32) - 8;        // −8 to +23
-        int injuryWeeks         = Math.Max(1, Math.Abs(rawInjuryWeeks));
+        // Injury — duration reduced by physio skill (BASIC line 4657)
+        // RA=INT((60/100)*Y(2,2)); RB=INT((ABS(u)/100)*RA); u=MAX(1,ABS(u)−RB)
+        int rawInjuryWeeks = _rng.Next(32) - 8;
+        int physioFactor   = (int)(60.0 / 100 * physioSkillPercent);
+        int reduction      = (int)(Math.Abs(rawInjuryWeeks) / 100.0 * physioFactor);
+        int injuryWeeks    = Math.Max(1, Math.Abs(rawInjuryWeeks) - reduction);
+
         player.WeeksUnavailable = injuryWeeks;
         player.Status           = PlayerStatus.Injured;
 
