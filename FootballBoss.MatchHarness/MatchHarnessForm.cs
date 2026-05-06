@@ -68,7 +68,7 @@ internal sealed class MatchHarnessForm : Form
             RowCount    = 4,
             Padding     = new Padding(8),
         };
-        outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));  // inputs row
+        outer.RowStyles.Add(new RowStyle(SizeType.Absolute, 265)); // inputs row
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));  // button row
         outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // output
         outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));  // stats

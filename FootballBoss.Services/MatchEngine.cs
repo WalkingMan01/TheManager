@@ -13,11 +13,11 @@ namespace FootballBoss.Services;
 /// </summary>
 public class MatchEngine
 {
-    private readonly Random _rng;
+    private readonly Random _random;
 
-    public MatchEngine(Random? rng = null)
+    public MatchEngine(Random? random = null)
     {
-        _rng = rng ?? new Random();
+        _random = random ?? new Random();
     }
 
     // ── Pre-match setup ───────────────────────────────────────────────────────
@@ -37,10 +37,10 @@ public class MatchEngine
     /// </summary>
     public MatchSimulation SetupMatch(MatchSetupInput input)
     {
-        int matchLength = 90 + _rng.Next(4);   // 90–93 minutes (md)
+        int matchLength = 90 + _random.Next(4);   // 90–93 minutes (md)
 
         // ── Our shot count (BN) — line 3765 ──────────────────────────────────
-        int moraleRoll = 1 + _rng.Next(5);
+        int moraleRoll = 1 + _random.Next(5);
 
         int ourShotCount = Math.Max(0,
             Math.Min(input.OurAttack, input.OurMid)
@@ -53,7 +53,7 @@ public class MatchEngine
             - (input.OpponentTemper - input.OurTemper > 29 ? 1 : 0));
 
         // ── Opponent shot count (BO) — line 3767 ─────────────────────────────
-        moraleRoll = 1 + _rng.Next(5);
+        moraleRoll = 1 + _random.Next(5);
 
         int opponentShotCount = Math.Max(0,
             Math.Min(input.OpponentAttack, input.OpponentMid)
@@ -88,9 +88,9 @@ public class MatchEngine
         // Line 3084: fires when N=BU and N<81
         int incidentMinute     = 0;
         int temperCombined     = input.OurTemper + input.OpponentTemper;
-        int crowdIncidentRoll  = _rng.Next(472);
+        int crowdIncidentRoll  = _random.Next(472);
         if (crowdIncidentRoll < temperCombined)
-            incidentMinute = 2 + _rng.Next(80);   // within first 81 minutes
+            incidentMinute = 2 + _random.Next(80);   // within first 81 minutes
 
         return new MatchSimulation
         {
@@ -122,7 +122,7 @@ public class MatchEngine
         bool hasSubstituted,
         int physioSkillPercent = 0)
     {
-        int playerSlot = 1 + _rng.Next(20);
+        int playerSlot = 1 + _random.Next(20);
         var player = squad[playerSlot];
 
         if (player == null
@@ -133,7 +133,7 @@ public class MatchEngine
         // Only first-team players (slots 1–12) can be involved (line 4653)
         if (playerSlot > 12) return null;
 
-        int redCardRoll = 1 + _rng.Next(2);
+        int redCardRoll = 1 + _random.Next(2);
 
         // Second half + 50/50: send-off (line 4663)
         if (!incidentBeforeMinute81 && redCardRoll == 2)
@@ -146,7 +146,7 @@ public class MatchEngine
 
         // Injury — duration reduced by physio skill (BASIC line 4657)
         // RA=INT((60/100)*Y(2,2)); RB=INT((ABS(u)/100)*RA); u=MAX(1,ABS(u)−RB)
-        int rawInjuryWeeks = _rng.Next(32) - 8;
+        int rawInjuryWeeks = _random.Next(32) - 8;
         int physioFactor   = (int)(60.0 / 100 * physioSkillPercent);
         int reduction      = (int)(Math.Abs(rawInjuryWeeks) / 100.0 * physioFactor);
         int injuryWeeks    = Math.Max(1, Math.Abs(rawInjuryWeeks) - reduction);
@@ -206,7 +206,7 @@ public class MatchEngine
         int goals = 0;
         for (int shot = 0; shot < shotCount; shot++)
         {
-            int diceRoll = _rng.Next(8) + divisionBonus;
+            int diceRoll = _random.Next(8) + divisionBonus;
             if (diceRoll > opposingGoalkeeperSkill / 2)
                 goals++;
         }
@@ -219,83 +219,19 @@ public class MatchEngine
     {
         for (int goal = 0; goal < goalCount; goal++)
         {
-            int goalMinute = startMinute + _rng.Next(matchLength - 1);
+            int goalMinute = startMinute + _random.Next(matchLength - 1);
             goalEvents.Add(new GoalEvent { Minute = goalMinute, Scorer = scorer });
         }
     }
 
-    private static int PickNonAttackerSlot(Player?[] squad, Random rng)
+    private static int PickNonAttackerSlot(Player?[] squad, Random random)
     {
         for (int attempt = 0; attempt < 20; attempt++)
         {
-            int slot = 2 + rng.Next(10);
+            int slot = 2 + random.Next(10);
             if (squad[slot]?.Position != PlayerPosition.Attacker)
                 return slot;
         }
-        return 2 + rng.Next(10);
+        return 2 + random.Next(10);
     }
-}
-
-// ── Data classes ─────────────────────────────────────────────────────────────
-
-/// <summary>
-/// All inputs the match engine needs to set up a fixture.
-/// Caller assembles this from <see cref="TeamRatings"/> and <see cref="Club"/> state.
-/// </summary>
-public class MatchSetupInput
-{
-    // Our team ratings (from TeamRatings / subroutine 332)
-    public int OurGoalkeeperSkill      { get; set; }   // BA
-    public int OurDefence              { get; set; }   // bc
-    public int OurMid                  { get; set; }   // bb
-    public int OurAttack               { get; set; }   // bd
-
-    // Opponent estimated ratings (set by subroutine 413–419)
-    public int OpponentGoalkeeperSkill { get; set; }   // EI1
-    public int OpponentDefence         { get; set; }   // ej
-    public int OpponentMid             { get; set; }   // ek
-    public int OpponentAttack          { get; set; }   // el
-
-    public bool IsHomeGame             { get; set; }   // BK%=1
-    public bool LostLastMatch          { get; set; }   // aa=1
-    public int  LineupChanges          { get; set; }   // bj — positional moves made this week
-    public int  OurMorale              { get; set; }   // me
-    public int  OpponentMorale         { get; set; }   // mm
-    public int  OurTemper              { get; set; }   // pu
-    public int  OpponentTemper         { get; set; }   // pv
-    public int  Division               { get; set; }   // AP — used for division bonus on opponent shots
-
-    // Cup tie second-leg carry-overs (jb/jc from first leg)
-    public int  PreviousLegOurScore    { get; set; }
-    public int  PreviousLegTheirScore  { get; set; }
-}
-
-/// <summary>Result of <see cref="MatchEngine.SetupMatch"/>.</summary>
-public class MatchSimulation
-{
-    public int             MatchLength        { get; set; }
-    public List<GoalEvent> GoalEvents         { get; set; } = new();
-    public int             IncidentMinute     { get; set; }   // 0 = no incident
-    public int             OurGoalCount       { get; set; }
-    public int             OpponentGoalCount  { get; set; }
-}
-
-/// <summary>A single timed goal event.</summary>
-public class GoalEvent
-{
-    /// <summary>Minute the goal is scored. Corresponds to B(I) in FOOT.BAS.</summary>
-    public int Minute  { get; set; }
-
-    /// <summary>1 = scored by us, 2 = scored by opponent. Corresponds to c(I).</summary>
-    public int Scorer  { get; set; }
-}
-
-public enum IncidentType { Injury, RedCard }
-
-public class IncidentResult
-{
-    public IncidentType Type       { get; set; }
-    public int          PlayerSlot { get; set; }
-    public string       PlayerName { get; set; } = string.Empty;
-    public int          WeeksOut   { get; set; }   // injury only
 }

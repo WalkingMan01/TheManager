@@ -29,6 +29,9 @@ public enum PlayerStatus
     Suspended      // J=83  'S'  banned (u(I) weeks remaining)
 }
 
+/// <summary>Type of in-match incident resolved by <see cref="FootballBoss.Services.MatchEngine"/>.</summary>
+public enum IncidentType { Injury, RedCard }
+
 /// <summary>
 /// Football division (1=top flight). Matches AP variable in FOOT.BAS.
 /// </summary>
