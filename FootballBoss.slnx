@@ -1,6 +1,0 @@
-<Solution>
-  <Project Path="FootballBoss.MatchHarness/FootballBoss.MatchHarness.csproj" />
-  <Project Path="FootballBoss.Models/FootballBoss.Models.csproj" />
-  <Project Path="FootballBoss.Services/FootballBoss.Services.csproj" />
-  <Project Path="FootballBoss/FootballBoss.csproj" />
-</Solution>

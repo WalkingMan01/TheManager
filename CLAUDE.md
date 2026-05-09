@@ -1,35 +1,35 @@
-# FootballBoss
+# TheManager
 
 A C# (.NET 10) port of Football Director II — a football management game originally written in AmigaBASIC by D&H Games (1988). The original source is at `Original Code/FOOT.BAS`.
 
 ## Solution Structure
 
 ```
-FootballBoss.slnx
-├── FootballBos.Models/       — domain models (Player, Club, GameState, etc.)
-├── FootballBoss.Services/    — all game logic
-└── FootballBoss/             — entry point / UI layer (placeholder, not yet built)
+TheManager.slnx
+├── TheManager.Models/       — domain models (Player, Club, GameState, etc.)
+├── TheManager.Services/    — all game logic
+└── TheManager/             — entry point / UI layer (placeholder, not yet built)
 ```
 
-Dependency direction: `FootballBoss` → `FootballBoss.Services` → `FootballBos.Models`
+Dependency direction: `TheManager` → `TheManager.Services` → `TheManager.Models`
 
 No external NuGet packages except `System.Text.Json` (in-box with .NET 10).
 
 ## Build & Run
 
 ```
-dotnet build FootballBoss.slnx
+dotnet build TheManager.slnx
 ```
 
-The main `FootballBoss` project has no `Program.cs` yet — it is a placeholder pending UI implementation.
+The main `TheManager` project has no `Program.cs` yet — it is a placeholder pending UI implementation.
 
 ## Architecture
 
-**Models layer** (`FootballBos.Models`) — pure POCOs, no logic. All enums live in a single `Enums.cs`.
+**Models layer** (`TheManager.Models`) — pure POCOs, no logic. All enums live in a single `Enums.cs`.
 
-**Services layer** (`FootballBoss.Services`) — stateless business logic implemented as static methods or classes with injected `Random`. Services never reference UI.
+**Services layer** (`TheManager.Services`) — stateless business logic implemented as static methods or classes with injected `Random`. Services never reference UI.
 
-**Presentation layer** (`FootballBoss`) — not yet implemented. Target UI is TBD (console, WinForms, or web).
+**Presentation layer** (`TheManager`) — not yet implemented. Target UI is TBD (console, WinForms, or web).
 
 ## Key Conventions
 
@@ -63,7 +63,7 @@ Players are stored as `Player?[29]`, mirroring BASIC's 1-based array:
   // ── Identity ──────────────────────────────────────────────────────────────
   ```
 - XML doc comments on all public members — always include a `<summary>`
-- Enums all live in `FootballBos.Models/Enums.cs`, not separate files
+- Enums all live in `TheManager.Models/Enums.cs`, not separate files
 
 ### Service patterns
 - Prefer static methods for pure logic (`PlayerService.RecalculateStatus(player)`)

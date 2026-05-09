@@ -1,12 +1,12 @@
 ---
 name: csharp-review
-description: Reviews C# code in the FootballBoss project for correctness, nullable safety, conventions, and faithfulness to the original FOOT.BAS logic.
+description: Reviews C# code in the TheManager project for correctness, nullable safety, conventions, and faithfulness to the original FOOT.BAS logic.
 allowed-tools: Read Grep Glob
 ---
 
-# C# Code Review — FootballBoss
+# C# Code Review — TheManager
 
-You are reviewing C# code in the FootballBoss project (.NET 10). The codebase is a faithful port of Football Director II (AmigaBASIC, 1988). Review the file(s) or selection provided by the user.
+You are reviewing C# code in the TheManager project (.NET 10). The codebase is a faithful port of Football Director II (AmigaBASIC, 1988). Review the file(s) or selection provided by the user.
 
 ## What to Check
 
