@@ -69,27 +69,7 @@ public static class ContractService
     // ── Player contract renewal (lines 359–366, 363) ─────────────────────────
 
     /// <summary>
-    /// Iterates through the squad and returns the first player whose contract
-    /// has expired (ContractWeeksRemaining = 0) and who is still active.
-    ///
-    /// BASIC lines 403–415 (l359 loop).
-    /// Returns null when all players have been checked.
-    /// </summary>
-    public static Player? FindNextContractExpiry(Player?[] squad)
-    {
-        for (int squadSlot = 1; squadSlot <= 20; squadSlot++)
-        {
-            var player = squad[squadSlot];
-            if (player == null || player.Position == PlayerPosition.None) continue;
-            if (player.ContractWeeksRemaining > 0) continue;
-
-            return player;
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Releases a player with no contract (manager chose not to renew).
+    /// Releases a player (manager chose not to renew).
     /// Clears the squad slot.
     /// BASIC lines 412–414: I=F; GOSUB 200; GOSUB 332.
     /// </summary>
@@ -130,37 +110,15 @@ public static class ContractService
     }
 
     /// <summary>
-    /// Applies an accepted renewal to the player's contract fields.
-    /// BASIC line 2616: V(2,IB)=HR; V(1,IB)=HS; AI-=HT (signing fee).
+    /// Applies an accepted renewal — deducts the signing fee from finances.
+    /// BASIC line 2616: AI-=HT (signing fee).
     /// </summary>
-    public static void ApplyRenewal(
-        Player   player,
-        Finances finances,
-        double   weeklyWage,
-        int      contractWeeks,
-        double   signingFee)
+    public static void ApplyRenewal(Finances finances, double signingFee)
     {
-        player.WeeklyWage             = weeklyWage;
-        player.ContractWeeksRemaining = contractWeeks;
-        finances.BankBalance         -= (int)signingFee;
+        finances.BankBalance -= (int)signingFee;
     }
 
     // ── End-of-week countdowns ────────────────────────────────────────────────
-
-    /// <summary>
-    /// Decrements every player's contract by one week.
-    /// Players reaching zero will be flagged for renewal next time
-    /// <see cref="FindNextContractExpiry"/> is called.
-    /// </summary>
-    public static void TickPlayerContracts(Player?[] squad)
-    {
-        for (int squadSlot = 1; squadSlot <= 20; squadSlot++)
-        {
-            var player = squad[squadSlot];
-            if (player == null || player.Position == PlayerPosition.None) continue;
-            if (player.ContractWeeksRemaining > 0) player.ContractWeeksRemaining--;
-        }
-    }
 
     /// <summary>
     /// Decrements the manager's contract. Returns true when the contract has

@@ -341,12 +341,6 @@ internal sealed class ConsoleGame
             }
         }
 
-        for (int i = 1; i <= 20; i++)
-        {
-            var p = _state.Squad[i];
-            if (p != null && p.ContractWeeksRemaining > 0)
-                p.ContractWeeksRemaining--;
-        }
         _state.Club.ManagerContractWeeks = Math.Max(0, _state.Club.ManagerContractWeeks - 1);
 
         // Gate money (home only; BASIC bl = dn * nj)
@@ -668,22 +662,9 @@ internal sealed class ConsoleGame
                     PlayerPosition.Attacker   => "ATK",
                     _                         => "—"
                 };
-                string status = p.Status switch
-                {
-                    PlayerStatus.Normal     => "Fit",
-                    PlayerStatus.Improving  => "Fit+",
-                    PlayerStatus.Recovering => "Fit-",
-                    PlayerStatus.Star       => "STAR",
-                    PlayerStatus.Injured    => $"Inj({p.WeeksUnavailable}w)",
-                    PlayerStatus.Suspended  => $"Sus({p.WeeksUnavailable}w)",
-                    PlayerStatus.OnLoan     => "Loan",
-                    PlayerStatus.Retiring   => "Retiring",
-                    _                       => p.Status.ToString()[..4]
-                };
-                string xfer = p.IsTransferListed ? "*" : " ";
                 Console.WriteLine(
                     $"  {i,2}  {p.Name.TrimEnd(),-9}  {pos,-3}   {p.DisplaySkill,2}   {p.DisplayAge,2}" +
-                    $"  {status,-12}  {FormatMoney(p.WeeklyWage),7}   {p.Appearances,3}  {p.Goals,3}{xfer}");
+                    $"  Tmp:{p.Temper}  Games:{p.GamesPlayed}");
             }
 
             Console.WriteLine();
@@ -705,9 +686,9 @@ internal sealed class ConsoleGame
     private void ShowInjuriesStats()
     {
         Console.Clear();
-        Header("INJURIES & STATS");
+        Header("SQUAD STATS");
         Console.WriteLine();
-        Console.WriteLine("   #  NAME       POS  SKL  STATUS                  GLS  APPS  TMP");
+        Console.WriteLine("   #  NAME       POS  SKL  AGE  TMP  GAMES");
         Separator();
 
         for (int i = 1; i <= 20; i++)
@@ -715,20 +696,8 @@ internal sealed class ConsoleGame
             var p = _state.Squad[i];
             if (p == null) continue;
             string pos = p.Position.ToString()[..3];
-            string status = p.Status switch
-            {
-                PlayerStatus.Injured    => $"INJURED  ({p.WeeksUnavailable} wk left)",
-                PlayerStatus.Suspended  => $"SUSPENDED ({p.WeeksUnavailable} wk left)",
-                PlayerStatus.Retiring   => "RETIRING end of season",
-                PlayerStatus.OnLoan     => "ON LOAN",
-                PlayerStatus.Star       => "STAR PLAYER",
-                PlayerStatus.Improving  => "Improving",
-                PlayerStatus.Recovering => "Recovering",
-                _                       => "Fit"
-            };
             Console.WriteLine(
-                $"  {i,2}  {p.Name.TrimEnd(),-9}  {pos,-3}   {p.DisplaySkill,2}   {status,-22}" +
-                $"  {p.Goals,3}  {p.Appearances,3}   {p.Temper,2}");
+                $"  {i,2}  {p.Name.TrimEnd(),-9}  {pos,-3}   {p.DisplaySkill,2}   {p.DisplayAge,2}   {p.Temper,2}   {p.GamesPlayed,3}");
         }
 
         Pause();
@@ -738,25 +707,7 @@ internal sealed class ConsoleGame
     {
         Console.Clear();
         Header("WAGES & CONTRACTS");
-        Console.WriteLine();
-        Console.WriteLine("   #  NAME       POS  WEEKLY WAGE  CONTRACT");
-        Separator();
-
-        double total = 0;
-        for (int i = 1; i <= 20; i++)
-        {
-            var p = _state.Squad[i];
-            if (p == null) continue;
-            string pos      = p.Position.ToString()[..3];
-            string contract = p.ContractWeeksRemaining <= 0
-                ? "*** EXPIRED ***"
-                : $"{p.ContractWeeksRemaining} wk";
-            Console.WriteLine(
-                $"  {i,2}  {p.Name.TrimEnd(),-9}  {pos,-3}  {FormatMoney(p.WeeklyWage),9}   {contract}");
-            total += p.WeeklyWage;
-        }
-        Separator();
-        Console.WriteLine($"  Total weekly bill:  {FormatMoney(total)}");
+        Console.WriteLine("  (Wage and contract data removed from player model.)");
         Pause();
     }
 
@@ -764,32 +715,7 @@ internal sealed class ConsoleGame
     {
         Console.Clear();
         Header("GOALSCORERS THIS SEASON");
-        Console.WriteLine();
-        Console.WriteLine("     NAME       POS  GOALS  APPS");
-        Separator();
-
-        var scorers = Enumerable.Range(1, 20)
-            .Select(i => _state.Squad[i])
-            .Where(p => p is { Position: not PlayerPosition.None and not PlayerPosition.Goalkeeper })
-            .OrderByDescending(p => p!.Goals)
-            .ToList();
-
-        foreach (var p in scorers)
-        {
-            if (p == null) continue;
-            Console.WriteLine(
-                $"     {p.Name.TrimEnd(),-9}  {p.Position.ToString()[..3]}    {p.Goals,3}    {p.Appearances,3}");
-        }
-
-        // GK conceded tally
-        var gk = _state.Squad[1];
-        if (gk != null)
-        {
-            Console.WriteLine();
-            Console.WriteLine($"  GK {gk.Name.TrimEnd()}: {gk.Goals} goals conceded  " +
-                              $"({gk.Appearances} appearances)");
-        }
-
+        Console.WriteLine("  (Goals and appearances removed from player model.)");
         Pause();
     }
 
@@ -904,10 +830,7 @@ internal sealed class ConsoleGame
         Console.WriteLine();
         foreach (var o in outcomes)
         {
-            string detail = o.WasInjured
-                ? $"injured ({o.InjuryWeeks} wk)"
-                : o.Result.ToString().ToLower();
-            Console.WriteLine($"  {o.PlayerName.TrimEnd()}: {detail}" +
+            Console.WriteLine($"  {o.PlayerName.TrimEnd()}: {o.Result.ToString().ToLower()}" +
                               (o.NetImprovement != 0 ? $"  ({o.NetImprovement:+0.0;-0.0})" : string.Empty));
         }
 

@@ -44,49 +44,25 @@ public static class ExtraTrainingService
         {
             var player = squad[slot];
             if (player == null || player.Position != position) continue;
-            if (player.WeeksUnavailable > 0)                   continue;
-            if (player.Status is PlayerStatus.OnLoan
-                              or PlayerStatus.LoanUnavailable
-                              or PlayerStatus.International
-                              or PlayerStatus.Retiring
-                              or PlayerStatus.Suspended)       continue;
 
             // Skill improvement roll (line 3209–3210)
             double improvementRoll   = (1 + rng.Next(4)) / 10.0;   // 0.1–0.4
             int    hoursDifference   = Math.Abs(rng.Next(9) + 1 - hoursScheduled);
             double netImprovement    = improvementRoll - (hoursDifference * 0.05);
 
-            // Injury chance (line 3209: RB=1+RND*13; only if RB=1 AND available)
-            bool injured = false;
-            if (rng.Next(13) == 0)
-            {
-                int injuryWeeks         = 2 + rng.Next(3);   // 2–4 weeks
-                player.WeeksUnavailable = injuryWeeks;
-                player.Status           = PlayerStatus.Injured;
-                injured                 = true;
+            // Apply skill change (lines 3215–3216)
+            if (netImprovement >= 0)
+                player.Skill += netImprovement;
+            else
+                player.Skill -= Math.Abs(netImprovement);
 
-                // Move to reserves if possible (lines 3220–3221)
-                MoveInjuredToReserves(squad, slot);
-            }
-
-            if (!injured)
-            {
-                // Apply skill change (lines 3215–3216)
-                if (netImprovement >= 0)
-                    player.Skill += netImprovement;
-                else
-                    player.Skill -= Math.Abs(netImprovement);
-
-                PlayerService.RecalculateStatus(player);
-            }
+            PlayerService.RecalculateStatus(player);
 
             outcomes.Add(new TrainingOutcome
             {
                 PlayerName     = player.Name,
                 SquadSlot      = slot,
-                NetImprovement = injured ? 0 : netImprovement,
-                WasInjured     = injured,
-                InjuryWeeks    = injured ? player.WeeksUnavailable : 0
+                NetImprovement = netImprovement,
             });
         }
 
@@ -116,27 +92,6 @@ public static class ExtraTrainingService
         club.ExtraTrainingAttack      = 0;
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Moves an injured first-team player into the first available reserve slot
-    /// (13–20), swapping with the slot's occupant.
-    /// BASIC lines 3220–3221.
-    /// </summary>
-    private static void MoveInjuredToReserves(Player?[] squad, int injuredSlot)
-    {
-        for (int reserveSlot = 13; reserveSlot <= 20; reserveSlot++)
-        {
-            var reservePlayer = squad[reserveSlot];
-            // Find a free reserve slot or one with a blank player
-            if (reservePlayer == null || reservePlayer.Position == PlayerPosition.None)
-            {
-                PlayerService.SwapPlayers(squad, injuredSlot, reserveSlot);
-                return;
-            }
-        }
-        // No free reserve slot; player stays in current slot (still marked injured)
-    }
 }
 
 // ── Data classes ─────────────────────────────────────────────────────────────
@@ -147,16 +102,10 @@ public class TrainingOutcome
     public string PlayerName     { get; set; } = string.Empty;
     public int    SquadSlot      { get; set; }
 
-    /// <summary>
-    /// Net skill change applied (+ve = improved, -ve = slacked, 0 = no change or injured).
-    /// </summary>
+    /// <summary>Net skill change applied (+ve = improved, -ve = slacked, 0 = no change).</summary>
     public double NetImprovement { get; set; }
 
-    public bool WasInjured       { get; set; }
-    public int  InjuryWeeks      { get; set; }
-
     public TrainingResult Result =>
-        WasInjured          ? TrainingResult.Injured   :
         NetImprovement > 0  ? TrainingResult.Improved  :
         NetImprovement < 0  ? TrainingResult.Slacking  :
                               TrainingResult.NoChange;
@@ -167,5 +116,4 @@ public enum TrainingResult
     Improved,
     NoChange,
     Slacking,
-    Injured
 }

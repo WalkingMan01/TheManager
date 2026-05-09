@@ -29,29 +29,7 @@ public static class PlayerService
             return;
         }
 
-        // Preserve special statuses that the skill formula must not overwrite
-        if (player.Status is PlayerStatus.LoanUnavailable
-                          or PlayerStatus.Retiring
-                          or PlayerStatus.OnLoan)
-        {
-            ClampSkill(player);
-            return;
-        }
-
         ClampSkill(player);
-
-        double skill      = player.Skill;
-        double skillFloor = Math.Floor(skill);
-
-        // Determine status by fractional part of skill rating
-        if (skill > 9.7)
-            player.Status = PlayerStatus.Star;          // J=105
-        else if (skill > skillFloor + 0.7)
-            player.Status = PlayerStatus.Improving;     // J=43 (+)
-        else if (skill < skillFloor + 0.3 && skillFloor > 0)
-            player.Status = PlayerStatus.Recovering;    // J=45 (-)
-        else
-            player.Status = PlayerStatus.Normal;        // J=32
     }
 
     private static void ClampSkill(Player player)
@@ -178,15 +156,6 @@ public static class PlayerService
             var player = squad[squadSlot];
             if (player == null) continue;
 
-            if (player.Status == PlayerStatus.Retiring)
-            {
-                ClearSlot(squad, squadSlot);
-                continue;
-            }
-
-            // Loan and unavailable players don't train (line 554)
-            if (player.Status is PlayerStatus.OnLoan or PlayerStatus.LoanUnavailable) continue;
-
             if (player.Position == PlayerPosition.None) continue;
 
             double randomDrift = (rng.Next(25) / 10.0) - 1.4;   // range –1.4 to +1.0
@@ -197,39 +166,16 @@ public static class PlayerService
     }
 
     /// <summary>
-    /// Weekly countdown of injury / suspension / loan durations.
-    /// Corresponds to subroutine 3301 (lines 3031–3037).
-    /// When WeeksUnavailable reaches 0 after decrement the player's status is updated.
+    /// Increments the games-played counter for first-team players.
+    /// Corresponds to subroutine 3301 (line 3036: x(Y)+=ABS(Y&lt;12)).
     /// </summary>
     public static void TickWeeklyCountdowns(Player?[] squad)
     {
-        for (int squadSlot = 1; squadSlot <= 20; squadSlot++)
+        for (int squadSlot = 1; squadSlot <= 11; squadSlot++)
         {
             var player = squad[squadSlot];
             if (player == null) continue;
-
-            // Loan-expired: clear the slot (line 3032)
-            if (player.Status == PlayerStatus.OnLoan && player.WeeksUnavailable == 1)
-            {
-                ClearSlot(squad, squadSlot);
-                continue;
-            }
-
-            if (player.WeeksUnavailable > 0)
-            {
-                player.WeeksUnavailable--;
-
-                if (player.WeeksUnavailable == 0)
-                {
-                    // Player returns — apply −0.4 fitness penalty then recalculate (line 3035)
-                    player.Skill   -= 0.4;
-                    player.Status   = player.Goals < 0 ? PlayerStatus.Retiring : PlayerStatus.Recovering;
-                    RecalculateStatus(player);
-                }
-            }
-
-            // Increment games-played counter for first-team players (line 3036: x(Y)+=ABS(Y<12))
-            if (squadSlot < 12) player.GamesPlayed++;
+            player.GamesPlayed++;
         }
     }
 

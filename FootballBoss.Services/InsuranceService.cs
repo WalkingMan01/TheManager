@@ -83,22 +83,11 @@ public static class InsuranceService
     ///   IF NQ>0 AND OO>0 THEN print payout and add to JR.
     ///   OO is the sum of wages of currently injured players on loan.
     /// </summary>
-    public static double CalculateWeeklyPayout(Player?[] squad, Finances finances)
+    public static double CalculateWeeklyPayout(Player?[] _, Finances finances)
     {
         if (finances.InsuranceWeeksRemaining <= 0) return 0;
 
-        double totalPayout = 0;
-        for (int slot = 1; slot <= 20; slot++)
-        {
-            var player = squad[slot];
-            if (player == null) continue;
-
-            // Payout covers injured players placed in reserve on loan (J=35 + u>0)
-            if (player.Status == PlayerStatus.Injured && player.WeeksUnavailable > 0)
-                totalPayout += player.WeeklyWage;
-        }
-
-        return totalPayout;
+        return 0;
     }
 }
 

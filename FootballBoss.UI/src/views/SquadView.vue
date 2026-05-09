@@ -1,66 +1,53 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import type { Player } from '../interfaces/Player'
+import type { SquadSection } from '../interfaces/SquadSection'
+//import { getSquad } from '../services/squadservice'
+import type { ISquadService } from '@/interfaces/ISquadService'
+import { MockSquadService } from '@/mocks/mocksquadservice'
+import { SquadService } from '@/services/squadservice'
 
-interface Player {
-  id: number
-  slot: number
-  name: string
-  position: 'GK' | 'DEF' | 'MID' | 'ATK'
-  skill: number
-  age: number
-  status: string
-  weeksUnavail: number
-  wage: number
-  contractWeeks: number
-  goals: number
-  apps: number
-  temper: number
-  transferListed: boolean
-}
+// const MOCK_PLAYERS: Player[] = [
+//   { id:  1, slot:  1, name: 'Clemens',  position: 'GK',  skill: 8.4, age: 29, temper: 2 },
+//   { id:  2, slot:  2, name: 'Hansen',   position: 'DEF', skill: 7.8, age: 27, temper: 3 },
+//   { id:  3, slot:  3, name: 'Wright',   position: 'DEF', skill: 7.2, age: 24, temper: 5 },
+//   { id:  4, slot:  4, name: 'Adams',    position: 'DEF', skill: 8.1, age: 31, temper: 4 },
+//   { id:  5, slot:  5, name: 'Pearce',   position: 'DEF', skill: 6.9, age: 26, temper: 8 },
+//   { id:  6, slot:  6, name: 'Robson',   position: 'MID', skill: 9.8, age: 32, temper: 3 },
+//   { id:  7, slot:  7, name: 'McAlstr',  position: 'MID', skill: 7.5, age: 25, temper: 2 },
+//   { id:  8, slot:  8, name: 'Ince',     position: 'MID', skill: 7.1, age: 22, temper: 7 },
+//   { id:  9, slot:  9, name: 'Shearer',  position: 'ATK', skill: 9.1, age: 21, temper: 2 },
+//   { id: 10, slot: 10, name: 'Fowler',   position: 'ATK', skill: 8.3, age: 19, temper: 3 },
+//   { id: 11, slot: 11, name: 'Cole',     position: 'ATK', skill: 7.8, age: 23, temper: 4 },
+//   { id: 12, slot: 12, name: 'Jones',    position: 'MID', skill: 6.5, age: 24, temper: 3 },
+//   { id: 13, slot: 13, name: 'Seaman',   position: 'GK',  skill: 7.0, age: 26, temper: 1 },
+//   { id: 14, slot: 14, name: 'Southgte', position: 'DEF', skill: 6.8, age: 24, temper: 2 },
+//   { id: 15, slot: 15, name: 'Bould',    position: 'DEF', skill: 6.2, age: 28, temper: 3 },
+//   { id: 16, slot: 16, name: 'Thomas',   position: 'MID', skill: 5.8, age: 30, temper: 5 },
+//   { id: 17, slot: 17, name: 'Platt',    position: 'MID', skill: 6.5, age: 27, temper: 2 },
+//   { id: 18, slot: 18, name: 'Harford',  position: 'ATK', skill: 5.9, age: 32, temper: 6 },
+//   { id: 19, slot: 19, name: 'Quinn',    position: 'ATK', skill: 6.1, age: 25, temper: 4 },
+//   { id: 20, slot: 20, name: 'Scales',   position: 'DEF', skill: 5.5, age: 22, temper: 1 },
+// ]
 
-interface SubGroup {
-  label: string | null
-  players: Player[]
-}
-
-interface SquadSection {
-  label: string
-  headerClass: string
-  textClass: string
-  subGroups: SubGroup[]
-}
-
-const activeTab = ref('overview')
 const selectedPlayer = ref<Player | null>(null)
 const checkedIds = ref<number[]>([])
+const players = ref<Player[]>([])
 
-const tabs = [
-  { id: 'overview',  label: 'Overview'  },
-  { id: 'contracts', label: 'Contracts' },
-]
+onMounted(async () => {
 
-const players = ref<Player[]>([
-  { id:  1, slot:  1, name: 'Clemens',  position: 'GK',  skill: 8.4, age: 29, status: 'Normal',    weeksUnavail: 0, wage: 650,  contractWeeks: 52,  goals:  3, apps: 28, temper: 2, transferListed: false },
-  { id:  2, slot:  2, name: 'Hansen',   position: 'DEF', skill: 7.8, age: 27, status: 'Normal',    weeksUnavail: 0, wage: 550,  contractWeeks: 78,  goals:  0, apps: 30, temper: 3, transferListed: false },
-  { id:  3, slot:  3, name: 'Wright',   position: 'DEF', skill: 7.2, age: 24, status: 'Normal',    weeksUnavail: 0, wage: 450,  contractWeeks: 104, goals:  1, apps: 25, temper: 5, transferListed: false },
-  { id:  4, slot:  4, name: 'Adams',    position: 'DEF', skill: 8.1, age: 31, status: 'Improving', weeksUnavail: 0, wage: 600,  contractWeeks: 26,  goals:  2, apps: 30, temper: 4, transferListed: false },
-  { id:  5, slot:  5, name: 'Pearce',   position: 'DEF', skill: 6.9, age: 26, status: 'Normal',    weeksUnavail: 0, wage: 420,  contractWeeks: 52,  goals:  1, apps: 28, temper: 8, transferListed: false },
-  { id:  6, slot:  6, name: 'Robson',   position: 'MID', skill: 9.8, age: 32, status: 'Star',      weeksUnavail: 0, wage: 1200, contractWeeks: 52,  goals:  8, apps: 30, temper: 3, transferListed: false },
-  { id:  7, slot:  7, name: 'McAlstr',  position: 'MID', skill: 7.5, age: 25, status: 'Normal',    weeksUnavail: 0, wage: 480,  contractWeeks: 78,  goals:  4, apps: 28, temper: 2, transferListed: false },
-  { id:  8, slot:  8, name: 'Ince',     position: 'MID', skill: 7.1, age: 22, status: 'Suspended', weeksUnavail: 1, wage: 380,  contractWeeks: 104, goals:  3, apps: 26, temper: 7, transferListed: false },
-  { id:  9, slot:  9, name: 'Shearer',  position: 'ATK', skill: 9.1, age: 21, status: 'Normal',    weeksUnavail: 0, wage: 850,  contractWeeks: 104, goals: 18, apps: 30, temper: 2, transferListed: false },
-  { id: 10, slot: 10, name: 'Fowler',   position: 'ATK', skill: 8.3, age: 19, status: 'Improving', weeksUnavail: 0, wage: 550,  contractWeeks: 78,  goals: 12, apps: 29, temper: 3, transferListed: false },
-  { id: 11, slot: 11, name: 'Cole',     position: 'ATK', skill: 7.8, age: 23, status: 'Normal',    weeksUnavail: 0, wage: 500,  contractWeeks: 52,  goals:  9, apps: 30, temper: 4, transferListed: false },
-  { id: 12, slot: 12, name: 'Jones',    position: 'MID', skill: 6.5, age: 24, status: 'Normal',    weeksUnavail: 0, wage: 320,  contractWeeks: 52,  goals:  2, apps: 12, temper: 3, transferListed: false },
-  { id: 13, slot: 13, name: 'Seaman',   position: 'GK',  skill: 7.0, age: 26, status: 'Normal',    weeksUnavail: 0, wage: 400,  contractWeeks: 78,  goals:  0, apps:  8, temper: 1, transferListed: false },
-  { id: 14, slot: 14, name: 'Southgte', position: 'DEF', skill: 6.8, age: 24, status: 'Normal',    weeksUnavail: 0, wage: 320,  contractWeeks: 52,  goals:  0, apps:  6, temper: 2, transferListed: false },
-  { id: 15, slot: 15, name: 'Bould',    position: 'DEF', skill: 6.2, age: 28, status: 'Injured',   weeksUnavail: 4, wage: 280,  contractWeeks: 26,  goals:  0, apps: 10, temper: 3, transferListed: false },
-  { id: 16, slot: 16, name: 'Thomas',   position: 'MID', skill: 5.8, age: 30, status: 'Normal',    weeksUnavail: 0, wage: 240,  contractWeeks:  8,  goals:  1, apps:  7, temper: 5, transferListed: false },
-  { id: 17, slot: 17, name: 'Platt',    position: 'MID', skill: 6.5, age: 27, status: 'Normal',    weeksUnavail: 0, wage: 350,  contractWeeks: 20,  goals:  3, apps:  9, temper: 2, transferListed: true  },
-  { id: 18, slot: 18, name: 'Harford',  position: 'ATK', skill: 5.9, age: 32, status: 'Normal',    weeksUnavail: 0, wage: 260,  contractWeeks: 30,  goals:  2, apps:  8, temper: 6, transferListed: false },
-  { id: 19, slot: 19, name: 'Quinn',    position: 'ATK', skill: 6.1, age: 25, status: 'Injured',   weeksUnavail: 2, wage: 280,  contractWeeks: 52,  goals:  1, apps:  5, temper: 4, transferListed: false },
-  { id: 20, slot: 20, name: 'Scales',   position: 'DEF', skill: 5.5, age: 22, status: 'Normal',    weeksUnavail: 0, wage: 220,  contractWeeks: 104, goals:  0, apps:  3, temper: 1, transferListed: false },
-])
+  const useMock = 'true'; //import.meta.env.VITE_USE_MOCK === 'true';
+  console.log("useMock: " + useMock);
+  const squadService: ISquadService = useMock ? new MockSquadService() : new SquadService();
+
+  players.value = await squadService.getSquad();
+
+  // try {
+  //   players.value = await squadService.getSquad()
+  // } catch {
+  //   players.value = MOCK_PLAYERS
+  // }
+})
 
 const allChecked = computed(() =>
   players.value.length > 0 && players.value.every(p => checkedIds.value.includes(p.id))
@@ -78,9 +65,6 @@ function toggleAll() {
 function clearChecked() {
   checkedIds.value = []
 }
-
-const isAvailable = (p: Player) =>
-  ['Normal', 'Improving', 'Recovering', 'Star'].includes(p.status)
 
 const firstTeam      = computed(() => players.value.filter(p => p.slot >= 1  && p.slot <= 11).sort((a, b) => a.slot - b.slot))
 const subPlayer      = computed(() => players.value.filter(p => p.slot === 12))
@@ -117,7 +101,7 @@ const squadSections = computed<SquadSection[]>(() => [
   },
 ])
 
-const colCount = computed(() => activeTab.value === 'contracts' ? 10 : 11)
+const colCount = 8
 
 const positionMap: Record<string, string> = {
   GK: 'bg-yellow-100 text-yellow-800', DEF: 'bg-blue-100 text-blue-800',
@@ -126,26 +110,10 @@ const positionMap: Record<string, string> = {
 const positionBgMap: Record<string, string> = {
   GK: 'bg-yellow-500', DEF: 'bg-blue-600', MID: 'bg-violet-600', ATK: 'bg-red-600',
 }
-const statusMap: Record<string, string> = {
-  Normal:    'bg-slate-100 text-slate-600',
-  Improving: 'bg-emerald-100 text-emerald-700',
-  Recovering:'bg-teal-100 text-teal-700',
-  Star:      'bg-yellow-100 text-yellow-800',
-  Injured:   'bg-red-100 text-red-700',
-  Suspended: 'bg-orange-100 text-orange-700',
-  OnLoan:    'bg-sky-100 text-sky-700',
-  Retiring:  'bg-purple-100 text-purple-700',
-}
 
-const positionClass  = (pos: string)    => positionMap[pos]   ?? 'bg-slate-100 text-slate-700'
-const positionBgClass = (pos: string)   => positionBgMap[pos] ?? 'bg-slate-500'
-const statusClass    = (status: string) => statusMap[status]  ?? 'bg-slate-100 text-slate-600'
+const positionClass   = (pos: string) => positionMap[pos]   ?? 'bg-slate-100 text-slate-700'
+const positionBgClass = (pos: string) => positionBgMap[pos] ?? 'bg-slate-500'
 
-function statusLabel(player: Player) {
-  if (player.status === 'Injured')   return `Injured (${player.weeksUnavail}w)`
-  if (player.status === 'Suspended') return `Suspended (${player.weeksUnavail}w)`
-  return player.status
-}
 function skillBarColor(skill: number) {
   if (skill >= 9)   return 'bg-yellow-400'
   if (skill >= 7.5) return 'bg-emerald-500'
@@ -156,11 +124,6 @@ function temperColor(t: number) {
   if (t >= 7) return 'text-red-600'
   if (t >= 5) return 'text-amber-500'
   return 'text-slate-400'
-}
-function contractColor(w: number) {
-  if (w <= 12) return 'text-red-600'
-  if (w <= 26) return 'text-amber-500'
-  return 'text-slate-600'
 }
 
 function toggleSelect(player: Player) {
@@ -193,21 +156,6 @@ function benchPlayer(player: Player) {
 
     <!-- Squad Table Card -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-
-      <!-- Tabs -->
-      <div class="flex border-b border-slate-200 px-4">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          @click="activeTab = tab.id"
-          :class="['px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
-            activeTab === tab.id
-              ? 'border-slate-900 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300']"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
 
       <!-- Bulk Action Bar -->
       <transition name="fade">
@@ -247,16 +195,7 @@ function benchPlayer(player: Player) {
               <th class="px-3 py-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Pos</th>
               <th class="px-3 py-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Skill</th>
               <th class="px-3 py-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Age</th>
-              <th class="px-3 py-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-              <template v-if="activeTab === 'overview'">
-                <th class="px-3 py-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Goals</th>
-                <th class="px-3 py-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Apps</th>
-                <th class="px-3 py-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Tmp</th>
-              </template>
-              <template v-if="activeTab === 'contracts'">
-                <th class="px-3 py-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Wage/wk</th>
-                <th class="px-3 py-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Contract</th>
-              </template>
+              <th class="px-3 py-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Tmp</th>
               <th class="px-3 pr-4 py-2 w-24"></th>
             </tr>
           </thead>
@@ -281,11 +220,9 @@ function benchPlayer(player: Player) {
                   @click="toggleSelect(player)"
                   :class="[
                     'border-b border-slate-100 cursor-pointer transition-colors',
-                    checkedIds.includes(player.id)       ? 'bg-blue-50' :
-                    selectedPlayer?.id === player.id     ? 'bg-blue-50/50' :
-                    player.transferListed                ? 'bg-amber-50/60 hover:bg-amber-50' :
-                                                          'hover:bg-slate-50',
-                    !isAvailable(player) ? 'opacity-70' : '',
+                    checkedIds.includes(player.id)   ? 'bg-blue-50' :
+                    selectedPlayer?.id === player.id ? 'bg-blue-50/50' :
+                                                       'hover:bg-slate-50',
                   ]"
                 >
                   <td class="pl-4 pr-2 py-[5px]" @click.stop>
@@ -298,15 +235,9 @@ function benchPlayer(player: Player) {
                   </td>
                   <td class="pl-2 pr-2 py-[5px] text-slate-400 text-xs tabular-nums">{{ player.slot }}</td>
                   <td class="px-3 py-[5px]">
-                    <div class="flex items-center gap-1.5">
-                      <span :class="['font-medium', player.slot <= 11 ? 'text-slate-900' : 'text-slate-700']">
-                        {{ player.name }}
-                      </span>
-                      <span v-if="player.status === 'Star'" class="text-yellow-500 text-sm leading-none" title="Star Player">★</span>
-                      <span v-if="player.transferListed" class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-                        Listed
-                      </span>
-                    </div>
+                    <span :class="['font-medium', player.slot <= 11 ? 'text-slate-900' : 'text-slate-700']">
+                      {{ player.name }}
+                    </span>
                   </td>
                   <td class="px-3 py-[5px]">
                     <span :class="['inline-flex px-2 py-0.5 rounded-full text-xs font-semibold', positionClass(player.position)]">
@@ -326,26 +257,9 @@ function benchPlayer(player: Player) {
                     </div>
                   </td>
                   <td class="px-3 py-3 text-slate-600 tabular-nums">{{ Math.abs(player.age) }}</td>
-                  <td class="px-3 py-[5px]">
-                    <span :class="['inline-flex px-2 py-0.5 rounded-full text-xs font-medium', statusClass(player.status)]">
-                      {{ statusLabel(player) }}
-                    </span>
+                  <td class="px-3 py-3 text-right">
+                    <span :class="['font-semibold text-xs tabular-nums', temperColor(player.temper)]">{{ player.temper }}</span>
                   </td>
-                  <template v-if="activeTab === 'overview'">
-                    <td class="px-3 py-[5px] text-right tabular-nums text-slate-600">{{ player.goals }}</td>
-                    <td class="px-3 py-[5px] text-right tabular-nums text-slate-600">{{ player.apps }}</td>
-                    <td class="px-3 py-3 text-right">
-                      <span :class="['font-semibold text-xs tabular-nums', temperColor(player.temper)]">{{ player.temper }}</span>
-                    </td>
-                  </template>
-                  <template v-if="activeTab === 'contracts'">
-                    <td class="px-3 py-[5px] text-right tabular-nums text-slate-600">£{{ player.wage }}</td>
-                    <td class="px-3 py-3 text-right">
-                      <span :class="['font-semibold text-xs tabular-nums', contractColor(player.contractWeeks)]">
-                        {{ player.contractWeeks }}w
-                      </span>
-                    </td>
-                  </template>
                   <td class="px-3 pr-4 py-[5px] text-right">
                     <button
                       v-if="player.slot >= 13"
@@ -385,13 +299,7 @@ function benchPlayer(player: Player) {
               {{ selectedPlayer.position }}
             </div>
             <div>
-              <div class="flex items-center gap-2">
-                <h2 class="text-lg font-bold text-slate-900">{{ selectedPlayer.name }}</h2>
-                <span v-if="selectedPlayer.status === 'Star'" class="text-yellow-500 text-xl">★</span>
-                <span v-if="selectedPlayer.transferListed" class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-                  Transfer Listed
-                </span>
-              </div>
+              <h2 class="text-lg font-bold text-slate-900">{{ selectedPlayer.name }}</h2>
               <p class="text-sm text-slate-500">{{ selectedPlayer.position }} · Squad slot {{ selectedPlayer.slot }}</p>
             </div>
           </div>
@@ -405,51 +313,24 @@ function benchPlayer(player: Player) {
           </button>
         </div>
 
-        <div class="grid grid-cols-8 gap-3">
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-slate-50 rounded-lg p-3">
             <p class="text-xs text-slate-500 mb-1">Skill</p>
             <p class="text-xl font-bold text-slate-900 tabular-nums">{{ selectedPlayer.skill.toFixed(1) }}</p>
           </div>
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
+          <div class="bg-slate-50 rounded-lg p-3">
             <p class="text-xs text-slate-500 mb-1">Age</p>
             <p class="text-xl font-bold text-slate-900 tabular-nums">{{ Math.abs(selectedPlayer.age) }}</p>
           </div>
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
-            <p class="text-xs text-slate-500 mb-1">Goals</p>
-            <p class="text-xl font-bold text-slate-900 tabular-nums">{{ selectedPlayer.goals }}</p>
-          </div>
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
-            <p class="text-xs text-slate-500 mb-1">Apps</p>
-            <p class="text-xl font-bold text-slate-900 tabular-nums">{{ selectedPlayer.apps }}</p>
-          </div>
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
+          <div class="bg-slate-50 rounded-lg p-3">
             <p class="text-xs text-slate-500 mb-1">Temper</p>
             <p :class="['text-xl font-bold tabular-nums', temperColor(selectedPlayer.temper)]">
               {{ selectedPlayer.temper }}<span class="text-sm text-slate-400">/9</span>
             </p>
           </div>
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
-            <p class="text-xs text-slate-500 mb-1">Wage/wk</p>
-            <p class="text-xl font-bold text-slate-900 tabular-nums">£{{ selectedPlayer.wage }}</p>
-          </div>
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
-            <p class="text-xs text-slate-500 mb-1">Contract</p>
-            <p :class="['text-xl font-bold tabular-nums', contractColor(selectedPlayer.contractWeeks)]">
-              {{ selectedPlayer.contractWeeks }}<span class="text-sm text-slate-400">w</span>
-            </p>
-          </div>
-          <div class="col-span-1 bg-slate-50 rounded-lg p-3">
-            <p class="text-xs text-slate-500 mb-1">Status</p>
-            <span :class="['inline-flex mt-1 px-2 py-0.5 rounded-full text-xs font-medium', statusClass(selectedPlayer.status)]">
-              {{ statusLabel(selectedPlayer) }}
-            </span>
-          </div>
         </div>
 
         <div class="flex gap-2 mt-4">
-          <button class="px-3.5 py-2 text-xs font-semibold text-white bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors">
-            Re-negotiate Contract
-          </button>
           <button class="px-3.5 py-2 text-xs font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
             Transfer List
           </button>

@@ -188,7 +188,7 @@ public static class FinancialCrisisService
         for (int slot = 1; slot <= 20; slot++)
         {
             var player = squad[slot];
-            if (player != null && player.IsTransferListed)
+            if (player != null && player.Age < 0)
                 return slot;
         }
         return 0;
@@ -209,7 +209,7 @@ public static class FinancialCrisisService
         double basePrice = intSkill <= 1
             ? 6_500
             : 5_000.0 * (intSkill - 1) * (intSkill - 1) * 2
-              + (player.Status == PlayerStatus.Star ? 310_000 : 0);
+              + (player.IsStar ? 310_000 : 0);
 
         double spread = (int)(basePrice / 3) + 6_000;
         return (int)(basePrice + rng.NextDouble() * spread);

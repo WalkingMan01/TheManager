@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import SquadView from './views/SquadView.vue'
+import LandingView from './views/LandingView.vue'
+
+type GamePhase = 'landing' | 'in-game'
+const gamePhase = ref<GamePhase>('landing')
+
+function startNewGame() {
+  localStorage.removeItem('footballboss-save')
+  gamePhase.value = 'in-game'
+}
+
+function continueGame() {
+  gamePhase.value = 'in-game'
+}
 
 const activeNav = ref('squad')
 
@@ -22,7 +35,8 @@ const isInGame = computed(() => !['new-game', 'quit'].includes(activeNav.value))
 </script>
 
 <template>
-  <div class="app-layout">
+  <LandingView v-if="gamePhase === 'landing'" @new-game="startNewGame" @continue-game="continueGame" />
+  <div v-else class="app-layout">
     <nav class="sidebar">
 
       <!-- Header -->

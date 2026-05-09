@@ -25,14 +25,6 @@ public static class RandomEventService
     {
         var firedEvents = new List<RandomEvent>();
 
-        // ── Player retirement through injury (lines 2529–2532) ────────────────
-        // RA>1 skips this; ~1/35 chance
-        if (1 + rng.Next(35) == 1)
-        {
-            var retiredEvent = CheckInjuryRetirement(gameState);
-            if (retiredEvent != null) firedEvents.Add(retiredEvent);
-        }
-
         // ── International call-up / foreign transfer offer ─────────────────────
         // Looks for a star player (J=105); RA<6 = international, RA=9 = foreign offer
         int starEventRoll = 1 + rng.Next(35);
@@ -87,8 +79,6 @@ public static class RandomEventService
         if (managerReleasesPlayer)
         {
             // Player released — clear slot and promote from reserves (lines 2540, 2966–2969)
-            player.Status = PlayerStatus.International;   // J(Y)=73
-            gameState.Finances.WeeklyProfit += player.WeeklyWage;  // JR += V(1,Y)
             PromoteReserveToFirstTeam(gameState.Squad, playerSlot);
         }
         else
@@ -165,32 +155,11 @@ public static class RandomEventService
 
     // ── Private event builders ────────────────────────────────────────────────
 
-    private static RandomEvent? CheckInjuryRetirement(GameState gameState)
-    {
-        for (int slot = 1; slot <= 20; slot++)
-        {
-            var player = gameState.Squad[slot];
-            if (player == null) continue;
-            if (player.WeeksUnavailable != 1) continue;
-            if (player.Status == PlayerStatus.Retiring) continue;
-
-            // This player retires through injury
-            player.Status = PlayerStatus.Retiring;
-            return new RandomEvent
-            {
-                Type       = RandomEventType.RetirementThroughInjury,
-                PlayerName = player.Name.Trim(),
-                PlayerSlot = slot
-            };
-        }
-        return null;
-    }
-
     private static int FindStarPlayerSlot(Player?[] squad)
     {
         for (int slot = 1; slot <= 20; slot++)
         {
-            if (squad[slot]?.Status == PlayerStatus.Star) return slot;
+            if (squad[slot]?.IsStar == true) return slot;
         }
         return 0;
     }
@@ -203,7 +172,6 @@ public static class RandomEventService
             Type           = RandomEventType.InternationalCallUp,
             PlayerName     = player.Name.Trim(),
             PlayerSlot     = playerSlot,
-            FinancialValue = player.WeeklyWage   // wage returned if released
         };
     }
 
@@ -230,15 +198,9 @@ public static class RandomEventService
             var player = gameState.Squad[slot];
             if (player == null) continue;
             if (player.DisplayAge <= 29) continue;
-            if (player.Status is PlayerStatus.Retiring
-                              or PlayerStatus.OnLoan
-                              or PlayerStatus.LoanUnavailable
-                              or PlayerStatus.Suspended) continue;
 
             // line 2564: random check — not every over-29 player announces every week
             if (rng.Next(10) != 0) continue;
-
-            player.Status = PlayerStatus.Retiring;   // J(I)=82
 
             return new RandomEvent
             {
@@ -259,11 +221,6 @@ public static class RandomEventService
         {
             var player = gameState.Squad[slot];
             if (player == null || player.Position == PlayerPosition.None) continue;
-
-            // Only fit players can be unhappy (line 2550: J=32, 43, or 45)
-            if (player.Status is not (PlayerStatus.Normal
-                                   or PlayerStatus.Improving
-                                   or PlayerStatus.Recovering)) continue;
 
             // Pick a random destination club (not our own) — line 2551
             int destinationIndex = 1 + rng.Next(20);
@@ -306,7 +263,6 @@ public static class RandomEventService
 
 public enum RandomEventType
 {
-    RetirementThroughInjury,
     RetirementAnnouncement,
     InternationalCallUp,
     ForeignTransferOffer,

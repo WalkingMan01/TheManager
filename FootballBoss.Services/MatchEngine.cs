@@ -125,9 +125,7 @@ public class MatchEngine
         int playerSlot = 1 + _random.Next(20);
         var player = squad[playerSlot];
 
-        if (player == null
-            || player.Position == PlayerPosition.None
-            || player.Status is PlayerStatus.OnLoan or PlayerStatus.Retiring)
+        if (player == null || player.Position == PlayerPosition.None)
             return null;
 
         // Only first-team players (slots 1–12) can be involved (line 4653)
@@ -150,9 +148,6 @@ public class MatchEngine
         int physioFactor   = (int)(60.0 / 100 * physioSkillPercent);
         int reduction      = (int)(Math.Abs(rawInjuryWeeks) / 100.0 * physioFactor);
         int injuryWeeks    = Math.Max(1, Math.Abs(rawInjuryWeeks) - reduction);
-
-        player.WeeksUnavailable = injuryWeeks;
-        player.Status           = PlayerStatus.Injured;
 
         return new IncidentResult
         {
@@ -179,8 +174,6 @@ public class MatchEngine
         var scorer = squad[scorerSlot];
         if (scorer == null) return;
 
-        scorer.Goals++;        // E(1,Y)++ — line 4732
-        scorer.Appearances++;  // E(2,Y)++ — line 4733
         scorer.Skill += 0.04;  // small skill boost for scoring — line 4734
         PlayerService.RecalculateStatus(scorer);
     }
@@ -189,15 +182,7 @@ public class MatchEngine
     /// Records that the opponent scored. Updates GK conceded statistics.
     /// Corresponds to subroutine 4505–4507 (lines 3742–3751).
     /// </summary>
-    public static void RecordOpponentGoal(Player?[] squad)
-    {
-        var goalkeeper = squad[1];
-        if (goalkeeper == null || goalkeeper.Skill <= 0) return;
-
-        // GK "goals conceded" counter (E(1,1)++) and appearances (E(2,1)++)
-        goalkeeper.Goals++;
-        goalkeeper.Appearances++;
-    }
+    public static void RecordOpponentGoal(Player?[] _) { }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

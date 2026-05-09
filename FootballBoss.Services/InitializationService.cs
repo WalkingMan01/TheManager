@@ -40,8 +40,6 @@ public static class InitializationService
 
         club.TeamMorale = 30 + rng.Next(20);               // me
 
-        double totalWages = 0;
-
         for (int slot = 1; slot <= 20; slot++)
         {
             if (slot > squadSize)
@@ -68,18 +66,6 @@ public static class InitializationService
             // Age 18–35 (line 1076: G(Y)=18+INT(RND*18))
             player.Age = 18 + rng.Next(18);
 
-            // Wage: base × skill, adjusted downward for older players (lines 1077–1082)
-            double wageBase   = (1 + rng.Next(20) + 50) * (int)player.Skill
-                              + (player.Skill > 9.6 ? 1_000 : 0);
-            int    ageFactor  = Math.Max(1, player.Age - 27);
-            double wage       = (int)(wageBase / ageFactor);
-            player.WeeklyWage = Math.Max(50, (int)wage);
-
-            totalWages += player.WeeklyWage;
-
-            // Contract 20–75 weeks (line 1084: V(2,Y)=20+INT(RND*56))
-            player.ContractWeeksRemaining = 20 + rng.Next(56);
-
             // Games played this season (line 1086: x(Y)=30+RND*(((G-17)*30)-30))
             int gamesRange    = Math.Max(0, (player.Age - 17) * 30 - 30);
             player.GamesPlayed = gamesRange > 0 ? 30 + rng.Next(gamesRange) : 30;
@@ -96,8 +82,6 @@ public static class InitializationService
         }
 
         // Financial setup (lines 1104–1110)
-        finances.PlayerWageBill = (int)totalWages;
-
         int   leagueBonus = (int)((150 + rng.Next(200)) / (double)divNum);
         int   cupBonus    = (int)((200 + rng.Next(300)) / (double)divNum);
         double bankBalance = 150_000 + rng.Next((int)(500_000.0 / divNum));
