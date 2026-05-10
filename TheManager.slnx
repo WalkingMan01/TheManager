@@ -2,5 +2,6 @@
   <Project Path="TheManager.MatchHarness/TheManager.MatchHarness.csproj" />
   <Project Path="TheManager.Models/TheManager.Models.csproj" />
   <Project Path="TheManager.Services/TheManager.Services.csproj" />
+  <Project Path="TheManager.WinForms/TheManager.UI.csproj" />
   <Project Path="TheManager/TheManager.csproj" />
 </Solution>
