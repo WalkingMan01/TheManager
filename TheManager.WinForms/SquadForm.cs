@@ -2,7 +2,7 @@ using TheManager.Models;
 
 namespace TheManager.WinForms;
 
-/// <summary>Main game form. Houses a left-hand nav pane and a swappable content area.</summary>
+/// <summary>Main game form. Houses a top nav bar and a swappable content area.</summary>
 public partial class SquadForm : Form
 {
     private readonly GameState _state;
@@ -19,11 +19,11 @@ public partial class SquadForm : Form
 
     private void Populate()
     {
-        lblClubName.Text    = string.IsNullOrEmpty(_state.Club.Name)          ? "New Club"   : _state.Club.Name;
-        lblManagerName.Text = $"Manager: {(string.IsNullOrEmpty(_state.Club.ManagerName) ? "—" : _state.Club.ManagerName)}";
-        lblDivision.Text    = _state.Club.Division == 0                        ? "Division —" : $"Division {(int)_state.Club.Division}";
-        lblMorale.Text      = $"Morale: {(_state.Club.TeamMorale  == 0        ? "—"          : _state.Club.TeamMorale.ToString())}";
-        lblWeek.Text        = $"Week: {(_state.CurrentWeek        == 0        ? "—"          : _state.CurrentWeek.ToString())}";
+        lblClubName.Text = string.IsNullOrEmpty(_state.Club.Name) ? "New Club" : _state.Club.Name;
+
+        var div  = _state.Club.Division == 0 ? "Div —"    : $"Div {(int)_state.Club.Division}";
+        var week = _state.CurrentWeek    == 0 ? "Week —"   : $"Week {_state.CurrentWeek}";
+        lblDivision.Text = $"{div} · {week}";
 
         PopulateSquad();
     }
@@ -34,31 +34,29 @@ public partial class SquadForm : Form
     {
         dgvSquad.Rows.Clear();
 
-        AddSectionHeader("FIRST TEAM");
+        AddSectionHeader("FIRST TEAM", Color.FromArgb(236, 253, 245), Color.FromArgb(4, 120, 87));   // emerald-50 / emerald-700
         for (int slot = 1; slot <= 11; slot++)
             AddPlayerRow(slot, SlotLabel(slot));
 
-        AddSectionHeader("SUBSTITUTE");
+        AddSectionHeader("SUBSTITUTE", Color.FromArgb(240, 249, 255), Color.FromArgb(3, 105, 161));  // sky-50 / sky-700
         AddPlayerRow(12, "SUB");
 
-        AddSectionHeader("RESERVES");
+        AddSectionHeader("RESERVES",   Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139)); // slate-100 / slate-500
         for (int slot = 13; slot <= 20; slot++)
             AddPlayerRow(slot, "RES");
     }
 
-    private static readonly Color SectionBackColor       = Color.FromArgb(74, 85, 104);
-    private static readonly Color SectionForeColor       = Color.White;
-    private static readonly Font  SectionFont            = new("Segoe UI", 8F, FontStyle.Bold);
+    private static readonly Font SectionFont = new("Segoe UI", 7.5F, FontStyle.Bold);
 
-    private void AddSectionHeader(string title)
+    private void AddSectionHeader(string title, Color backColor, Color foreColor)
     {
         int idx = dgvSquad.Rows.Add(false, title, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
         var row = dgvSquad.Rows[idx];
-        row.DefaultCellStyle.BackColor          = SectionBackColor;
-        row.DefaultCellStyle.ForeColor          = SectionForeColor;
+        row.DefaultCellStyle.BackColor          = backColor;
+        row.DefaultCellStyle.ForeColor          = foreColor;
         row.DefaultCellStyle.Font               = SectionFont;
-        row.DefaultCellStyle.SelectionBackColor = SectionBackColor;
-        row.DefaultCellStyle.SelectionForeColor = SectionForeColor;
+        row.DefaultCellStyle.SelectionBackColor = backColor;
+        row.DefaultCellStyle.SelectionForeColor = foreColor;
         row.Cells[colSelect.Index].ReadOnly     = true;
         row.ReadOnly = true;
         row.Tag      = "header";
@@ -90,9 +88,10 @@ public partial class SquadForm : Form
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    private static readonly Color NavNormalBg = Color.FromArgb(30, 42, 58);
-    private static readonly Color NavNormalFg = Color.FromArgb(160, 174, 192);
-    private static readonly Color NavActiveBg = Color.FromArgb(45, 64, 89);
+    private static readonly Color NavNormalBg = Color.White;
+    private static readonly Color NavNormalFg = Color.FromArgb(100, 116, 139); // slate-500
+    private static readonly Color NavActiveBg = Color.FromArgb(241, 245, 249); // slate-100
+    private static readonly Color NavActiveFg = Color.FromArgb(15, 23, 42);    // slate-900
 
     private void btnNavSquad_Click(object sender, EventArgs e)     => SwitchView(pnlSquadView,    btnNavSquad);
     private void btnNavPlayMatch_Click(object sender, EventArgs e) => SwitchView(pnlPlayMatchView, btnNavPlayMatch);
@@ -108,10 +107,13 @@ public partial class SquadForm : Form
         {
             btn.BackColor = NavNormalBg;
             btn.ForeColor = NavNormalFg;
+            btn.Font      = new Font("Segoe UI", 9F, FontStyle.Regular);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(248, 250, 252);
         }
 
-        activeBtn.BackColor    = NavActiveBg;
-        activeBtn.ForeColor    = Color.White;
-        pnlNavIndicator.Top    = activeBtn.Top;
+        activeBtn.BackColor = NavActiveBg;
+        activeBtn.ForeColor = NavActiveFg;
+        activeBtn.Font      = new Font("Segoe UI", 9F, FontStyle.Bold);
+        activeBtn.FlatAppearance.MouseOverBackColor = NavActiveBg;
     }
 }
