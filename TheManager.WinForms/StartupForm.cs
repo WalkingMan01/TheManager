@@ -13,20 +13,20 @@ public partial class StartupForm : Form
 
     private void btnNewGame_Click(object sender, EventArgs e)
     {
-        OpenSquadForm(new GameState());
+        OpenMainForm(new GameState());
     }
 
     private void btnContinueGame_Click(object sender, EventArgs e)
     {
         // TODO: open save-game browser and load persisted GameState
-        OpenSquadForm(new GameState());
+        OpenMainForm(new GameState());
     }
 
-    private void OpenSquadForm(GameState state)
+    private void OpenMainForm(GameState state)
     {
         Hide();
-        var squadForm = new SquadForm(state);
-        squadForm.FormClosed += (_, _) => Show();
-        squadForm.Show();
+        var mainForm = new MainForm(state);
+        mainForm.FormClosed += (_, _) => Show();
+        mainForm.Show();
     }
 }
