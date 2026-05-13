@@ -143,14 +143,13 @@ public static class InitializationService
         GameState gameState,
         string    clubName,
         Division  division,
-        string    managerName,
-        int       pointsPerWin,
+        string    managerName,        
         Random    rng)
     {
         gameState.Club.Name           = clubName.PadRight(9)[..9];
         gameState.Club.Division       = division;
         gameState.Club.ManagerName    = managerName;
-        gameState.Club.PointsPerWin   = pointsPerWin;
+        gameState.Club.PointsPerWin   = 3;
         gameState.Club.TicketPriceInPounds = 5 - (int)division;  // line 5620: nj=1+(4-AP)
 
         SeasonService.RecalculateDivisionFinancials(gameState.Finances, division);

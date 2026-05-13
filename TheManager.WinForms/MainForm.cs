@@ -5,35 +5,51 @@ namespace TheManager.WinForms;
 /// <summary>Main application shell. Hosts the top nav bar and swaps UserControl views into the content area.</summary>
 public partial class MainForm : Form
 {
-    private readonly GameState     _state;
-    private readonly SquadView     _squadView;
+    private GameState?     _state;
+    private SquadView?     _squadView;
+    private readonly HomeView      _homeView;
     private readonly PlayMatchView _playMatchView;
     private readonly FixturesView  _fixturesView;
 
-    /// <summary>Initialises the main form with the provided game state.</summary>
-    public MainForm(GameState state)
+    /// <summary>Initialises the main form and shows the home view.</summary>
+    public MainForm()
     {
-        _state = state;
         InitializeComponent();
 
-        _squadView     = new SquadView(state)     { Dock = DockStyle.Fill };
-        _playMatchView = new PlayMatchView()       { Dock = DockStyle.Fill };
-        _fixturesView  = new FixturesView()        { Dock = DockStyle.Fill };
+        _homeView      = new HomeView()      { Dock = DockStyle.Fill };
+        _playMatchView = new PlayMatchView() { Dock = DockStyle.Fill };
+        _fixturesView  = new FixturesView()  { Dock = DockStyle.Fill };
+
+        _homeView.NewGameRequested      += (_, _) => StartGame(new GameState());
+        _homeView.ContinueGameRequested += (_, _) => StartGame(new GameState()); // TODO: load from save
 
         pnlContent.Controls.Add(_fixturesView);
         pnlContent.Controls.Add(_playMatchView);
+        pnlContent.Controls.Add(_homeView);
+
+        SetNavButtonsVisible(false);
+        SwitchToView(_homeView, null);
+    }
+
+    // ── Game startup ──────────────────────────────────────────────────────────
+
+    private void StartGame(GameState state)
+    {
+        _state     = state;
+        _squadView = new SquadView(state) { Dock = DockStyle.Fill };
         pnlContent.Controls.Add(_squadView);
 
         PopulateHeader();
-        SwitchView(_squadView, btnNavSquad);
+        SetNavButtonsVisible(true);
+        SwitchToView(_squadView, btnNavSquad);
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
 
     private void PopulateHeader()
     {
+        if (_state is null) return;
         lblClubName.Text = string.IsNullOrEmpty(_state.Club.Name) ? "New Club" : _state.Club.Name;
-
         var div  = _state.Club.Division == 0 ? "Div —"  : $"Div {(int)_state.Club.Division}";
         var week = _state.CurrentWeek    == 0 ? "Week —" : $"Week {_state.CurrentWeek}";
         lblDivision.Text = $"{div} · {week}";
@@ -46,15 +62,24 @@ public partial class MainForm : Form
     private static readonly Color NavActiveBg = Color.FromArgb(241, 245, 249); // slate-100
     private static readonly Color NavActiveFg = Color.FromArgb(15, 23, 42);    // slate-900
 
-    private void btnNavSquad_Click(object sender, EventArgs e)     => SwitchView(_squadView,     btnNavSquad);
-    private void btnNavPlayMatch_Click(object sender, EventArgs e) => SwitchView(_playMatchView, btnNavPlayMatch);
-    private void btnNavFixtures_Click(object sender, EventArgs e)  => SwitchView(_fixturesView,  btnNavFixtures);
+    private void btnNavSquad_Click(object sender, EventArgs e)     => SwitchToView(_squadView!,    btnNavSquad);
+    private void btnNavPlayMatch_Click(object sender, EventArgs e) => SwitchToView(_playMatchView, btnNavPlayMatch);
+    private void btnNavFixtures_Click(object sender, EventArgs e)  => SwitchToView(_fixturesView,  btnNavFixtures);
 
-    private void SwitchView(Control target, Button activeBtn)
+    private void SetNavButtonsVisible(bool visible)
     {
-        _squadView.Visible     = target == _squadView;
+        btnNavSquad.Visible     = visible;
+        btnNavPlayMatch.Visible = visible;
+        btnNavFixtures.Visible  = visible;
+    }
+
+    private void SwitchToView(Control target, Button? activeBtn)
+    {
+        _homeView.Visible      = target == _homeView;
         _playMatchView.Visible = target == _playMatchView;
         _fixturesView.Visible  = target == _fixturesView;
+        if (_squadView != null)
+            _squadView.Visible = target == _squadView;
 
         foreach (var btn in (Button[])[btnNavPlayMatch, btnNavSquad, btnNavFixtures])
         {
@@ -64,9 +89,12 @@ public partial class MainForm : Form
             btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(248, 250, 252);
         }
 
-        activeBtn.BackColor = NavActiveBg;
-        activeBtn.ForeColor = NavActiveFg;
-        activeBtn.Font      = new Font("Segoe UI", 9F, FontStyle.Bold);
-        activeBtn.FlatAppearance.MouseOverBackColor = NavActiveBg;
+        if (activeBtn is not null)
+        {
+            activeBtn.BackColor = NavActiveBg;
+            activeBtn.ForeColor = NavActiveFg;
+            activeBtn.Font      = new Font("Segoe UI", 9F, FontStyle.Bold);
+            activeBtn.FlatAppearance.MouseOverBackColor = NavActiveBg;
+        }
     }
 }
