@@ -1,4 +1,5 @@
 using TheManager.Models;
+using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager.Services;
 
@@ -20,9 +21,10 @@ namespace TheManager.Services;
 /// </summary>
 public static class FixtureSchedulerService
 {
+    // ToDo: Remove cup weeks for the time being
     // Cup weeks are fixed offsets within the 59-week season cycle
-    private static readonly HashSet<int> LeagueCupWeeks = new() { 12, 19, 26, 33, 40, 47, 54 };
-    private static readonly HashSet<int> FACupWeeks     = new() { 16, 23, 30, 37, 44, 51, 58 };
+    private static readonly HashSet<int> LeagueCupWeeks = new() { }; // { 12, 19, 26, 33, 40, 47, 54 };
+    private static readonly HashSet<int> FACupWeeks = new() { }; // { 16, 23, 30, 37, 44, 51, 58 };
 
     // ── Determine next scheduled match ───────────────────────────────────────
 
@@ -38,15 +40,18 @@ public static class FixtureSchedulerService
     {
         int week = gameState.CurrentWeek;
 
-        if (week >= 59)
+        // ToDo: Modified
+        // if (week >= 59)
+        if (week > TheManager.Models.Constants.WeeksInSeason)
             return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = week };
 
+        // ToDo: Reinstate cup weeks when league is sorted
         // ── Cup weeks ─────────────────────────────────────────────────────────
-        if (LeagueCupWeeks.Contains(week))
-            return BuildCupMatch(gameState, MatchType.LeagueCup, week);
+        //if (LeagueCupWeeks.Contains(week))
+        //    return BuildCupMatch(gameState, MatchType.LeagueCup, week);
 
-        if (FACupWeeks.Contains(week))
-            return BuildCupMatch(gameState, MatchType.FACup, week);
+        //if (FACupWeeks.Contains(week))
+        //    return BuildCupMatch(gameState, MatchType.FACup, week);
 
         // ── League week ───────────────────────────────────────────────────────
         return BuildLeagueMatch(gameState, week);
@@ -63,7 +68,7 @@ public static class FixtureSchedulerService
     {
         gameState.CurrentWeek++;
         gameState.FixturesPlayed = Math.Min(38, gameState.FixturesPlayed + 1);
-        gameState.MatchesRemainingThisSeason = 38 - (gameState.FixturesPlayed - 1);
+        gameState.MatchesRemainingThisSeason = 38 - gameState.FixturesPlayed;
     }
 
     /// <summary>
@@ -75,6 +80,43 @@ public static class FixtureSchedulerService
     public static void ResetOpponentPointer(GameState gameState)
     {
         gameState.CurrentOpponentIndex = DivisionStart(gameState.Club.Division);
+    }
+
+    /// <summary>
+    /// Generates the full list of fixtures for a season without mutating <paramref name="gameState"/>.
+    /// Returns one <see cref="ScheduledMatch"/> per league week (38 matches),
+    /// plus any cup fixtures in weeks where the club has not been eliminated.
+    /// </summary>
+    public static void GetSeasonFixtures(GameState gameState)
+    {
+        var snapshot = new GameState
+        {
+            Club                       = gameState.Club,
+            AllTeamNames               = gameState.AllTeamNames,
+            CurrentWeek                = 1,
+            FixturesPlayed             = 0,
+            MatchesRemainingThisSeason = 38,
+            CurrentOpponentIndex       = gameState.CurrentOpponentIndex,
+            LeagueCup                  = gameState.LeagueCup,
+            FACup                      = gameState.FACup,
+        };
+
+        ResetOpponentPointer(snapshot);
+
+        var fixtures = new List<ScheduledMatch>();
+
+        while (snapshot.CurrentWeek <= TheManager.Models.Constants.WeeksInSeason)
+        {
+            var match = GetCurrentMatch(snapshot);
+
+            if (match.MatchType == MatchType.EndOfSeason)
+                break;
+
+            fixtures.Add(match);
+            AdvanceWeek(snapshot);
+        }
+
+        gameState.Fixtures = fixtures;
     }
 
     // ── Cup match override (subroutine 152 / 416) ─────────────────────────────
@@ -146,9 +188,11 @@ public static class FixtureSchedulerService
 
         // Skip our own team
         int guard = 0;
-        while (gameState.AllTeamNames[gameState.CurrentOpponentIndex].Trim()
-               == gameState.Club.Name.Trim()
-               && guard++ < 20)
+
+        while (string.Equals(gameState.AllTeamNames[gameState.CurrentOpponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase) && guard < 20)
+        //while (gameState.AllTeamNames[gameState.CurrentOpponentIndex].Trim()
+        //       == gameState.Club.Name.Trim()
+        //       && guard++ < 20)
         {
             gameState.CurrentOpponentIndex++;
             if (gameState.CurrentOpponentIndex > end)
@@ -171,24 +215,24 @@ public static class FixtureSchedulerService
 
 // ── Data classes ─────────────────────────────────────────────────────────────
 
-public enum MatchType
-{
-    League,
-    LeagueCup,
-    FACup,
-    EuropeanFirstLeg,
-    EuropeanSecondLeg,
-    EuropeanFriendly,
-    Replay,
-    EndOfSeason
-}
+//public enum MatchType
+//{
+//    League,
+//    LeagueCup,
+//    FACup,
+//    EuropeanFirstLeg,
+//    EuropeanSecondLeg,
+//    EuropeanFriendly,
+//    Replay,
+//    EndOfSeason
+//}
 
 /// <summary>The match scheduled for the current week.</summary>
-public class ScheduledMatch
-{
-    public MatchType MatchType           { get; set; }
-    public int       Week                { get; set; }
-    public string    OpponentName        { get; set; } = string.Empty;
-    public int       OpponentTeamIndex   { get; set; }
-    public bool      IsHomeGame          { get; set; }
-}
+//public class ScheduledMatch
+//{
+//    public MatchType MatchType           { get; set; }
+//    public int       Week                { get; set; }
+//    public string    OpponentName        { get; set; } = string.Empty;
+//    public int       OpponentTeamIndex   { get; set; }
+//    public bool      IsHomeGame          { get; set; }
+//}

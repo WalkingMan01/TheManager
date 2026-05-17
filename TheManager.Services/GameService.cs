@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using TheManager.Models;
 using TheManager.Services;
+using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager.Services
 {
@@ -21,6 +22,8 @@ namespace TheManager.Services
 
         public string Team { get; init; }
         public string Manager { get; init; }
+
+        public GameState State => _gameState;
         public GameService()
         {
             _gameState = new GameState();
@@ -29,7 +32,10 @@ namespace TheManager.Services
 
         public void StartGame()
         {
+            // ToDo: Division is hard coded and old
             InitializationService.SetupNewGame(_gameState, Team, Division.Four, Manager, _random);
+            FixtureSchedulerService.GetSeasonFixtures(_gameState);
+
             InitLeagueTable();
         }
 
@@ -109,7 +115,7 @@ namespace TheManager.Services
             var sim = _engine.SetupMatch(matchInput);
 
             // ── Display match ─────────────────────────────────────────────────────
-            Console.Clear();
+            // Console.Clear();
             string matchLabel = isCupWeek
                 ? scheduled.MatchType.ToString().Replace("Cup", " CUP").ToUpper()
                 : "LEAGUE MATCH";

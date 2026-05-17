@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="ToDo.txt" />
+  </Folder>
   <Project Path="TheManager.MatchHarness/TheManager.MatchHarness.csproj" />
   <Project Path="TheManager.Models/TheManager.Models.csproj" />
   <Project Path="TheManager.Services/TheManager.Services.csproj" />

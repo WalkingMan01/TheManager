@@ -4,7 +4,7 @@ using TheManager.Services;
 var gameService = new GameService()
 {
     Manager = "Steve",
-    Team = "Sunderland"
+    Team = "BURNLEY"
 };
 
 gameService.StartGame();

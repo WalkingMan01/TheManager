@@ -79,3 +79,15 @@ public enum EuropeanCompetitionType
     UEFA        = 2,
     CupWinners  = 3
 }
+
+public enum MatchType
+{
+    League,
+    LeagueCup,
+    FACup,
+    EuropeanFirstLeg,
+    EuropeanSecondLeg,
+    EuropeanFriendly,
+    Replay,
+    EndOfSeason
+}

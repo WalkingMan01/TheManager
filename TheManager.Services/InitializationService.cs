@@ -158,6 +158,7 @@ public static class InitializationService
 
         // Generate starting squad and staff
         GenerateStartingSquad(gameState, rng);
+        TeamData.Seed(gameState);
         GenerateStartingStaff(gameState, rng);
 
         // Cup draws (BASIC lines 4900–4904)

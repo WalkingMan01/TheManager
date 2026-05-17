@@ -1,15 +1,18 @@
 using TheManager.Models;
+using TheManager.Services;
 
 namespace TheManager.WinForms;
 
 /// <summary>Main application shell. Hosts the top nav bar and swaps UserControl views into the content area.</summary>
 public partial class MainForm : Form
 {
-    private GameState?     _state;
+    //private GameState?     _state;
     private SquadView?     _squadView;
     private readonly HomeView      _homeView;
     private readonly PlayMatchView _playMatchView;
     private readonly FixturesView  _fixturesView;
+
+    private GameService _gameService;
 
     /// <summary>Initialises the main form and shows the home view.</summary>
     public MainForm()
@@ -35,9 +38,20 @@ public partial class MainForm : Form
 
     private void StartGame(GameState state)
     {
-        _state     = state;
-        _squadView = new SquadView(state) { Dock = DockStyle.Fill };
+        // ToDo: Need to resolve how to pick team and manager
+        _gameService = new GameService()
+        {
+            Manager = "Steve",
+            Team = "BURNLEY"
+        };
+        _gameService.StartGame();
+        
+        _squadView = new SquadView(_gameService.State) { Dock = DockStyle.Fill };
         pnlContent.Controls.Add(_squadView);
+
+        // ToDo: Temporary get fixtures for the season
+        //var fixtures = FixtureSchedulerService.GetSeasonFixtures(_gameService.State);
+
 
         PopulateHeader();
         SetNavButtonsVisible(true);
@@ -48,10 +62,11 @@ public partial class MainForm : Form
 
     private void PopulateHeader()
     {
-        if (_state is null) return;
-        lblClubName.Text = string.IsNullOrEmpty(_state.Club.Name) ? "New Club" : _state.Club.Name;
-        var div  = _state.Club.Division == 0 ? "Div —"  : $"Div {(int)_state.Club.Division}";
-        var week = _state.CurrentWeek    == 0 ? "Week —" : $"Week {_state.CurrentWeek}";
+        if (_gameService.State is null) return;
+
+        lblClubName.Text = string.IsNullOrEmpty(_gameService.State.Club.Name) ? "New Club" : _gameService.State.Club.Name;
+        var div  = _gameService.State.Club.Division == 0 ? "Div —"  : $"Div {(int)_gameService.State.Club.Division}";
+        var week = _gameService.State.CurrentWeek    == 0 ? "Week —" : $"Week {_gameService.State.CurrentWeek}";
         lblDivision.Text = $"{div} · {week}";
     }
 

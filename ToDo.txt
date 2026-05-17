@@ -1,0 +1,5 @@
+Check StartNewGame
+Display fixtures on Fixture part of form
+InitLeagueTable in gameState
+gameState add property getters / setters
+

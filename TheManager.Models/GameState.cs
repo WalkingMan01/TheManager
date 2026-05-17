@@ -30,6 +30,8 @@ public class GameState
     /// <summary>Total fixtures played so far. Corresponds to id.</summary>
     public int FixturesPlayed { get; set; }
 
+    public IReadOnlyList<ScheduledMatch> Fixtures { get; set; }
+
     // ── Club / squad ──────────────────────────────────────────────────────────
 
     /// <summary>The managed club's properties.</summary>
