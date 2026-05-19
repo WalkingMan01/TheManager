@@ -28,6 +28,7 @@ namespace TheManager.Services
         {
             _gameState = new GameState();
             _random = new Random();
+            _engine = new MatchEngine();
         }
 
         public void StartGame()
@@ -190,8 +191,8 @@ namespace TheManager.Services
             bool cleanSheet = theirScore == 0;
             string result = weWon ? "WIN" : weDrew ? "DRAW" : "LOSS";
 
-            Console.WriteLine($"  FULL TIME:  {_gameState.Club.Name.TrimEnd()} {ourScore}–{theirScore} " +
-                              $"{opponentName.TrimEnd()}  [{result}]");
+            //Console.WriteLine($"  FULL TIME:  {_gameState.Club.Name.TrimEnd()} {ourScore}–{theirScore} " +
+            //                  $"{opponentName.TrimEnd()}  [{result}]");
 
             // ── Post-match processing ─────────────────────────────────────────────
             PlayerService.ApplyPostMatchSkillChanges(_gameState.Squad, weWon, weLost, cleanSheet);
@@ -250,16 +251,16 @@ namespace TheManager.Services
             //Console.WriteLine();
             //Console.WriteLine($"  Final league position: {finalPos}");
 
-            if (newDivision < _gameState.Club.Division)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("  *** PROMOTED! ***"); Console.ResetColor();
-            }
-            else if (newDivision > _gameState.Club.Division)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("  *** RELEGATED! ***"); Console.ResetColor();
-            }
+            //if (newDivision < _gameState.Club.Division)
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Green;
+            //    Console.WriteLine("  *** PROMOTED! ***"); Console.ResetColor();
+            //}
+            //else if (newDivision > _gameState.Club.Division)
+            //{
+            //    Console.ForegroundColor = ConsoleColor.Red;
+            //    Console.WriteLine("  *** RELEGATED! ***"); Console.ResetColor();
+            //}
 
             SeasonService.AwardLeaguePrizeMoney(_gameState.Finances, finalPos, _gameState.Club.Division);
 

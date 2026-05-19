@@ -8,9 +8,9 @@ public partial class MainForm : Form
 {
     //private GameState?     _state;
     private SquadView?     _squadView;
+    private FixturesView?  _fixturesView;
     private readonly HomeView      _homeView;
     private readonly PlayMatchView _playMatchView;
-    private readonly FixturesView  _fixturesView;
 
     private GameService _gameService;
 
@@ -21,12 +21,10 @@ public partial class MainForm : Form
 
         _homeView      = new HomeView()      { Dock = DockStyle.Fill };
         _playMatchView = new PlayMatchView() { Dock = DockStyle.Fill };
-        _fixturesView  = new FixturesView()  { Dock = DockStyle.Fill };
 
         _homeView.NewGameRequested      += (_, _) => StartGame(new GameState());
         _homeView.ContinueGameRequested += (_, _) => StartGame(new GameState()); // TODO: load from save
 
-        pnlContent.Controls.Add(_fixturesView);
         pnlContent.Controls.Add(_playMatchView);
         pnlContent.Controls.Add(_homeView);
 
@@ -46,11 +44,10 @@ public partial class MainForm : Form
         };
         _gameService.StartGame();
         
-        _squadView = new SquadView(_gameService.State) { Dock = DockStyle.Fill };
+        _squadView    = new SquadView(_gameService.State)    { Dock = DockStyle.Fill };
+        _fixturesView = new FixturesView(_gameService.State) { Dock = DockStyle.Fill };
         pnlContent.Controls.Add(_squadView);
-
-        // ToDo: Temporary get fixtures for the season
-        //var fixtures = FixtureSchedulerService.GetSeasonFixtures(_gameService.State);
+        pnlContent.Controls.Add(_fixturesView);
 
 
         PopulateHeader();
@@ -92,7 +89,8 @@ public partial class MainForm : Form
     {
         _homeView.Visible      = target == _homeView;
         _playMatchView.Visible = target == _playMatchView;
-        _fixturesView.Visible  = target == _fixturesView;
+        if (_fixturesView != null)
+            _fixturesView.Visible = target == _fixturesView;
         if (_squadView != null)
             _squadView.Visible = target == _squadView;
 

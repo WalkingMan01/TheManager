@@ -36,7 +36,8 @@ public static class InitializationService
         var   club     = gameState.Club;
         var   finances = gameState.Finances;
         int   divNum   = (int)club.Division;
-        int   squadSize = 12 + rng.Next(5);               // 12–16 (RZ)
+        int squadSize = 16; // ToDo: Changed to 16               // 12–16 (RZ)
+        //int   squadSize = 12 + rng.Next(5);               // 12–16 (RZ)
 
         club.TeamMorale = 30 + rng.Next(20);               // me
 
