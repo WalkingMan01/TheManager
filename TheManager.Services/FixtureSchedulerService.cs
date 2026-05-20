@@ -21,12 +21,12 @@ namespace TheManager.Services;
 /// </summary>
 public static class FixtureSchedulerService
 {
-    // ToDo: Remove cup weeks for the time being
-    // Cup weeks are fixed offsets within the 59-week season cycle
-    private static readonly HashSet<int> LeagueCupWeeks = new() { }; // { 12, 19, 26, 33, 40, 47, 54 };
-    private static readonly HashSet<int> FACupWeeks = new() { }; // { 16, 23, 30, 37, 44, 51, 58 };
+    // Cup weeks are fixed offsets within the 59-week season cycle.
+    // ToDo: Restore when cup logic is implemented.
+    private static readonly HashSet<int> LeagueCupWeeks = []; // { 12, 19, 26, 33, 40, 47, 54 }
+    private static readonly HashSet<int> FACupWeeks     = []; // { 16, 23, 30, 37, 44, 51, 58 }
 
-    // ── Determine next scheduled match ───────────────────────────────────────
+    // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Returns the type, opponent, and home/away flag for the current week.
@@ -40,33 +40,19 @@ public static class FixtureSchedulerService
     {
         int week = gameState.CurrentWeek;
 
-        // ToDo: Modified
-        // if (week >= 59)
-        if (week > TheManager.Models.Constants.WeeksInSeason)
+        if (week > Models.Constants.WeeksInSeason)
             return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = week };
 
-        // ToDo: Reinstate cup weeks when league is sorted
-        // ── Cup weeks ─────────────────────────────────────────────────────────
-        //if (LeagueCupWeeks.Contains(week))
-        //    return BuildCupMatch(gameState, MatchType.LeagueCup, week);
-
-        //if (FACupWeeks.Contains(week))
-        //    return BuildCupMatch(gameState, MatchType.FACup, week);
-
-        // ── League week ───────────────────────────────────────────────────────
-        // return BuildLeagueMatch(gameState, week);
-
         string opponentName = AdvanceOpponentPointer(gameState);
-        // bool isHomeGame = DetermineHomeAway(gameState.MatchesRemainingThisSeason);
-        var isHomeGame = gameState.MatchesRemainingThisSeason % 2 == 0;
+        bool   isHomeGame   = gameState.MatchesRemainingThisSeason % 2 == 0;
 
         return new ScheduledMatch
         {
-            MatchType = MatchType.League,
-            Week = week,
-            OpponentName = opponentName,
+            MatchType         = MatchType.League,
+            Week              = week,
+            OpponentName      = opponentName,
             OpponentTeamIndex = gameState.CurrentOpponentIndex,
-            IsHomeGame = isHomeGame
+            IsHomeGame        = isHomeGame
         };
     }
 
@@ -80,7 +66,7 @@ public static class FixtureSchedulerService
     public static void AdvanceWeek(GameState gameState)
     {
         gameState.CurrentWeek++;
-        gameState.FixturesPlayed = Math.Min(38, gameState.FixturesPlayed + 1);
+        gameState.FixturesPlayed             = Math.Min(38, gameState.FixturesPlayed + 1);
         gameState.MatchesRemainingThisSeason = 38 - gameState.FixturesPlayed;
     }
 
@@ -92,56 +78,48 @@ public static class FixtureSchedulerService
     /// </summary>
     public static void ResetOpponentPointer(GameState gameState)
     {
-        gameState.CurrentOpponentIndex = DivisionStart(gameState.Club.Division);
+        gameState.CurrentOpponentIndex = DivisionRange(gameState.Club.Division).Start;
     }
 
     /// <summary>
-    /// Generates the full list of fixtures for a season without mutating <paramref name="gameState"/>.
-    /// Returns one <see cref="ScheduledMatch"/> per league week (38 matches),
-    /// plus any cup fixtures in weeks where the club has not been eliminated.
+    /// Generates the full list of fixtures for a season and stores them in
+    /// <see cref="GameState.Fixtures"/>. Uses a snapshot so the live
+    /// <paramref name="gameState"/> is not mutated except for the final assignment.
     /// </summary>
     public static void GetSeasonFixtures(GameState gameState)
     {
-        // var currentOpponent = DivisionStart(gameState.Club.Division);
-
-        var state = new GameState
-        {
-            Club                       = gameState.Club,
-            AllTeamNames               = gameState.AllTeamNames,
-            CurrentWeek                = 1,
-            FixturesPlayed             = 0,
-            MatchesRemainingThisSeason = 38,
-            CurrentOpponentIndex       = gameState.CurrentOpponentIndex,
-            //LeagueCup                  = gameState.LeagueCup,
-            //FACup                      = gameState.FACup,
-        };
-
-        //ResetOpponentPointer(snapshot);
-        // currentOpponent = DivisionStart(gameState.Club.Division);
+        var (start, end)  = DivisionRange(gameState.Club.Division);
+        int week          = 1;
+        int opponentIndex = gameState.CurrentOpponentIndex;
 
         var fixtures = new List<ScheduledMatch>();
 
-        while (state.CurrentWeek <= TheManager.Models.Constants.WeeksInSeason)
+        while (week <= Constants.WeeksInSeason)
         {
-            var match = GetCurrentMatch(state);
+            if (opponentIndex > end)
+                opponentIndex = start;
 
-            if (match.MatchType == MatchType.EndOfSeason)
-                break;
+            if (string.Equals(gameState.AllTeamNames[opponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (++opponentIndex > end)
+                    opponentIndex = start;
+            }
 
-            fixtures.Add(match);
+            fixtures.Add(new ScheduledMatch
+            {
+                MatchType         = MatchType.League,
+                Week              = week,
+                OpponentName      = gameState.AllTeamNames[opponentIndex],
+                OpponentTeamIndex = opponentIndex,
+                IsHomeGame        = week % 2 == 0
+            });
 
-            state.CurrentOpponentIndex++;
-            state.CurrentWeek++;            
-            // state.FixturesPlayed = Math.Min(38, gameState.FixturesPlayed + 1);
-            state.MatchesRemainingThisSeason--; // = 38 - gameState.FixturesPlayed;
-
-            // AdvanceWeek(snapshot);
+            opponentIndex++;
+            week++;
         }
 
         gameState.Fixtures = fixtures;
     }
-
-    // ── Cup match override (subroutine 152 / 416) ─────────────────────────────
 
     /// <summary>
     /// Returns true when the current week is a cup week that the player's club
@@ -150,118 +128,56 @@ public static class FixtureSchedulerService
     /// BASIC lines 1701–1708: checks CI against cup week ranges and tests
     /// whether CT (LC) or CR (FA) is non-zero.
     /// </summary>
-    public static bool HasCupFixtureThisWeek(GameState gameState)
-    {
-        int week = gameState.CurrentWeek;
+    //public static bool HasCupFixtureThisWeek(GameState gameState)
+    //{
+    //    int week = gameState.CurrentWeek;
 
-        if (LeagueCupWeeks.Contains(week))
-            return gameState.LeagueCup.CurrentRound != CupRound.NotEntered;
+    //    if (LeagueCupWeeks.Contains(week))
+    //        return gameState.LeagueCup.CurrentRound != CupRound.NotEntered;
 
-        if (FACupWeeks.Contains(week))
-            return gameState.FACup.CurrentRound != CupRound.NotEntered;
+    //    if (FACupWeeks.Contains(week))
+    //        return gameState.FACup.CurrentRound != CupRound.NotEntered;
 
-        return false;
-    }
+    //    return false;
+    //}
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private static ScheduledMatch BuildLeagueMatch(GameState gameState, int week)
-    {
-        string opponentName  = AdvanceOpponentPointer(gameState);
-        bool   isHomeGame    = DetermineHomeAway(gameState.MatchesRemainingThisSeason);
-
-        return new ScheduledMatch
-        {
-            MatchType             = MatchType.League,
-            Week                  = week,
-            OpponentName          = opponentName,
-            OpponentTeamIndex     = gameState.CurrentOpponentIndex,
-            IsHomeGame            = isHomeGame
-        };
-    }
-
-    private static ScheduledMatch BuildCupMatch(GameState gameState, MatchType cupType, int week)
-    {
-        // Opponent for cup comes from the cup draw, not from the opponent pointer.
-        // Caller retrieves it from CupCompetition.CurrentRoundFixtures.
-        return new ScheduledMatch
-        {
-            MatchType  = cupType,
-            Week       = week,
-            IsHomeGame = false   // determined by the draw (home/away in fixture log)
-        };
-    }
-
     /// <summary>
-    /// Advances the opponent pointer past our own club name, cycling through
-    /// all teams in the current division.
+    /// Normalises the opponent pointer (wraps at division boundary, skips own club)
+    /// and returns the opponent name at the current index.
     ///
     /// BASIC subroutine 887 (lines 658–661):
     ///   V=V+1; IF V>cn THEN V=cM; IF Y$(V)=Z$ THEN 887.
     /// </summary>
     private static string AdvanceOpponentPointer(GameState gameState)
     {
-        var currentOpponent = gameState.CurrentOpponentIndex;
+        var (start, end) = DivisionRange(gameState.Club.Division);
 
-        int start = DivisionStart(gameState.Club.Division);
-        int end   = DivisionEnd(gameState.Club.Division);
-
-        //gameState.CurrentOpponentIndex++;
-        if (gameState.CurrentOpponentIndex > end) gameState.CurrentOpponentIndex = start;
-
-        // Skip our own team
-        int guard = 0;
+        if (gameState.CurrentOpponentIndex > end)
+            gameState.CurrentOpponentIndex = start;
 
         if (string.Equals(gameState.AllTeamNames[gameState.CurrentOpponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase))
         {
             gameState.CurrentOpponentIndex++;
-            if (gameState.CurrentOpponentIndex > end) gameState.CurrentOpponentIndex = start;
+            if (gameState.CurrentOpponentIndex > end)
+                gameState.CurrentOpponentIndex = start;
         }
 
-        //while (string.Equals(gameState.AllTeamNames[gameState.CurrentOpponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase) && guard++ < 20)
-        //while (gameState.AllTeamNames[gameState.CurrentOpponentIndex].Trim()
-        //       == gameState.Club.Name.Trim()
-        //       && guard++ < 20)
-        //{
-            // gameState.CurrentOpponentIndex++;
-        //    if (gameState.CurrentOpponentIndex > end) gameState.CurrentOpponentIndex = start;
-        //}
-
-        var opponent = gameState.AllTeamNames[gameState.CurrentOpponentIndex]; ;
-        return opponent; //  gameState.AllTeamNames[gameState.CurrentOpponentIndex];
+        return gameState.AllTeamNames[gameState.CurrentOpponentIndex];
     }
 
     /// <summary>
     /// Home when matches remaining is even (38, 36, 34 …).
     /// BASIC lines 1711–1712: FOR I=38 TO 2 STEP -2; IF cJ=I THEN BK%=1.
     /// </summary>
-    private static bool DetermineHomeAway(int matchesRemaining)
-        => matchesRemaining % 2 == 0;
+    //private static bool DetermineHomeAway(int matchesRemaining)
+    //    => matchesRemaining % 2 == 0;
 
-    private static int DivisionStart(Division division) => (int)division * 20 - 19;
-    private static int DivisionEnd  (Division division) => (int)division * 20;
+    /// <summary>Returns the inclusive [Start, End] team-index range for <paramref name="division"/>.</summary>
+    private static (int Start, int End) DivisionRange(Division division)
+    {
+        int end = (int)division * 20;
+        return (end - 19, end);
+    }
 }
-
-// ── Data classes ─────────────────────────────────────────────────────────────
-
-//public enum MatchType
-//{
-//    League,
-//    LeagueCup,
-//    FACup,
-//    EuropeanFirstLeg,
-//    EuropeanSecondLeg,
-//    EuropeanFriendly,
-//    Replay,
-//    EndOfSeason
-//}
-
-/// <summary>The match scheduled for the current week.</summary>
-//public class ScheduledMatch
-//{
-//    public MatchType MatchType           { get; set; }
-//    public int       Week                { get; set; }
-//    public string    OpponentName        { get; set; } = string.Empty;
-//    public int       OpponentTeamIndex   { get; set; }
-//    public bool      IsHomeGame          { get; set; }
-//}

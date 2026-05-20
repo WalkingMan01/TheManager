@@ -1,4 +1,7 @@
-Debug playmatch
+
+Debug playmatch (Looks ok!)
+Investigate playing more than one fixture, how does season move on after playing a match
+
 Initial fixture is wrong
 
 Check StartNewGame

@@ -1,7 +1,7 @@
 using System.Threading;
 using TheManager.Models;
 using TheManager.Services;
-using MatchType = TheManager.Services.MatchType;
+using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager;
 
@@ -74,10 +74,8 @@ internal sealed class ConsoleGame
         }
         while (managerName.Length is < 1 or > 8);
 
-        int pointsPerWin = ReadInt("Points for a win (2 or 3): ", 2, 3);
-
         InitializationService.SetupNewGame(
-            _state, clubName, (Division)div, managerName, pointsPerWin, _rng);
+            _state, clubName, (Division)div, managerName, _rng);
 
         InitLeagueTable();
 
