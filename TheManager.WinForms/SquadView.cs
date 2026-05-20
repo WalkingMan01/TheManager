@@ -26,11 +26,11 @@ public partial class SquadView : UserControl
             AddPlayerRow(slot, SlotLabel(slot));
 
         AddSectionHeader("SUBSTITUTE", Color.FromArgb(240, 249, 255), Color.FromArgb(3, 105, 161));  // sky-50 / sky-700
-        AddPlayerRow(12, "SUB");
+        AddPlayerRow(12, PlayerPositionLabel(_state.Squad[12]));
 
         AddSectionHeader("RESERVES",   Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139)); // slate-100 / slate-500
         for (int slot = 13; slot <= 20; slot++)
-            AddPlayerRow(slot, "RES");
+            AddPlayerRow(slot, PlayerPositionLabel(_state.Squad[slot]));
     }
 
     private static readonly Font SectionFont = new("Segoe UI", 7.5F, FontStyle.Bold);
@@ -71,5 +71,14 @@ public partial class SquadView : UserControl
         6 or 7 or 8      => "MID",
         9 or 10 or 11    => "ATK",
         _                => "—"
+    };
+
+    private static string PlayerPositionLabel(Player? player) => player?.Position switch
+    {
+        PlayerPosition.Goalkeeper => "GK",
+        PlayerPosition.Defender   => "DEF",
+        PlayerPosition.Midfielder => "MID",
+        PlayerPosition.Attacker   => "ATK",
+        _                         => "—"
     };
 }

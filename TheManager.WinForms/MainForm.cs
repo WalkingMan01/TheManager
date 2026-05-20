@@ -7,10 +7,11 @@ namespace TheManager.WinForms;
 public partial class MainForm : Form
 {
     //private GameState?     _state;
-    private SquadView?     _squadView;
-    private FixturesView?  _fixturesView;
-    private readonly HomeView      _homeView;
-    private readonly PlayMatchView _playMatchView;
+    private SquadView?      _squadView;
+    private FixturesView?   _fixturesView;
+    private CheckMatchView? _checkMatchView;
+    private PlayMatchView?  _playMatchView;
+    private readonly HomeView _homeView;
 
     private GameService _gameService;
 
@@ -19,13 +20,11 @@ public partial class MainForm : Form
     {
         InitializeComponent();
 
-        _homeView      = new HomeView()      { Dock = DockStyle.Fill };
-        _playMatchView = new PlayMatchView() { Dock = DockStyle.Fill };
+        _homeView = new HomeView() { Dock = DockStyle.Fill };
 
         _homeView.NewGameRequested      += (_, _) => StartGame(new GameState());
         _homeView.ContinueGameRequested += (_, _) => StartGame(new GameState()); // TODO: load from save
 
-        pnlContent.Controls.Add(_playMatchView);
         pnlContent.Controls.Add(_homeView);
 
         SetNavButtonsVisible(false);
@@ -44,10 +43,14 @@ public partial class MainForm : Form
         };
         _gameService.StartGame();
         
-        _squadView    = new SquadView(_gameService.State)    { Dock = DockStyle.Fill };
-        _fixturesView = new FixturesView(_gameService.State) { Dock = DockStyle.Fill };
+        _squadView      = new SquadView(_gameService.State)                        { Dock = DockStyle.Fill };
+        _fixturesView   = new FixturesView(_gameService.State)                      { Dock = DockStyle.Fill };
+        _checkMatchView = new CheckMatchView(_gameService.State, _gameService.Rng)  { Dock = DockStyle.Fill };
+        _playMatchView  = new PlayMatchView(_gameService)                           { Dock = DockStyle.Fill };
         pnlContent.Controls.Add(_squadView);
         pnlContent.Controls.Add(_fixturesView);
+        pnlContent.Controls.Add(_checkMatchView);
+        pnlContent.Controls.Add(_playMatchView);
 
 
         PopulateHeader();
@@ -74,27 +77,28 @@ public partial class MainForm : Form
     private static readonly Color NavActiveBg = Color.FromArgb(241, 245, 249); // slate-100
     private static readonly Color NavActiveFg = Color.FromArgb(15, 23, 42);    // slate-900
 
-    private void btnNavSquad_Click(object sender, EventArgs e)     => SwitchToView(_squadView!,    btnNavSquad);
-    private void btnNavPlayMatch_Click(object sender, EventArgs e) => SwitchToView(_playMatchView, btnNavPlayMatch);
-    private void btnNavFixtures_Click(object sender, EventArgs e)  => SwitchToView(_fixturesView,  btnNavFixtures);
+    private void btnNavSquad_Click(object sender, EventArgs e)      => SwitchToView(_squadView!,     btnNavSquad);
+    private void btnNavPlayMatch_Click(object sender, EventArgs e)  => SwitchToView(_playMatchView!,  btnNavPlayMatch);
+    private void btnNavFixtures_Click(object sender, EventArgs e)   => SwitchToView(_fixturesView!,  btnNavFixtures);
+    private void btnNavCheckMatch_Click(object sender, EventArgs e) => SwitchToView(_checkMatchView!, btnNavCheckMatch);
 
     private void SetNavButtonsVisible(bool visible)
     {
-        btnNavSquad.Visible     = visible;
-        btnNavPlayMatch.Visible = visible;
-        btnNavFixtures.Visible  = visible;
+        btnNavSquad.Visible      = visible;
+        btnNavPlayMatch.Visible  = visible;
+        btnNavFixtures.Visible   = visible;
+        btnNavCheckMatch.Visible = visible;
     }
 
     private void SwitchToView(Control target, Button? activeBtn)
     {
-        _homeView.Visible      = target == _homeView;
-        _playMatchView.Visible = target == _playMatchView;
-        if (_fixturesView != null)
-            _fixturesView.Visible = target == _fixturesView;
-        if (_squadView != null)
-            _squadView.Visible = target == _squadView;
+        _homeView.Visible = target == _homeView;
+        if (_playMatchView  != null) _playMatchView.Visible  = target == _playMatchView;
+        if (_fixturesView   != null) _fixturesView.Visible   = target == _fixturesView;
+        if (_squadView      != null) _squadView.Visible      = target == _squadView;
+        if (_checkMatchView != null) _checkMatchView.Visible = target == _checkMatchView;
 
-        foreach (var btn in (Button[])[btnNavPlayMatch, btnNavSquad, btnNavFixtures])
+        foreach (var btn in (Button[])[btnNavPlayMatch, btnNavSquad, btnNavFixtures, btnNavCheckMatch])
         {
             btn.BackColor = NavNormalBg;
             btn.ForeColor = NavNormalFg;

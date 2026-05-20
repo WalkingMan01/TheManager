@@ -15,15 +15,16 @@ partial class MainForm
     {
         components = new System.ComponentModel.Container();
 
-        pnlHeader       = new System.Windows.Forms.Panel();
-        lblBrand        = new System.Windows.Forms.Label();
-        btnNavPlayMatch = new System.Windows.Forms.Button();
-        btnNavSquad     = new System.Windows.Forms.Button();
-        btnNavFixtures  = new System.Windows.Forms.Button();
-        lblClubName     = new System.Windows.Forms.Label();
-        lblDivision     = new System.Windows.Forms.Label();
-        pnlNavIndicator = new System.Windows.Forms.Panel();
-        pnlContent      = new System.Windows.Forms.Panel();
+        pnlHeader        = new System.Windows.Forms.Panel();
+        lblBrand         = new System.Windows.Forms.Label();
+        btnNavPlayMatch  = new System.Windows.Forms.Button();
+        btnNavSquad      = new System.Windows.Forms.Button();
+        btnNavFixtures   = new System.Windows.Forms.Button();
+        btnNavCheckMatch = new System.Windows.Forms.Button();
+        lblClubName      = new System.Windows.Forms.Label();
+        lblDivision      = new System.Windows.Forms.Label();
+        pnlNavIndicator  = new System.Windows.Forms.Panel();
+        pnlContent       = new System.Windows.Forms.Panel();
 
         pnlHeader.SuspendLayout();
         SuspendLayout();
@@ -34,6 +35,7 @@ partial class MainForm
         pnlHeader.Controls.Add(btnNavPlayMatch);
         pnlHeader.Controls.Add(btnNavSquad);
         pnlHeader.Controls.Add(btnNavFixtures);
+        pnlHeader.Controls.Add(btnNavCheckMatch);
         pnlHeader.Controls.Add(lblClubName);
         pnlHeader.Controls.Add(lblDivision);
         pnlHeader.Controls.Add(pnlNavIndicator);
@@ -74,7 +76,7 @@ partial class MainForm
         btnNavSquad.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(226, 232, 240);
         btnNavSquad.Font      = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         btnNavSquad.ForeColor = System.Drawing.Color.FromArgb(15, 23, 42);         // slate-900
-        btnNavSquad.Location  = new System.Drawing.Point(244, 0);
+        btnNavSquad.Location  = new System.Drawing.Point(354, 0);
         btnNavSquad.Name      = "btnNavSquad";
         btnNavSquad.Size      = new System.Drawing.Size(80, 52);
         btnNavSquad.TabIndex  = 2;
@@ -90,7 +92,7 @@ partial class MainForm
         btnNavFixtures.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(241, 245, 249);
         btnNavFixtures.Font      = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         btnNavFixtures.ForeColor = System.Drawing.Color.FromArgb(100, 116, 139);  // slate-500
-        btnNavFixtures.Location  = new System.Drawing.Point(324, 0);
+        btnNavFixtures.Location  = new System.Drawing.Point(434, 0);
         btnNavFixtures.Name      = "btnNavFixtures";
         btnNavFixtures.Size      = new System.Drawing.Size(90, 52);
         btnNavFixtures.TabIndex  = 3;
@@ -99,23 +101,39 @@ partial class MainForm
         btnNavFixtures.UseVisualStyleBackColor = false;
         btnNavFixtures.Click    += new System.EventHandler(btnNavFixtures_Click);
 
+        btnNavCheckMatch.BackColor                         = System.Drawing.Color.White;
+        btnNavCheckMatch.FlatStyle                         = System.Windows.Forms.FlatStyle.Flat;
+        btnNavCheckMatch.FlatAppearance.BorderSize         = 0;
+        btnNavCheckMatch.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(248, 250, 252);
+        btnNavCheckMatch.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(241, 245, 249);
+        btnNavCheckMatch.Font      = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+        btnNavCheckMatch.ForeColor = System.Drawing.Color.FromArgb(100, 116, 139); // slate-500
+        btnNavCheckMatch.Location  = new System.Drawing.Point(244, 0);
+        btnNavCheckMatch.Name      = "btnNavCheckMatch";
+        btnNavCheckMatch.Size      = new System.Drawing.Size(110, 52);
+        btnNavCheckMatch.TabIndex  = 4;
+        btnNavCheckMatch.Text      = "Check Match";
+        btnNavCheckMatch.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+        btnNavCheckMatch.UseVisualStyleBackColor = false;
+        btnNavCheckMatch.Click    += new System.EventHandler(btnNavCheckMatch_Click);
+
         lblClubName.AutoSize  = false;
         lblClubName.Font      = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         lblClubName.ForeColor = System.Drawing.Color.FromArgb(15, 23, 42);        // slate-900
-        lblClubName.Location  = new System.Drawing.Point(430, 9);
+        lblClubName.Location  = new System.Drawing.Point(530, 9);
         lblClubName.Name      = "lblClubName";
-        lblClubName.Size      = new System.Drawing.Size(374, 17);
-        lblClubName.TabIndex  = 4;
+        lblClubName.Size      = new System.Drawing.Size(274, 17);
+        lblClubName.TabIndex  = 5;
         lblClubName.Text      = "Club Name";
         lblClubName.TextAlign = System.Drawing.ContentAlignment.TopRight;
 
         lblDivision.AutoSize  = false;
         lblDivision.Font      = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         lblDivision.ForeColor = System.Drawing.Color.FromArgb(100, 116, 139);     // slate-500
-        lblDivision.Location  = new System.Drawing.Point(430, 28);
+        lblDivision.Location  = new System.Drawing.Point(530, 28);
         lblDivision.Name      = "lblDivision";
-        lblDivision.Size      = new System.Drawing.Size(374, 14);
-        lblDivision.TabIndex  = 5;
+        lblDivision.Size      = new System.Drawing.Size(274, 14);
+        lblDivision.TabIndex  = 6;
         lblDivision.Text      = "Division —";
         lblDivision.TextAlign = System.Drawing.ContentAlignment.TopRight;
 
@@ -123,7 +141,7 @@ partial class MainForm
         pnlNavIndicator.Dock      = System.Windows.Forms.DockStyle.Bottom;
         pnlNavIndicator.Name      = "pnlNavIndicator";
         pnlNavIndicator.Size      = new System.Drawing.Size(820, 1);
-        pnlNavIndicator.TabIndex  = 6;
+        pnlNavIndicator.TabIndex  = 7;
 
         // ── pnlContent ───────────────────────────────────────────────────────────
         pnlContent.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);      // slate-50
@@ -153,6 +171,7 @@ partial class MainForm
     private System.Windows.Forms.Button btnNavPlayMatch;
     private System.Windows.Forms.Button btnNavSquad;
     private System.Windows.Forms.Button btnNavFixtures;
+    private System.Windows.Forms.Button btnNavCheckMatch;
     private System.Windows.Forms.Label  lblClubName;
     private System.Windows.Forms.Label  lblDivision;
     private System.Windows.Forms.Panel  pnlNavIndicator;

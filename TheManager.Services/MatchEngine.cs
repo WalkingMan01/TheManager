@@ -161,10 +161,11 @@ public class MatchEngine
     // ── Goal scoring events ───────────────────────────────────────────────────
 
     /// <summary>
-    /// Records that a goal was scored by one of our outfield players and updates
-    /// their stats. Corresponds to subroutine 4501–4503 (lines 3724–3736).
+    /// Records that a goal was scored by one of our outfield players, updates
+    /// their stats, and returns the scorer's name.
+    /// Corresponds to subroutine 4501–4503 (lines 3724–3736).
     /// </summary>
-    public static void RecordOurGoal(Player?[] squad, Random rng)
+    public static string? RecordOurGoal(Player?[] squad, Random rng)
     {
         // 1/3 chance it's an attacker, otherwise a non-attacker
         int scorerSlot = rng.Next(3) == 0
@@ -172,10 +173,11 @@ public class MatchEngine
             : PickNonAttackerSlot(squad, rng);
 
         var scorer = squad[scorerSlot];
-        if (scorer == null) return;
+        if (scorer == null) return null;
 
         scorer.Skill += 0.04;  // small skill boost for scoring — line 4734
         PlayerService.RecalculateStatus(scorer);
+        return scorer.Name;
     }
 
     /// <summary>

@@ -24,6 +24,7 @@ namespace TheManager.Services
         public string Manager { get; init; }
 
         public GameState State => _gameState;
+        public Random    Rng   => _random;
         public GameService()
         {
             _gameState = new GameState();
@@ -51,51 +52,47 @@ namespace TheManager.Services
                 });
         }
 
-        public void PlayMatch()
+        public MatchResult PlayMatch()
         {
             var scheduled = FixtureSchedulerService.GetCurrentMatch(_gameState);
 
             if (scheduled.MatchType == MatchType.EndOfSeason)
             {
                 RunEndOfSeason();
-                return;
+                return new MatchResult { WasEndOfSeason = true };
             }
 
-            bool isCupWeek = scheduled.MatchType is MatchType.LeagueCup or MatchType.FACup;
+            // bool isCupWeek = scheduled.MatchType is MatchType.LeagueCup or MatchType.FACup;
 
-            // Eliminated teams skip cup weeks; gate money = 0, no match
-            if (isCupWeek && !FixtureSchedulerService.HasCupFixtureThisWeek(_gameState))
-            {
-                //Console.Clear();
-                //Header($"WEEK {gameState.CurrentWeek} — CUP BYE");
-                //Console.WriteLine("  Your club is not in this round.");
-                //Pause();
-                _lastMatchWasHome = false;
-                FixtureSchedulerService.AdvanceWeek(_gameState);
-                RunWeeklyTick();
-                return;
-            }
+            // Eliminated teams skip cup weeks
+            //if (isCupWeek && !FixtureSchedulerService.HasCupFixtureThisWeek(_gameState))
+            //{
+            //    _lastMatchWasHome = false;
+            //    FixtureSchedulerService.AdvanceWeek(_gameState);
+            //    RunWeeklyTick();
+            //    return new MatchResult { WasEndOfSeason = false, OurClubName = _gameState.Club.Name };
+            //}
 
             // ── Determine opponent ────────────────────────────────────────────────
             bool isHome = scheduled.IsHomeGame;
             string opponentName = scheduled.OpponentName;
 
-            if (isCupWeek)
-            {
-                var cup = scheduled.MatchType == MatchType.LeagueCup
-                    ? _gameState.LeagueCup
-                    : _gameState.FACup;
+            //if (isCupWeek)
+            //{
+            //    var cup = scheduled.MatchType == MatchType.LeagueCup
+            //        ? _gameState.LeagueCup
+            //        : _gameState.FACup;
 
-                var fixture = cup.CurrentRoundFixtures.FirstOrDefault(
-                    f => f.HomeTeam.Trim() == _gameState.Club.Name.Trim()
-                      || f.AwayTeam.Trim() == _gameState.Club.Name.Trim());
+            //    var fixture = cup.CurrentRoundFixtures.FirstOrDefault(
+            //        f => f.HomeTeam.Trim() == _gameState.Club.Name.Trim()
+            //          || f.AwayTeam.Trim() == _gameState.Club.Name.Trim());
 
-                if (fixture != null)
-                {
-                    isHome = fixture.HomeTeam.Trim() == _gameState.Club.Name.Trim();
-                    opponentName = isHome ? fixture.AwayTeam : fixture.HomeTeam;
-                }
-            }
+            //    if (fixture != null)
+            //    {
+            //        isHome = fixture.HomeTeam.Trim() == _gameState.Club.Name.Trim();
+            //        opponentName = isHome ? fixture.AwayTeam : fixture.HomeTeam;
+            //    }
+            //}
 
             // ── Build match simulation ────────────────────────────────────────────
             var ourRatings = PlayerService.CalculateTeamRatings(_gameState.Squad);
@@ -104,10 +101,11 @@ namespace TheManager.Services
                 opponentName,
                 _gameState.CurrentLeague,
                 _gameState.Club.Division,
-                _gameState.DifficultyLevel,
-                cupRound: isCupWeek ? (int)_gameState.LeagueCup.CurrentRound : 0,
-                isCupMatch: isCupWeek,
-                _random);
+                _gameState.DifficultyLevel, 0, false, _random);
+
+                //cupRound: isCupWeek ? (int)_gameState.LeagueCup.CurrentRound : 0,
+                //isCupMatch: isCupWeek,
+                //_random);
 
             var matchInput = OpponentRatingService.BuildMatchInput(
                 ourRatings, opponentRatings, _gameState.Club,
@@ -115,84 +113,39 @@ namespace TheManager.Services
 
             var sim = _engine.SetupMatch(matchInput);
 
-            // ── Display match ─────────────────────────────────────────────────────
-            // Console.Clear();
-            string matchLabel = isCupWeek
-                ? scheduled.MatchType.ToString().Replace("Cup", " CUP").ToUpper()
-                : "LEAGUE MATCH";
-            //Header($"WEEK {_gameState.CurrentWeek}  —  {matchLabel}");
-            //Console.WriteLine();
-            //Console.WriteLine($"  {_gameState.Club.Name.TrimEnd()} vs {opponentName.TrimEnd()}  " +
-            //                  $"({(isHome ? "HOME" : "AWAY")})");
-            //Console.WriteLine();
-            //Console.Write("  Press any key to kick off...");
-            //Console.ReadKey(true);
-            //Console.WriteLine("\n");
-
-            int ourScore = 0;
+            // ── Process goal events ───────────────────────────────────────────────
+            int ourScore   = 0;
             int theirScore = 0;
-            int eventIdx = 0;
-            bool halfShown = false;
-            var goals = sim.GoalEvents.OrderBy(g => g.Minute).ToList();
+            var matchGoals = new List<MatchGoal>();
 
-            for (int min = 1; min <= sim.MatchLength; min++)
+            foreach (var ev in sim.GoalEvents.OrderBy(g => g.Minute))
             {
-                if (min == 46 && !halfShown)
+                if (ev.Scorer == 1)
                 {
-                    halfShown = true;
-                    //Console.WriteLine($" 45' ── HALF TIME  {ourScore}–{theirScore} ──");
-                    //Thread.Sleep(400);
+                    ourScore++;
+                    string? scorerName = MatchEngine.RecordOurGoal(_gameState.Squad, _random);
+                    matchGoals.Add(new MatchGoal { Minute = ev.Minute, IsOurGoal = true, Scorer = scorerName });
                 }
-
-                while (eventIdx < goals.Count && goals[eventIdx].Minute <= min)
+                else
                 {
-                    var ev = goals[eventIdx++];
-                    if (ev.Scorer == 1)
-                    {
-                        ourScore++;
-                        MatchEngine.RecordOurGoal(_gameState.Squad, _random);
-                        //Console.ForegroundColor = ConsoleColor.Green;
-                        //Console.WriteLine($" {min,2}' GOAL!  {_gameState.Club.Name.TrimEnd()}  {ourScore}–{theirScore}");
-                        //Console.ResetColor();
-                    }
-                    else
-                    {
-                        theirScore++;
-                        MatchEngine.RecordOpponentGoal(_gameState.Squad);
-                        //Console.ForegroundColor = ConsoleColor.Red;
-                        //Console.WriteLine($" {min,2}' GOAL!  {opponentName.TrimEnd()}  {ourScore}–{theirScore}");
-                        //Console.ResetColor();
-                    }
-                    Thread.Sleep(250);
-                }
-
-                if (sim.IncidentMinute == min)
-                {
-                    var incident = _engine.ResolveIncident(
-                        _gameState.Squad, min < 81, false,
-                        physioSkillPercent: _gameState.Physio?.SkillPercent ?? 0);
-                    //if (incident != null)
-                    //{
-                    //string incDesc = incident.Type == IncidentType.RedCard
-                    //    ? "RED CARD"
-                    //    : $"INJURED ({incident.WeeksOut} wk)";
-                    //Console.WriteLine($" {min,2}' *** {incident.PlayerName.TrimEnd()} — {incDesc} ***");
-                    //Thread.Sleep(250);
-                    //}
+                    theirScore++;
+                    MatchEngine.RecordOpponentGoal(_gameState.Squad);
+                    matchGoals.Add(new MatchGoal { Minute = ev.Minute, IsOurGoal = false });
                 }
             }
 
-            //Console.WriteLine();
-            //Separator();
+            // ── Resolve any discipline/injury incident ────────────────────────────
+            if (sim.IncidentMinute > 0)
+            {
+                _engine.ResolveIncident(
+                    _gameState.Squad, sim.IncidentMinute < 81, false,
+                    physioSkillPercent: _gameState.Physio?.SkillPercent ?? 0);
+            }
 
-            bool weWon = ourScore > theirScore;
-            bool weDrew = ourScore == theirScore;
-            bool weLost = ourScore < theirScore;
+            bool weWon      = ourScore > theirScore;
+            bool weDrew     = ourScore == theirScore;
+            bool weLost     = ourScore < theirScore;
             bool cleanSheet = theirScore == 0;
-            string result = weWon ? "WIN" : weDrew ? "DRAW" : "LOSS";
-
-            //Console.WriteLine($"  FULL TIME:  {_gameState.Club.Name.TrimEnd()} {ourScore}–{theirScore} " +
-            //                  $"{opponentName.TrimEnd()}  [{result}]");
 
             // ── Post-match processing ─────────────────────────────────────────────
             PlayerService.ApplyPostMatchSkillChanges(_gameState.Squad, weWon, weLost, cleanSheet);
@@ -200,29 +153,38 @@ namespace TheManager.Services
             _gameState.Club.TeamMorale += weWon ? 5 : weDrew ? 1 : -7;
             _gameState.Club.TeamMorale = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
 
-            if (!isCupWeek && _gameState.FixturesPlayed < 38)
-            {
-                _gameState.CurrentLeague.WeeklyResults[_gameState.FixturesPlayed] =
-                    $"{theirScore}{ourScore}";
+            //if (!isCupWeek && _gameState.FixturesPlayed < 38)
+            //{
+            //    _gameState.CurrentLeague.WeeklyResults[_gameState.FixturesPlayed] =
+            //        $"{theirScore}{ourScore}";
 
-                string home = isHome ? _gameState.Club.Name : opponentName;
-                int hScr = isHome ? ourScore : theirScore;
-                string away = isHome ? opponentName : _gameState.Club.Name;
-                int aScr = isHome ? theirScore : ourScore;
+            //    string home = isHome ? _gameState.Club.Name : opponentName;
+            //    int hScr = isHome ? ourScore : theirScore;
+            //    string away = isHome ? opponentName : _gameState.Club.Name;
+            //    int aScr = isHome ? theirScore : ourScore;
 
-                LeagueService.RecordResult(_gameState.CurrentLeague, home, hScr, away, aScr);
-                LeagueService.Sort(_gameState.CurrentLeague, _gameState.Club.PointsPerWin);
-            }
+            //    LeagueService.RecordResult(_gameState.CurrentLeague, home, hScr, away, aScr);
+            //    LeagueService.Sort(_gameState.CurrentLeague, _gameState.Club.PointsPerWin);
+            //}
 
             _lostLastMatch = weLost;
-            _wonLastLeagueMatch = weWon && !isCupWeek;
-            _wonLastCupMatch = weWon && isCupWeek;
+            _wonLastLeagueMatch = weWon; // && !isCupWeek;
+            _wonLastCupMatch = weWon; // && isCupWeek;
             _lastMatchWasHome = isHome;
             _lastOpponentLeaguePos = opponentRatings.LeaguePosition;
 
             FixtureSchedulerService.AdvanceWeek(_gameState);
-            //Pause();
             RunWeeklyTick();
+
+            return new MatchResult
+            {
+                OurClubName  = _gameState.Club.Name,
+                OpponentName = opponentName,
+                IsHomeGame   = isHome,
+                OurScore     = ourScore,
+                TheirScore   = theirScore,
+                Goals        = matchGoals
+            };
         }
 
         private void RunEndOfSeason()

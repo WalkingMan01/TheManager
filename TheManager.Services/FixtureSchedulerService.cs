@@ -54,7 +54,20 @@ public static class FixtureSchedulerService
         //    return BuildCupMatch(gameState, MatchType.FACup, week);
 
         // ── League week ───────────────────────────────────────────────────────
-        return BuildLeagueMatch(gameState, week);
+        // return BuildLeagueMatch(gameState, week);
+
+        string opponentName = AdvanceOpponentPointer(gameState);
+        // bool isHomeGame = DetermineHomeAway(gameState.MatchesRemainingThisSeason);
+        var isHomeGame = gameState.MatchesRemainingThisSeason % 2 == 0;
+
+        return new ScheduledMatch
+        {
+            MatchType = MatchType.League,
+            Week = week,
+            OpponentName = opponentName,
+            OpponentTeamIndex = gameState.CurrentOpponentIndex,
+            IsHomeGame = isHomeGame
+        };
     }
 
     /// <summary>
@@ -89,7 +102,9 @@ public static class FixtureSchedulerService
     /// </summary>
     public static void GetSeasonFixtures(GameState gameState)
     {
-        var snapshot = new GameState
+        // var currentOpponent = DivisionStart(gameState.Club.Division);
+
+        var state = new GameState
         {
             Club                       = gameState.Club,
             AllTeamNames               = gameState.AllTeamNames,
@@ -97,23 +112,30 @@ public static class FixtureSchedulerService
             FixturesPlayed             = 0,
             MatchesRemainingThisSeason = 38,
             CurrentOpponentIndex       = gameState.CurrentOpponentIndex,
-            LeagueCup                  = gameState.LeagueCup,
-            FACup                      = gameState.FACup,
+            //LeagueCup                  = gameState.LeagueCup,
+            //FACup                      = gameState.FACup,
         };
 
-        ResetOpponentPointer(snapshot);
+        //ResetOpponentPointer(snapshot);
+        // currentOpponent = DivisionStart(gameState.Club.Division);
 
         var fixtures = new List<ScheduledMatch>();
 
-        while (snapshot.CurrentWeek <= TheManager.Models.Constants.WeeksInSeason)
+        while (state.CurrentWeek <= TheManager.Models.Constants.WeeksInSeason)
         {
-            var match = GetCurrentMatch(snapshot);
+            var match = GetCurrentMatch(state);
 
             if (match.MatchType == MatchType.EndOfSeason)
                 break;
 
             fixtures.Add(match);
-            AdvanceWeek(snapshot);
+
+            state.CurrentOpponentIndex++;
+            state.CurrentWeek++;            
+            // state.FixturesPlayed = Math.Min(38, gameState.FixturesPlayed + 1);
+            state.MatchesRemainingThisSeason--; // = 38 - gameState.FixturesPlayed;
+
+            // AdvanceWeek(snapshot);
         }
 
         gameState.Fixtures = fixtures;
@@ -179,27 +201,34 @@ public static class FixtureSchedulerService
     /// </summary>
     private static string AdvanceOpponentPointer(GameState gameState)
     {
+        var currentOpponent = gameState.CurrentOpponentIndex;
+
         int start = DivisionStart(gameState.Club.Division);
         int end   = DivisionEnd(gameState.Club.Division);
 
-        gameState.CurrentOpponentIndex++;
-        if (gameState.CurrentOpponentIndex > end)
-            gameState.CurrentOpponentIndex = start;
+        //gameState.CurrentOpponentIndex++;
+        if (gameState.CurrentOpponentIndex > end) gameState.CurrentOpponentIndex = start;
 
         // Skip our own team
         int guard = 0;
 
-        while (string.Equals(gameState.AllTeamNames[gameState.CurrentOpponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase) && guard < 20)
+        if (string.Equals(gameState.AllTeamNames[gameState.CurrentOpponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase))
+        {
+            gameState.CurrentOpponentIndex++;
+            if (gameState.CurrentOpponentIndex > end) gameState.CurrentOpponentIndex = start;
+        }
+
+        //while (string.Equals(gameState.AllTeamNames[gameState.CurrentOpponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase) && guard++ < 20)
         //while (gameState.AllTeamNames[gameState.CurrentOpponentIndex].Trim()
         //       == gameState.Club.Name.Trim()
         //       && guard++ < 20)
-        {
-            gameState.CurrentOpponentIndex++;
-            if (gameState.CurrentOpponentIndex > end)
-                gameState.CurrentOpponentIndex = start;
-        }
+        //{
+            // gameState.CurrentOpponentIndex++;
+        //    if (gameState.CurrentOpponentIndex > end) gameState.CurrentOpponentIndex = start;
+        //}
 
-        return gameState.AllTeamNames[gameState.CurrentOpponentIndex];
+        var opponent = gameState.AllTeamNames[gameState.CurrentOpponentIndex]; ;
+        return opponent; //  gameState.AllTeamNames[gameState.CurrentOpponentIndex];
     }
 
     /// <summary>
