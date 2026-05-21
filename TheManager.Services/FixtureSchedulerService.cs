@@ -38,22 +38,24 @@ public static class FixtureSchedulerService
     /// </summary>
     public static ScheduledMatch GetCurrentMatch(GameState gameState)
     {
-        int week = gameState.CurrentWeek;
+        //int week = gameState.CurrentWeek;
 
-        if (week > Models.Constants.WeeksInSeason)
-            return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = week };
+        //if (week > Models.Constants.WeeksInSeason)
+        //    return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = week };
 
-        string opponentName = AdvanceOpponentPointer(gameState);
-        bool   isHomeGame   = gameState.MatchesRemainingThisSeason % 2 == 0;
+        //string opponentName = AdvanceOpponentPointer(gameState);
+        //bool   isHomeGame   = gameState.MatchesRemainingThisSeason % 2 == 0;
 
-        return new ScheduledMatch
-        {
-            MatchType         = MatchType.League,
-            Week              = week,
-            OpponentName      = opponentName,
-            OpponentTeamIndex = gameState.CurrentOpponentIndex,
-            IsHomeGame        = isHomeGame
-        };
+        //return new ScheduledMatch
+        //{
+        //    MatchType         = MatchType.League,
+        //    Week              = week,
+        //    OpponentName      = opponentName,
+        //    OpponentTeamIndex = gameState.CurrentOpponentIndex,
+        //    IsHomeGame        = isHomeGame
+        //};
+        var match = gameState.Fixtures.FirstOrDefault(m => m.Week == gameState.CurrentWeek);
+        return match;
     }
 
     /// <summary>

@@ -30,6 +30,7 @@ partial class PlayMatchView
         dgvGoals     = new System.Windows.Forms.DataGridView();
         colMinute    = new System.Windows.Forms.DataGridViewTextBoxColumn();
         colEvent     = new System.Windows.Forms.DataGridViewTextBoxColumn();
+        btnContinue  = new System.Windows.Forms.Button();
 
         pnlCard.SuspendLayout();
         pnlTeamsRow.SuspendLayout();
@@ -45,9 +46,10 @@ partial class PlayMatchView
         pnlCard.Controls.Add(pnlSep);
         pnlCard.Controls.Add(lblResult);
         pnlCard.Controls.Add(dgvGoals);
+        pnlCard.Controls.Add(btnContinue);
         pnlCard.Location = new System.Drawing.Point(110, 40);
         pnlCard.Name     = "pnlCard";
-        pnlCard.Size     = new System.Drawing.Size(600, 490);
+        pnlCard.Size     = new System.Drawing.Size(600, 530);
 
         // ── lblMatchInfo ─────────────────────────────────────────────────────────
         lblMatchInfo.AutoSize  = false;
@@ -215,6 +217,23 @@ partial class PlayMatchView
         colEvent.Name         = "colEvent";
         colEvent.ReadOnly     = true;
 
+        // ── btnContinue ───────────────────────────────────────────────────────────
+        btnContinue.BackColor                         = System.Drawing.Color.FromArgb(71, 85, 105);    // slate-600
+        btnContinue.FlatStyle                         = System.Windows.Forms.FlatStyle.Flat;
+        btnContinue.FlatAppearance.BorderSize         = 0;
+        btnContinue.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(51, 65, 85);     // slate-700
+        btnContinue.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(30, 41, 59);     // slate-800
+        btnContinue.Font      = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+        btnContinue.ForeColor = System.Drawing.Color.White;
+        btnContinue.Location  = new System.Drawing.Point(200, 492);
+        btnContinue.Name      = "btnContinue";
+        btnContinue.Size      = new System.Drawing.Size(200, 28);
+        btnContinue.TabIndex  = 2;
+        btnContinue.Text      = "CONTINUE";
+        btnContinue.UseVisualStyleBackColor = false;
+        btnContinue.Visible   = false;
+        btnContinue.Click    += new System.EventHandler(btnContinue_Click);
+
         // ── PlayMatchView ─────────────────────────────────────────────────────────
         AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
         AutoScaleMode       = System.Windows.Forms.AutoScaleMode.Font;
@@ -247,4 +266,5 @@ partial class PlayMatchView
     private System.Windows.Forms.DataGridView              dgvGoals;
     private System.Windows.Forms.DataGridViewTextBoxColumn colMinute;
     private System.Windows.Forms.DataGridViewTextBoxColumn colEvent;
+    private System.Windows.Forms.Button                    btnContinue;
 }

@@ -47,6 +47,8 @@ public partial class MainForm : Form
         _fixturesView   = new FixturesView(_gameService.State)                      { Dock = DockStyle.Fill };
         _checkMatchView = new CheckMatchView(_gameService.State, _gameService.Rng)  { Dock = DockStyle.Fill };
         _playMatchView  = new PlayMatchView(_gameService)                           { Dock = DockStyle.Fill };
+        _playMatchView.ContinueRequested += (_, _) => SwitchToView(_squadView!, btnNavSquad);
+        _playMatchView.ContinueRequested += (_, _) => _checkMatchView!.RefreshForNextMatch();
         pnlContent.Controls.Add(_squadView);
         pnlContent.Controls.Add(_fixturesView);
         pnlContent.Controls.Add(_checkMatchView);

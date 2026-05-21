@@ -9,6 +9,9 @@ public partial class PlayMatchView : UserControl
 {
     private readonly GameService _gameService;
 
+    /// <summary>Raised when the user clicks Continue after a match result.</summary>
+    public event EventHandler? ContinueRequested;
+
     /// <summary>Initialises the play match view with the provided game service.</summary>
     public PlayMatchView(GameService gameService)
     {
@@ -54,15 +57,36 @@ public partial class PlayMatchView : UserControl
 
         if (result.WasEndOfSeason)
         {
-            lblMatchInfo.Text    = "End of season processed.";
-            lblHomeTeam.Text     = string.Empty;
-            lblAwayTeam.Text     = string.Empty;
+            lblMatchInfo.Text   = "End of season processed.";
+            lblHomeTeam.Text    = string.Empty;
+            lblAwayTeam.Text    = string.Empty;
+            btnContinue.Visible = true;
             return;
         }
 
         ShowResult(result);
+        btnContinue.Visible = true;
 
         // Refresh preview for the next match
+        // ToDo: Commented out
+        // PopulateMatchPreview();
+    }
+
+    private void btnContinue_Click(object sender, EventArgs e)
+    {
+        ContinueRequested?.Invoke(this, EventArgs.Empty);
+        ResetForNextMatch();
+    }
+
+    private void ResetForNextMatch()
+    {
+        btnContinue.Visible  = false;
+        dgvGoals.Visible     = false;
+        lblResult.Visible    = false;
+        pnlSep.Visible       = false;
+        pnlScore.Visible     = false;
+        btnPlayMatch.Visible = true;
+        dgvGoals.Rows.Clear();
         PopulateMatchPreview();
     }
 

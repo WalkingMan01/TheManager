@@ -21,6 +21,13 @@ public partial class CheckMatchView : UserControl
 
     // ── Data population ───────────────────────────────────────────────────────
 
+    /// <summary>Refreshes the view to reflect the next fixture in the schedule.</summary>
+    public void RefreshForNextMatch()
+    {
+        dgvRatings.Rows.Clear();
+        Populate();
+    }
+
     private void Populate()
     {
         var match = FixtureSchedulerService.GetCurrentMatch(_state);
@@ -36,16 +43,17 @@ public partial class CheckMatchView : UserControl
         string venueLabel = match.IsHomeGame ? "Home" : "Away";
         lblMatchInfo.Text = $"Week {match.Week}  ·  {MatchTypeLabel(match.MatchType)}  ·  {venueLabel}";
 
-        string ourName = _state.Club.Name.Trim();
-        string oppName = match.OpponentName.Trim();
+        string ourName  = _state.Club.Name.Trim();
+        string oppName  = match.OpponentName.Trim();
 
-        // Left label is always the home side, right is away — matches typical scoreline convention
-        lblOurTeam.Text  = match.IsHomeGame ? ourName : oppName;
-        lblOpponent.Text = match.IsHomeGame ? oppName : ourName;
+        // Left = home team, right = away team — matches scoreline convention
+        string homeTeamName = match.IsHomeGame ? ourName : oppName;
+        string awayTeamName = match.IsHomeGame ? oppName : ourName;
 
-        // Column headers show who is who regardless of home/away position
-        colOurs.HeaderText     = ourName;
-        colOpponent.HeaderText = oppName;
+        lblOurTeam.Text        = homeTeamName;
+        lblOpponent.Text       = awayTeamName;
+        colOurs.HeaderText     = homeTeamName;
+        colOpponent.HeaderText = awayTeamName;
 
         var ourRatings = PlayerService.CalculateTeamRatings(_state.Squad);
 
@@ -59,10 +67,20 @@ public partial class CheckMatchView : UserControl
             isCupMatch: isCup,
             _rng);
 
-        AddRatingRow("Goalkeeper", ourRatings.GoalkeeperRating, oppRatings.GoalkeeperRating);
-        AddRatingRow("Defence",    ourRatings.DefenceRating,    oppRatings.DefenceRating);
-        AddRatingRow("Midfield",   ourRatings.MidRating,        oppRatings.MidRating);
-        AddRatingRow("Attack",     ourRatings.AttackRating,     oppRatings.AttackRating);
+        // Always pass (homeRating, awayRating) so data lines up with the column headers
+        bool weAreHome = match.IsHomeGame;
+        AddRatingRow("Goalkeeper",
+            weAreHome ? ourRatings.GoalkeeperRating : oppRatings.GoalkeeperRating,
+            weAreHome ? oppRatings.GoalkeeperRating : ourRatings.GoalkeeperRating);
+        AddRatingRow("Defence",
+            weAreHome ? ourRatings.DefenceRating    : oppRatings.DefenceRating,
+            weAreHome ? oppRatings.DefenceRating    : ourRatings.DefenceRating);
+        AddRatingRow("Midfield",
+            weAreHome ? ourRatings.MidRating        : oppRatings.MidRating,
+            weAreHome ? oppRatings.MidRating        : ourRatings.MidRating);
+        AddRatingRow("Attack",
+            weAreHome ? ourRatings.AttackRating     : oppRatings.AttackRating,
+            weAreHome ? oppRatings.AttackRating     : ourRatings.AttackRating);
     }
 
     private void AddRatingRow(string label, int ourRating, int oppRating)

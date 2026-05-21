@@ -1,11 +1,19 @@
 
-Debug playmatch (Looks ok!)
-Investigate playing more than one fixture, how does season move on after playing a match
-
-Initial fixture is wrong
+Add Results to fixtures list
+Other teams need to play as well
+Calculate League table
+Check WeeklyTick
 
 Check StartNewGame
-Display fixtures on Fixture part of form
+
 InitLeagueTable in gameState
 gameState add property getters / setters
+
+Resolved (?)
+------------
+Debug playmatch (Looks ok!)
+Investigate playing more than one fixture, how does season move on after playing a match
+Initial fixture is wrong
+Display fixtures on Fixture part of form
+CheckMatch not working - away match shows teams back to front
 
