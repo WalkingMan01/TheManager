@@ -62,8 +62,9 @@ namespace TheManager.Services
             }
 
             // Get match opponent
-            bool isHome = scheduled.IsHomeGame;
+            bool isHome     = scheduled.IsHomeGame;
             string opponentName = scheduled.OpponentName;
+            bool isCupWeek  = scheduled.MatchType is MatchType.LeagueCup or MatchType.FACup;
 
             // Set up match
             var ourRatings = PlayerService.CalculateTeamRatings(_gameState.Squad);
@@ -115,9 +116,27 @@ namespace TheManager.Services
             _gameState.Club.TeamMorale += weWon ? 5 : weDrew ? 1 : -7;
             _gameState.Club.TeamMorale = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
 
-            _lostLastMatch = weLost;
-            _wonLastLeagueMatch = weWon; // && !isCupWeek;
-            _wonLastCupMatch = weWon; // && isCupWeek;
+            List<OtherFixtureResult> otherFixtures = [];
+            if (!isCupWeek)
+            {
+                string home = isHome ? _gameState.Club.Name : opponentName;
+                int    hScr = isHome ? ourScore              : theirScore;
+                string away = isHome ? opponentName          : _gameState.Club.Name;
+                int    aScr = isHome ? theirScore            : ourScore;
+                LeagueService.RecordResult(_gameState.CurrentLeague, home, hScr, away, aScr);
+                otherFixtures = LeagueService.SimulateOtherFixtures(
+                    _gameState.CurrentLeague,
+                    _gameState.AllTeamNames,
+                    _gameState.Club.Division,
+                    _gameState.Club.Name,
+                    _gameState.FixturesPlayed,
+                    _gameState.Club.PointsPerWin,
+                    _random);
+            }
+
+            _lostLastMatch      = weLost;
+            _wonLastLeagueMatch = weWon && !isCupWeek;
+            _wonLastCupMatch    = weWon && isCupWeek;
             _lastMatchWasHome = isHome;
             _lastOpponentLeaguePos = scheduled.OpponentRatings.LeaguePosition;
 
@@ -126,12 +145,13 @@ namespace TheManager.Services
 
             return new MatchResult
             {
-                OurClubName  = _gameState.Club.Name,
-                OpponentName = opponentName,
-                IsHomeGame   = isHome,
-                OurScore     = ourScore,
-                TheirScore   = theirScore,
-                Goals        = matchGoals
+                OurClubName    = _gameState.Club.Name,
+                OpponentName   = opponentName,
+                IsHomeGame     = isHome,
+                OurScore       = ourScore,
+                TheirScore     = theirScore,
+                Goals          = matchGoals,
+                OtherFixtures  = otherFixtures
             };
         }
 

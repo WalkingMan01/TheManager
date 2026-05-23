@@ -87,43 +87,81 @@ public static class FixtureSchedulerService
     }
 
     /// <summary>
-    /// Generates the full list of fixtures for a season and stores them in
-    /// <see cref="GameState.Fixtures"/>. Uses a snapshot so the live
-    /// <paramref name="gameState"/> is not mutated except for the final assignment.
+    /// Generates the full 38-fixture season schedule using the circle-method
+    /// round-robin algorithm and stores the result in <see cref="GameState.Fixtures"/>.
+    ///
+    /// The 20 division teams are treated as a fixed team (index 19 within the
+    /// division) plus 19 rotating teams. Each call to <see cref="GetRoundPairings"/>
+    /// returns the 10 fixtures for one league round. Rounds 0–18 form the first
+    /// half; rounds 19–37 reverse home/away to give the second half.
     /// </summary>
     public static void GetSeasonFixtures(GameState gameState)
     {
-        var (start, end)  = DivisionRange(gameState.Club.Division);
-        int week          = 1;
-        int opponentIndex = gameState.CurrentOpponentIndex;
+        var (divStart, _) = DivisionRange(gameState.Club.Division);
+        string ourTrimmed = gameState.Club.Name.Trim();
 
-        var fixtures = new List<ScheduledMatch>();
-
-        while (week <= Constants.WeeksInSeason)
+        // Build the ordered team list for this division (indices 0..19 within division)
+        var divTeams = new string[20];
+        int playerIdx = 0;
+        for (int i = 0; i < 20; i++)
         {
-            if (opponentIndex > end)
-                opponentIndex = start;
+            divTeams[i] = gameState.AllTeamNames[divStart + i];
+            if (divTeams[i].Trim().Equals(ourTrimmed, StringComparison.OrdinalIgnoreCase))
+                playerIdx = i;
+        }
 
-            if (string.Equals(gameState.AllTeamNames[opponentIndex], gameState.Club.Name, StringComparison.CurrentCultureIgnoreCase))
-            {
-                if (++opponentIndex > end)
-                    opponentIndex = start;
-            }
+        var fixtures = new List<ScheduledMatch>(Constants.WeeksInSeason);
+
+        for (int round = 0; round < Constants.WeeksInSeason; round++)
+        {
+            var pairs = GetRoundPairings(round);
+
+            // Find the pair that contains the player
+            var pair = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
+
+            bool   isHome      = pair.homeIdx == playerIdx;
+            int    oppDivIdx   = isHome ? pair.awayIdx : pair.homeIdx;
+            string opponentName = divTeams[oppDivIdx];
 
             fixtures.Add(new ScheduledMatch
             {
                 MatchType         = MatchType.League,
-                Week              = week,
-                OpponentName      = gameState.AllTeamNames[opponentIndex],
-                OpponentTeamIndex = opponentIndex,
-                IsHomeGame        = week % 2 == 0
+                Week              = round + 1,
+                OpponentName      = opponentName,
+                OpponentTeamIndex = divStart + oppDivIdx,
+                IsHomeGame        = isHome
             });
-
-            opponentIndex++;
-            week++;
         }
 
         gameState.Fixtures = fixtures;
+    }
+
+    /// <summary>
+    /// Returns the 10 home/away pairings (as division-relative indices 0..19)
+    /// for a given league round using the circle-method round-robin algorithm.
+    ///
+    /// Team at index 19 is the fixed pivot. For rounds 0–18 (first half) it is
+    /// home; for rounds 19–37 (second half) home/away is reversed so every team
+    /// gets each opponent once at home and once away over 38 rounds.
+    /// </summary>
+    public static (int homeIdx, int awayIdx)[] GetRoundPairings(int leagueRound)
+    {
+        int  r          = leagueRound % 19;
+        bool secondHalf = leagueRound >= 19;
+
+        var pairs = new (int homeIdx, int awayIdx)[10];
+
+        // Fixed team (index 19) is home in the first half, away in the second
+        pairs[0] = secondHalf ? (r, 19) : (19, r);
+
+        for (int k = 1; k <= 9; k++)
+        {
+            int a = ((r - k) % 19 + 19) % 19;
+            int b = (r + k) % 19;
+            pairs[k] = secondHalf ? (b, a) : (a, b);
+        }
+
+        return pairs;
     }
 
     /// <summary>

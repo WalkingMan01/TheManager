@@ -127,6 +127,86 @@ public static class LeagueService
         Sort(table, pointsPerWin);
     }
 
+    // ── Simulate other fixtures (lines 3412–3429) ────────────────────────────
+
+    /// <summary>
+    /// Simulates the nine other league fixtures on the same match day, records
+    /// all results, and re-sorts the table.
+    ///
+    /// BASIC lines 3412–3429: pairs up the remaining 18 division teams (excluding
+    /// the player's club and their opponent this week). Scores are weighted by
+    /// current league position (subroutines 3408 + 3423).
+    /// </summary>
+    /// <summary>
+    /// Simulates the nine other league fixtures on the same match day using the
+    /// round-robin schedule, records all results, and re-sorts the table.
+    ///
+    /// BASIC lines 3412–3429. Pairs are derived from the circle-method schedule
+    /// (see <see cref="FixtureSchedulerService.GetRoundPairings"/>) so every team
+    /// faces every other team exactly once per half-season. The player's own pair
+    /// is identified by division index and skipped.
+    /// </summary>
+    public static List<OtherFixtureResult> SimulateOtherFixtures(
+        LeagueTable table,
+        string[]    allTeamNames,
+        Division    division,
+        string      ourClub,
+        int         leagueRound,
+        int         pointsPerWin,
+        Random      rng)
+    {
+        int    divStart   = (int)division * 20 - 19;
+        string ourTrimmed = ourClub.Trim();
+
+        var divTeams = new string[20];
+        int playerIdx = 0;
+        for (int i = 0; i < 20; i++)
+        {
+            divTeams[i] = allTeamNames[divStart + i];
+            if (divTeams[i].Trim() == ourTrimmed)
+                playerIdx = i;
+        }
+
+        var pairs   = FixtureSchedulerService.GetRoundPairings(leagueRound);
+        var results = new List<OtherFixtureResult>(9);
+
+        foreach (var (homeIdx, awayIdx) in pairs)
+        {
+            if (homeIdx == playerIdx || awayIdx == playerIdx)
+                continue;
+
+            string home    = divTeams[homeIdx];
+            string away    = divTeams[awayIdx];
+            int    homePos = LeaguePosition(table, home);  // KI in BASIC 3422
+            int    awayPos = LeaguePosition(table, away);  // KH in BASIC 3423
+
+            // BASIC 3423: R = 1 + INT(RND*8) + (KI<KH)*2 − 5, clamped to 0
+            int homeScore = Math.Max(0, 1 + rng.Next(8) + (homePos < awayPos ? 2 : 0) - 5);
+            int awayScore = Math.Max(0, 1 + rng.Next(7) + (awayPos < homePos ? 2 : 0) - 5);
+
+            RecordResult(table, home, homeScore, away, awayScore);
+            results.Add(new OtherFixtureResult
+            {
+                HomeTeam  = home.Trim(),
+                HomeScore = homeScore,
+                AwayTeam  = away.Trim(),
+                AwayScore = awayScore
+            });
+        }
+
+        Sort(table, pointsPerWin);
+        return results;
+    }
+
+    private static int LeaguePosition(LeagueTable table, string teamName)
+    {
+        string trimmed = teamName.Trim();
+        for (int i = 0; i < table.Entries.Count; i++)
+            if (table.Entries[i].TeamName.Trim() == trimmed)
+                return i + 1;
+        return 10;
+    }
+
     // ── Weekly result string (line 3070) ─────────────────────────────────────
 
     /// <summary>

@@ -50,6 +50,28 @@ internal static class PlayMatchScreen
 
         AnsiConsole.WriteLine();
 
+        if (result.OtherFixtures.Count > 0)
+        {
+            AnsiConsole.MarkupLine("  [bold dim]OTHER RESULTS[/]");
+            AnsiConsole.WriteLine();
+
+            var otherTable = new Table()
+                .Border(TableBorder.None)
+                .HideHeaders()
+                .AddColumn(new TableColumn("").RightAligned().Width(12))
+                .AddColumn(new TableColumn("").Centered().Width(7))
+                .AddColumn(new TableColumn("").Width(12));
+
+            foreach (var f in result.OtherFixtures)
+                otherTable.AddRow(
+                    $"[dim]{f.HomeTeam}[/]",
+                    $"[bold]{f.HomeScore} – {f.AwayScore}[/]",
+                    $"[dim]{f.AwayTeam}[/]");
+
+            AnsiConsole.Write(otherTable);
+            AnsiConsole.WriteLine();
+        }
+
         if (result.IsHomeGame && state.Finances.LastMatchAttendance > 0)
             AnsiConsole.MarkupLine($"  Attendance: [cyan]{state.Finances.LastMatchAttendance:N0}[/]   Gate: [cyan]{Ui.FormatMoney(state.Finances.LastMatchGateMoney)}[/]");
 
