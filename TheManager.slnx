@@ -2,10 +2,9 @@
   <Folder Name="/Solution Items/">
     <File Path="ToDo.txt" />
   </Folder>
+  <Project Path="TheManager.Console/TheManager.Console.csproj" />
   <Project Path="TheManager.MatchHarness/TheManager.MatchHarness.csproj" />
   <Project Path="TheManager.Models/TheManager.Models.csproj" />
   <Project Path="TheManager.Services/TheManager.Services.csproj" />
-  <Project Path="TheManager.Test/TheManager.Test.csproj" Id="40cafa31-681d-4f5c-9bae-0e4e169da47b" />
   <Project Path="TheManager.WinForms/TheManager.UI.csproj" />
-  <Project Path="TheManager/TheManager.csproj" />
 </Solution>

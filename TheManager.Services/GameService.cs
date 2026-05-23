@@ -20,11 +20,11 @@ namespace TheManager.Services
         private bool _lastMatchWasHome;
         private int _lastOpponentLeaguePos = 10;
 
-        public string Team { get; init; }
-        public string Manager { get; init; }
-
+        public required string Team { get; init; }
+        public required string Manager { get; init; }
+        public Division Division { get; init; } = Division.Four;
         public GameState State => _gameState;
-        public Random    Rng   => _random;
+        public Random Random   => _random;
         public GameService()
         {
             _gameState = new GameState();
@@ -34,8 +34,7 @@ namespace TheManager.Services
 
         public void StartGame()
         {
-            // ToDo: Division is hard coded and old
-            InitializationService.SetupNewGame(_gameState, Team, Division.Four, Manager, _random);
+            InitializationService.SetupNewGame(_gameState, Team, Division, Manager, _random);
             FixtureSchedulerService.GetSeasonFixtures(_gameState);
 
             InitLeagueTable();
@@ -62,53 +61,24 @@ namespace TheManager.Services
                 return new MatchResult { WasEndOfSeason = true };
             }
 
-            // bool isCupWeek = scheduled.MatchType is MatchType.LeagueCup or MatchType.FACup;
-
-            // Eliminated teams skip cup weeks
-            //if (isCupWeek && !FixtureSchedulerService.HasCupFixtureThisWeek(_gameState))
-            //{
-            //    _lastMatchWasHome = false;
-            //    FixtureSchedulerService.AdvanceWeek(_gameState);
-            //    RunWeeklyTick();
-            //    return new MatchResult { WasEndOfSeason = false, OurClubName = _gameState.Club.Name };
-            //}
-
-            // ── Determine opponent ────────────────────────────────────────────────
+            // Get match opponent
             bool isHome = scheduled.IsHomeGame;
             string opponentName = scheduled.OpponentName;
 
-            //if (isCupWeek)
-            //{
-            //    var cup = scheduled.MatchType == MatchType.LeagueCup
-            //        ? _gameState.LeagueCup
-            //        : _gameState.FACup;
-
-            //    var fixture = cup.CurrentRoundFixtures.FirstOrDefault(
-            //        f => f.HomeTeam.Trim() == _gameState.Club.Name.Trim()
-            //          || f.AwayTeam.Trim() == _gameState.Club.Name.Trim());
-
-            //    if (fixture != null)
-            //    {
-            //        isHome = fixture.HomeTeam.Trim() == _gameState.Club.Name.Trim();
-            //        opponentName = isHome ? fixture.AwayTeam : fixture.HomeTeam;
-            //    }
-            //}
-
-            // ── Build match simulation ────────────────────────────────────────────
+            // Set up match
             var ourRatings = PlayerService.CalculateTeamRatings(_gameState.Squad);
 
-            var opponentRatings = OpponentRatingService.Estimate(
+            if (scheduled.OpponentRatings == null)
+            {
+                scheduled.OpponentRatings = OpponentRatingService.Estimate(
                 opponentName,
                 _gameState.CurrentLeague,
                 _gameState.Club.Division,
                 _gameState.DifficultyLevel, 0, false, _random);
-
-                //cupRound: isCupWeek ? (int)_gameState.LeagueCup.CurrentRound : 0,
-                //isCupMatch: isCupWeek,
-                //_random);
+            }
 
             var matchInput = OpponentRatingService.BuildMatchInput(
-                ourRatings, opponentRatings, _gameState.Club,
+                ourRatings, scheduled.OpponentRatings, _gameState.Club,
                 isHome, _lostLastMatch, lineupChanges: 0);
 
             var sim = _engine.SetupMatch(matchInput);
@@ -134,14 +104,6 @@ namespace TheManager.Services
                 }
             }
 
-            // ── Resolve any discipline/injury incident ────────────────────────────
-            if (sim.IncidentMinute > 0)
-            {
-                _engine.ResolveIncident(
-                    _gameState.Squad, sim.IncidentMinute < 81, false,
-                    physioSkillPercent: _gameState.Physio?.SkillPercent ?? 0);
-            }
-
             bool weWon      = ourScore > theirScore;
             bool weDrew     = ourScore == theirScore;
             bool weLost     = ourScore < theirScore;
@@ -153,28 +115,14 @@ namespace TheManager.Services
             _gameState.Club.TeamMorale += weWon ? 5 : weDrew ? 1 : -7;
             _gameState.Club.TeamMorale = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
 
-            //if (!isCupWeek && _gameState.FixturesPlayed < 38)
-            //{
-            //    _gameState.CurrentLeague.WeeklyResults[_gameState.FixturesPlayed] =
-            //        $"{theirScore}{ourScore}";
-
-            //    string home = isHome ? _gameState.Club.Name : opponentName;
-            //    int hScr = isHome ? ourScore : theirScore;
-            //    string away = isHome ? opponentName : _gameState.Club.Name;
-            //    int aScr = isHome ? theirScore : ourScore;
-
-            //    LeagueService.RecordResult(_gameState.CurrentLeague, home, hScr, away, aScr);
-            //    LeagueService.Sort(_gameState.CurrentLeague, _gameState.Club.PointsPerWin);
-            //}
-
             _lostLastMatch = weLost;
             _wonLastLeagueMatch = weWon; // && !isCupWeek;
             _wonLastCupMatch = weWon; // && isCupWeek;
             _lastMatchWasHome = isHome;
-            _lastOpponentLeaguePos = opponentRatings.LeaguePosition;
+            _lastOpponentLeaguePos = scheduled.OpponentRatings.LeaguePosition;
 
             FixtureSchedulerService.AdvanceWeek(_gameState);
-            RunWeeklyTick();
+            WeeklyUpdate();
 
             return new MatchResult
             {
@@ -274,10 +222,11 @@ namespace TheManager.Services
             //Pause();
         }
 
-        private void RunWeeklyTick()
+        private void WeeklyUpdate()
         {
-            PlayerService.TickWeeklyCountdowns(_gameState.Squad);
-            PlayerService.ApplyWeeklySkillDrift(_gameState.Squad, _random);
+            PlayerService.UpdateSquadAppearances(_gameState.Squad);
+            // ToDo: Need to update squad ratings somehow
+            //PlayerService.ApplyWeeklySkillDrift(_gameState.Squad, _random);
 
             // Coach improves youth players weekly (BASIC lines 5408–5411)
             if (_gameState.Club.HasCoach && _gameState.Coach != null && _gameState.YouthTeam.Count > 0)

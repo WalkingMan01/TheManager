@@ -7,5 +7,6 @@
         public string OpponentName { get; set; } = string.Empty;
         public int OpponentTeamIndex { get; set; }
         public bool IsHomeGame { get; set; }
+        public OpponentRatings? OpponentRatings { get; set; }
     }
 }

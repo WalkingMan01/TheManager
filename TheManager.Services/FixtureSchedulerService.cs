@@ -54,8 +54,11 @@ public static class FixtureSchedulerService
         //    OpponentTeamIndex = gameState.CurrentOpponentIndex,
         //    IsHomeGame        = isHomeGame
         //};
-        var match = gameState.Fixtures.FirstOrDefault(m => m.Week == gameState.CurrentWeek);
-        return match;
+        if (gameState.CurrentWeek > Constants.WeeksInSeason)
+            return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = gameState.CurrentWeek };
+
+        return gameState.Fixtures.FirstOrDefault(m => m.Week == gameState.CurrentWeek)
+            ?? new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = gameState.CurrentWeek };
     }
 
     /// <summary>

@@ -14,6 +14,8 @@ namespace TheManager.Models;
 /// </summary>
 public class Player
 {
+    private double _skill;
+
     // ── Identity ─────────────────────────────────────────────────────────────
 
     /// <summary>Name, max 8 characters. Corresponds to V$(I).</summary>
@@ -28,7 +30,15 @@ public class Player
     /// Skill rating 1.0–9.9+. Star players have Skill > 9.7 (status = Star, J=105).
     /// Corresponds to H(I).
     /// </summary>
-    public double Skill { get; set; }
+    //public double Skill { get; set; }
+    public double Skill
+    {
+        get => _skill;
+        set
+        {
+            _skill = Math.Clamp(value, 1.1, 9.9);
+        }
+    }
 
     /// <summary>
     /// Age in years (positive = settled, negative = transfer-listed).

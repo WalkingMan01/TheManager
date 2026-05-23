@@ -23,19 +23,12 @@ public static class PlayerService
     /// </summary>
     public static void RecalculateStatus(Player player)
     {
+        // ToDo: Remove this method ?
         if (player.Position == PlayerPosition.None)
         {
             player.Skill = 0;
             return;
         }
-
-        ClampSkill(player);
-    }
-
-    private static void ClampSkill(Player player)
-    {
-        if (player.Skill > 9.9) player.Skill = 9.9;
-        if (player.Skill < 1.1) player.Skill = 1.1;
     }
 
     // ── Team ratings (subroutine 332, lines 371–387) ─────────────────────────
@@ -169,7 +162,7 @@ public static class PlayerService
     /// Increments the games-played counter for first-team players.
     /// Corresponds to subroutine 3301 (line 3036: x(Y)+=ABS(Y&lt;12)).
     /// </summary>
-    public static void TickWeeklyCountdowns(Player?[] squad)
+    public static void UpdateSquadAppearances(Player?[] squad)
     {
         for (int squadSlot = 1; squadSlot <= 11; squadSlot++)
         {

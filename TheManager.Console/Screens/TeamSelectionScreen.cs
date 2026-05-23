@@ -1,0 +1,44 @@
+using Spectre.Console;
+using TheManager.Models;
+
+namespace TheManager.ConsoleApp.Screens;
+
+internal static class TeamSelectionScreen
+{
+    private static readonly (string Label, Division Value)[] Divisions =
+    [
+        ("Division 1 — Top flight", Division.One),
+        ("Division 2",              Division.Two),
+        ("Division 3",              Division.Three),
+        ("Division 4",              Division.Four),
+    ];
+
+    public static (string TeamName, Division Division, string ManagerName) Show()
+    {
+        Ui.Header("NEW GAME");
+
+        var divLabel = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold]Select your division:[/]")
+                .AddChoices(Divisions.Select(d => d.Label)));
+
+        var division = Divisions.First(d => d.Label == divLabel).Value;
+        var teams    = TeamData.GetDivisionTeams(division);
+
+        AnsiConsole.WriteLine();
+        var teamName = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("[bold]Select your club:[/]")
+                .AddChoices(teams));
+
+        AnsiConsole.WriteLine();
+        var managerName = AnsiConsole.Prompt(
+            new TextPrompt<string>("[bold]Manager name:[/] ")
+                .DefaultValue("Manager")
+                .Validate(s => s.Trim().Length > 0
+                    ? ValidationResult.Success()
+                    : ValidationResult.Error("Name cannot be empty")));
+
+        return (teamName, division, managerName.Trim());
+    }
+}

@@ -1,5 +1,7 @@
 
 Add Results to fixtures list
+Squad players deplete
+Opponents are too good
 Other teams need to play as well
 Calculate League table
 Check WeeklyTick

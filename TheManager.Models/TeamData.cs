@@ -49,6 +49,13 @@ public static class TeamData
         "YEOVIL   ",
     ];
 
+    /// <summary>Returns the trimmed team names for the given division (1–4), in order.</summary>
+    public static IReadOnlyList<string> GetDivisionTeams(Division division)
+    {
+        int start = (int)division * 20 - 19;
+        return Enumerable.Range(start, 20).Select(i => Names[i].Trim()).ToList();
+    }
+
     /// <summary>
     /// Seeds <see cref="GameState.AllTeamNames"/> with the built-in team list.
     /// All 107 slots are set to at least an empty string so downstream code
