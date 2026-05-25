@@ -150,6 +150,7 @@ namespace TheManager.Services
                 IsHomeGame     = isHome,
                 OurScore       = ourScore,
                 TheirScore     = theirScore,
+                MatchLength    = sim.MatchLength,
                 Goals          = matchGoals,
                 OtherFixtures  = otherFixtures
             };

@@ -12,30 +12,12 @@ public class MatchResult
     public int    OurScore     { get; set; }
     public int    TheirScore   { get; set; }
 
+    /// <summary>Actual match duration in minutes (90–93). Used to drive the UI clock.</summary>
+    public int MatchLength { get; set; } = 90;
+
     /// <summary>All goal events in chronological order.</summary>
     public List<MatchGoal> Goals { get; set; } = new();
 
     /// <summary>Other league fixtures played in the same week (empty for cup matches).</summary>
     public List<OtherFixtureResult> OtherFixtures { get; set; } = new();
-}
-
-/// <summary>A single goal with its minute, team, and optional scorer name.</summary>
-public class MatchGoal
-{
-    public int     Minute    { get; set; }
-
-    /// <summary>True = scored by the managed club; false = scored by the opponent.</summary>
-    public bool    IsOurGoal { get; set; }
-
-    /// <summary>Player name when IsOurGoal is true; null when the opponent scored.</summary>
-    public string? Scorer    { get; set; }
-}
-
-/// <summary>Result of a simulated fixture for another division team on the same match day.</summary>
-public class OtherFixtureResult
-{
-    public string HomeTeam  { get; set; } = string.Empty;
-    public int    HomeScore { get; set; }
-    public string AwayTeam  { get; set; } = string.Empty;
-    public int    AwayScore { get; set; }
 }
