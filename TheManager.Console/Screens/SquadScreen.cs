@@ -1,5 +1,6 @@
 using Spectre.Console;
 using TheManager.Models;
+using TheManager.Services;
 
 namespace TheManager.ConsoleApp.Screens;
 
@@ -64,7 +65,37 @@ internal static class SquadScreen
         AddSection(table, "RESERVES",   13, 20, state.Squad, firstTeam: false);
 
         AnsiConsole.Write(table);
+
+        DrawRatings(state.Squad);
     }
+
+    private static void DrawRatings(Player?[] squad)
+    {
+        var r = PlayerService.CalculateTeamRatings(squad);
+
+        var ratingsTable = new Table()
+            .Border(TableBorder.Rounded)
+            .AddColumn(new TableColumn("[dim]GK[/]").Centered())
+            .AddColumn(new TableColumn("[dim]DEF[/]").Centered())
+            .AddColumn(new TableColumn("[dim]MID[/]").Centered())
+            .AddColumn(new TableColumn("[dim]ATK[/]").Centered());
+
+        ratingsTable.AddRow(
+            RatingCell(r.GoalkeeperRating),
+            RatingCell(r.DefenceRating),
+            RatingCell(r.MidRating),
+            RatingCell(r.AttackRating));
+
+        AnsiConsole.Write(ratingsTable);
+    }
+
+    private static string RatingCell(int rating) => rating switch
+    {
+        >= 8 => $"[bold green]{rating}[/]",
+        >= 6 => $"[bold yellow]{rating}[/]",
+        >= 4 => $"[bold]{rating}[/]",
+        _    => $"[red]{rating}[/]"
+    };
 
     private static void AddSection(Table table, string title, int from, int to, Player?[] squad, bool firstTeam)
     {
