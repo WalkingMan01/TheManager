@@ -134,6 +134,10 @@ namespace TheManager.Services
                     _random);
             }
 
+            // Record result on the fixture before advancing the week
+            scheduled.OurScore   = ourScore;
+            scheduled.TheirScore = theirScore;
+
             _lostLastMatch      = weLost;
             _wonLastLeagueMatch = weWon && !isCupWeek;
             _wonLastCupMatch    = weWon && isCupWeek;
