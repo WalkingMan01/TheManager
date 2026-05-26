@@ -43,14 +43,14 @@ public static class ScoutReportService
             if (!scout.IsAssigned || scout.LookingForPosition == PlayerPosition.None)
             {
                 // Clear the slot — no active report (line 313: goto 315)
-                PlayerService.ClearSlot(gameState.Squad, scoutSquadSlot);
+                gameState.Squad[scoutSquadSlot] = null;
                 continue;
             }
 
             // 1/9 chance of no find this week (line 312: IF RA=1 THEN goto 315)
             if (1 + rng.Next(9) == 1)
             {
-                PlayerService.ClearSlot(gameState.Squad, scoutSquadSlot);
+                gameState.Squad[scoutSquadSlot] = null;
                 continue;
             }
 
@@ -84,7 +84,7 @@ public static class ScoutReportService
 
             if (!qualityCheck)
             {
-                PlayerService.ClearSlot(gameState.Squad, scoutSquadSlot);
+                gameState.Squad[scoutSquadSlot] = null;
                 continue;
             }
 
@@ -127,7 +127,7 @@ public static class ScoutReportService
     public static void ClearScoutMarket(GameState gameState)
     {
         for (int slot = 21; slot <= 23; slot++)
-            PlayerService.ClearSlot(gameState.Squad, slot);
+            gameState.Squad[slot] = null;
     }
 }
 

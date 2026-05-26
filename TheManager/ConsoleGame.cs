@@ -676,7 +676,7 @@ internal sealed class ConsoleGame
                 && int.TryParse(parts[0], out int a) && int.TryParse(parts[1], out int b)
                 && a is >= 1 and <= 20 && b is >= 1 and <= 20 && a != b)
             {
-                PlayerService.SwapPlayers(_state.Squad, a, b);
+                (_state.Squad[a], _state.Squad[b]) = (_state.Squad[b], _state.Squad[a]);
             }
         }
     }

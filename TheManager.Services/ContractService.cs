@@ -75,7 +75,7 @@ public static class ContractService
     /// </summary>
     public static void ReleasePlayer(Player?[] squad, int squadSlot)
     {
-        PlayerService.ClearSlot(squad, squadSlot);
+        squad[squadSlot] = null;
     }
 
     // ── Player's minimum acceptable renewal terms ─────────────────────────────

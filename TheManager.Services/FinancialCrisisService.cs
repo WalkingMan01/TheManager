@@ -162,7 +162,7 @@ public static class FinancialCrisisService
             string soldName  = player.Name.Trim();
 
             finances.BankBalance += (int)salePrice;
-            PlayerService.ClearSlot(gameState.Squad, listedSlot);
+            gameState.Squad[listedSlot] = null;
             actions.Add($"Directors sold {soldName} for £{(int)salePrice:N0} to get out of financial trouble.");
         }
 

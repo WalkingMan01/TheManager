@@ -45,7 +45,7 @@ public static class InitializationService
         {
             if (slot > squadSize)
             {
-                PlayerService.ClearSlot(gameState.Squad, slot);
+                gameState.Squad[slot] = null;
                 continue;
             }
 

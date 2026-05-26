@@ -118,7 +118,7 @@ public static class RandomEventService
         gameState.Finances.BankBalance  += (int)offeredFee;
         gameState.Finances.WeeklyProfit += offeredFee;
 
-        PlayerService.ClearSlot(gameState.Squad, playerSlot);
+        gameState.Squad[playerSlot] = null;
     }
 
     /// <summary>
@@ -143,7 +143,7 @@ public static class RandomEventService
             // Line 2554: GOSUB 2566 (clear transfer market entries), AI+EV, GOSUB L200
             gameState.Finances.BankBalance  += (int)requestedFee;
             gameState.Finances.WeeklyProfit += requestedFee;
-            PlayerService.ClearSlot(gameState.Squad, playerSlot);
+            gameState.Squad[playerSlot] = null;
         }
         else
         {
@@ -244,7 +244,7 @@ public static class RandomEventService
 
     private static void PromoteReserveToFirstTeam(Player?[] squad, int vacatedSlot)
     {
-        PlayerService.ClearSlot(squad, vacatedSlot);
+        squad[vacatedSlot] = null;
 
         // Find a reserve to fill the gap (slots 13–20)
         for (int reserveSlot = 13; reserveSlot <= 20; reserveSlot++)
@@ -252,7 +252,7 @@ public static class RandomEventService
             var reserve = squad[reserveSlot];
             if (reserve != null && reserve.Position != PlayerPosition.None)
             {
-                PlayerService.SwapPlayers(squad, vacatedSlot, reserveSlot);
+                (squad[vacatedSlot], squad[reserveSlot]) = (squad[reserveSlot], squad[vacatedSlot]);
                 return;
             }
         }

@@ -142,7 +142,7 @@ public static class TransferService
     /// the record signing fee if applicable.
     ///
     /// Caller is responsible for physically moving the player into the correct
-    /// squad slot via <see cref="PlayerService.SwapPlayers"/>.
+    /// squad slot by swapping the relevant <see cref="TheManager.Models.GameState.Squad"/> entries.
     /// </summary>
     public static void CommitDeal(
         Player   player,
