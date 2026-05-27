@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace TheManager.Models;
 
-namespace TheManager.Models
+/// <summary>Domain-wide constants shared across all layers.</summary>
+public static class Constants
 {
-    public class Constants
-    {
-        public static int WeeksInSeason = 38;
-    }
+    /// <summary>Number of league fixtures per season. Corresponds to cJ=38 in FOOT.BAS.</summary>
+    public const int WeeksInSeason = 38;
 }

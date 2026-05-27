@@ -207,6 +207,26 @@ public static class LeagueService
         return 10;
     }
 
+    // ── League table initialisation ───────────────────────────────────────────
+
+    /// <summary>
+    /// Creates a fresh league table for the player's current division and
+    /// populates it with the 20 team names from <see cref="GameState.AllTeamNames"/>.
+    ///
+    /// Called at new-game setup and at the start of each new season.
+    /// Extracted from GameService.InitLeagueTable().
+    /// </summary>
+    public static void InitialiseTable(GameState gameState)
+    {
+        int divStart = (int)gameState.Club.Division * 20 - 19;
+        gameState.CurrentLeague = new LeagueTable { Division = gameState.Club.Division };
+        for (int i = 0; i < 20; i++)
+            gameState.CurrentLeague.Entries.Add(new LeagueEntry
+            {
+                TeamName = gameState.AllTeamNames[divStart + i]
+            });
+    }
+
     // ── Weekly result string (line 3070) ─────────────────────────────────────
 
     /// <summary>

@@ -6,14 +6,18 @@ namespace TheManager.ConsoleApp.Screens;
 
 internal static class SquadScreen
 {
+    private const int TargetWidth  = 82;
+    private const int TargetHeight = 36;
+
     public static void Show(GameState state)
     {
+        ResizeConsole();
         string? error = null;
 
         while (true)
         {
             Ui.Header($"SQUAD  ·  {state.Club.Name.Trim()}");
-            DrawTable(state);
+            DrawLayout(state);
 
             AnsiConsole.WriteLine();
             if (error is not null)
@@ -48,7 +52,23 @@ internal static class SquadScreen
         return true;
     }
 
-    private static void DrawTable(GameState state)
+    private static void DrawLayout(GameState state)
+    {
+        var squadTable   = BuildSquadTable(state.Squad);
+        var ratingsTable = BuildRatingsTable(state.Squad);
+
+        // Borderless wrapper places ratings to the right of the squad list.
+        var wrapper = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("squad").Padding(0, 0, 1, 0))
+            .AddColumn(new TableColumn("ratings").Padding(0, 0, 0, 0));
+
+        wrapper.AddRow(squadTable, ratingsTable);
+        AnsiConsole.Write(wrapper);
+    }
+
+    private static Table BuildSquadTable(Player?[] squad)
     {
         var table = new Table()
             .Border(TableBorder.Rounded)
@@ -60,33 +80,28 @@ internal static class SquadScreen
             .AddColumn(new TableColumn("[dim]Temper[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Games[/]").RightAligned());
 
-        AddSection(table, "FIRST TEAM", 1,  11, state.Squad, firstTeam: true);
-        AddSection(table, "SUBSTITUTE", 12, 12, state.Squad, firstTeam: false);
-        AddSection(table, "RESERVES",   13, 20, state.Squad, firstTeam: false);
-
-        AnsiConsole.Write(table);
-
-        DrawRatings(state.Squad);
+        AddSection(table, "FIRST TEAM", 1,  11, squad);
+        AddSection(table, "SUBSTITUTE", 12, 12, squad);
+        AddSection(table, "RESERVES",   13, 20, squad);
+        return table;
     }
 
-    private static void DrawRatings(Player?[] squad)
+    private static Table BuildRatingsTable(Player?[] squad)
     {
         var r = PlayerService.CalculateTeamRatings(squad);
 
-        var ratingsTable = new Table()
+        var table = new Table()
             .Border(TableBorder.Rounded)
-            .AddColumn(new TableColumn("[dim]GK[/]").Centered())
-            .AddColumn(new TableColumn("[dim]DEF[/]").Centered())
-            .AddColumn(new TableColumn("[dim]MID[/]").Centered())
-            .AddColumn(new TableColumn("[dim]ATK[/]").Centered());
+            .HideHeaders()
+            .AddColumn(new TableColumn("label"))
+            .AddColumn(new TableColumn("value").RightAligned());
 
-        ratingsTable.AddRow(
-            RatingCell(r.GoalkeeperRating),
-            RatingCell(r.DefenceRating),
-            RatingCell(r.MidRating),
-            RatingCell(r.AttackRating));
+        table.AddRow("[dim]GK[/]",  RatingCell(r.GoalkeeperRating));
+        table.AddRow("[dim]DEF[/]", RatingCell(r.DefenceRating));
+        table.AddRow("[dim]MID[/]", RatingCell(r.MidRating));
+        table.AddRow("[dim]ATK[/]", RatingCell(r.AttackRating));
 
-        AnsiConsole.Write(ratingsTable);
+        return table;
     }
 
     private static string RatingCell(int rating) => rating switch
@@ -97,15 +112,22 @@ internal static class SquadScreen
         _    => $"[red]{rating}[/]"
     };
 
-    private static void AddSection(Table table, string title, int from, int to, Player?[] squad, bool firstTeam)
+    private static void AddSection(Table table, string title, int from, int to, Player?[] squad)
     {
-        table.AddRow(new Markup(""), new Markup($"[bold dim] {title}[/]"), new Markup(""), new Markup(""), new Markup(""), new Markup(""), new Markup(""));
+        // Section header goes in the Name column to keep the Pos column narrow.
+        table.AddRow(
+            new Markup(""),
+            new Markup(""),
+            new Markup($"[bold dim] {title}[/]"),
+            new Markup(""), new Markup(""), new Markup(""), new Markup(""));
 
         for (int slot = from; slot <= to; slot++)
         {
-            var player  = squad[slot];
-            string pos  = firstTeam ? Ui.PositionLabel(slot) : Ui.PlayerPositionLabel(player);
-            string name = player is null ? "[dim]—[/]" : player.IsStar ? $"[yellow]{player.Name}[/]" : player.Name;
+            var    player = squad[slot];
+            string pos    = Ui.PlayerPositionLabel(player);
+            string name   = player is null ? "[dim]—[/]"
+                          : player.IsStar  ? $"[yellow]{player.Name}[/]"
+                          : player.Name;
 
             table.AddRow(
                 $"[dim]{slot}[/]",
@@ -116,5 +138,20 @@ internal static class SquadScreen
                 player?.Temper.ToString()        ?? "[dim]—[/]",
                 player?.GamesPlayed.ToString()   ?? "[dim]—[/]");
         }
+    }
+
+    private static void ResizeConsole()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            // Buffer must be at least as large as the window on Windows.
+            if (Console.BufferWidth  < TargetWidth)  Console.BufferWidth  = TargetWidth;
+            if (Console.BufferHeight < TargetHeight) Console.BufferHeight = TargetHeight;
+            Console.SetWindowSize(
+                Math.Min(TargetWidth,  Console.LargestWindowWidth),
+                Math.Min(TargetHeight, Console.LargestWindowHeight));
+        }
+        catch { /* Ignore terminals that don't support resize */ }
     }
 }
