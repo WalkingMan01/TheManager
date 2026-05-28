@@ -16,7 +16,7 @@ public class GameService
 {
     private GameState    _gameState;
     private readonly Random       _random;
-    private readonly MatchEngine  _engine;
+    private readonly MatchEngineService  _engine;
 
     // Sole cross-call state: did we lose the previous match?
     // Read at the start of PlayMatch, written at the end.
@@ -34,7 +34,7 @@ public class GameService
     {
         _gameState = new GameState();
         _random    = new Random();
-        _engine    = new MatchEngine();
+        _engine    = new MatchEngineService();
     }
 
     // ── Game startup ──────────────────────────────────────────────────────────
@@ -87,16 +87,16 @@ public class GameService
 
         foreach (var ev in sim.GoalEvents.OrderBy(g => g.Minute))
         {
-            if (ev.Scorer == 1)
+            if (ev.IsOurGoal)
             {
                 ourScore++;
-                string? scorer = MatchEngine.RecordOurGoal(_gameState.Squad, _random);
+                string? scorer = _engine.RecordOurGoal(_gameState.Squad);
                 matchGoals.Add(new MatchGoal { Minute = ev.Minute, IsOurGoal = true, Scorer = scorer });
             }
             else
             {
                 theirScore++;
-                MatchEngine.RecordOpponentGoal(_gameState.Squad);
+                _engine.RecordOpponentGoal(_gameState.Squad);
                 matchGoals.Add(new MatchGoal { Minute = ev.Minute, IsOurGoal = false });
             }
         }
@@ -109,8 +109,10 @@ public class GameService
         // ── Post-match updates ────────────────────────────────────────────────
         PlayerService.ApplyPostMatchSkillChanges(_gameState.Squad, weWon, weLost, cleanSheet);
 
-        _gameState.Club.TeamMorale += weWon ? 5 : weDrew ? 1 : -7;
-        _gameState.Club.TeamMorale  = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
+        // BASIC 3305: win → me += INT(me/2), loss → me -= INT(me/2), draw → unchanged
+        if      (weWon)  _gameState.Club.TeamMorale += _gameState.Club.TeamMorale / 2;
+        else if (weLost) _gameState.Club.TeamMorale -= _gameState.Club.TeamMorale / 2;
+        _gameState.Club.TeamMorale = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
 
         // ── League recording ──────────────────────────────────────────────────
         List<OtherFixtureResult> otherFixtures = [];

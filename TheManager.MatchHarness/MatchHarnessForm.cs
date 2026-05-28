@@ -226,7 +226,7 @@ internal sealed class MatchHarnessForm : Form
 
     private void OnSimulateSingle(object? sender, EventArgs e)
     {
-        var engine = new MatchEngine(_rng);
+        var engine = new MatchEngineService(_rng);
         var input  = BuildInput();
         var sim    = engine.SetupMatch(input);
 
@@ -270,7 +270,7 @@ internal sealed class MatchHarnessForm : Form
                 incidentShown = true;
             }
 
-            if (g.Scorer == 1)
+            if (g.IsOurGoal)
             {
                 homeScore++;
                 AppendLine($"  {g.Minute,2}'  GOAL  ► Home  {homeScore}–{awayScore}", Color.LightGreen);
@@ -298,11 +298,11 @@ internal sealed class MatchHarnessForm : Form
                    $"[{result}]", resultCol);
     }
 
-    private void ShowIncident(MatchEngine engine, MatchSetupInput input, int minute, int physioSkill)
+    private void ShowIncident(MatchEngineService engine, MatchSetupInput input, int minute, int physioSkill)
     {
         var squad = BuildDummySquad();
         var inc   = engine.ResolveIncident(
-            squad, incidentBeforeMinute81: minute < 81, hasSubstituted: false, physioSkillPercent: physioSkill);
+            squad, incidentBeforeMinute81: minute < 81, physioSkillPercent: physioSkill);
 
         if (inc == null) return;
 
@@ -322,7 +322,7 @@ internal sealed class MatchHarnessForm : Form
 
         for (int i = 0; i < count; i++)
         {
-            var engine = new MatchEngine();
+            var engine = new MatchEngineService();
             var sim    = engine.SetupMatch(BuildInput());
 
             if      (sim.OurGoalCount > sim.OpponentGoalCount) homeWins++;

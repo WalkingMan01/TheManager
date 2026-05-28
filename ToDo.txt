@@ -1,9 +1,9 @@
 
-Add Results to fixtures list
+
 Squad players deplete
 Opponents are too good
-Other teams need to play as well
-Calculate League table
+
+
 Check WeeklyTick
 
 Check StartNewGame
@@ -18,4 +18,10 @@ Investigate playing more than one fixture, how does season move on after playing
 Initial fixture is wrong
 Display fixtures on Fixture part of form
 CheckMatch not working - away match shows teams back to front
+Add Results to fixtures list
+Other teams need to play as well
+Calculate League table
 
+
+Reviewed comparing BASIC and as standalone
+MatchEngineSErvice 

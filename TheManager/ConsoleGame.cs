@@ -9,7 +9,7 @@ internal sealed class ConsoleGame
 {
     private GameState _state = new();
     private readonly Random _rng = new();
-    private readonly MatchEngine _engine;
+    private readonly MatchEngineService _engine;
 
     // Per-match state used by the weekly tick
     private bool _lostLastMatch;
@@ -18,7 +18,7 @@ internal sealed class ConsoleGame
     private bool _lastMatchWasHome;
     private int  _lastOpponentLeaguePos = 10;
 
-    public ConsoleGame() => _engine = new MatchEngine(_rng);
+    public ConsoleGame() => _engine = new MatchEngineService(_rng);
 
     // ── Entry point ───────────────────────────────────────────────────────────
 
@@ -240,10 +240,10 @@ internal sealed class ConsoleGame
             while (eventIdx < goals.Count && goals[eventIdx].Minute <= min)
             {
                 var ev = goals[eventIdx++];
-                if (ev.Scorer == 1)
+                if (ev.IsOurGoal)
                 {
                     ourScore++;
-                    MatchEngine.RecordOurGoal(_state.Squad, _rng);
+                    _engine.RecordOurGoal(_state.Squad);
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine($" {min,2}' GOAL!  {_state.Club.Name.TrimEnd()}  {ourScore}–{theirScore}");
                     Console.ResetColor();
@@ -251,7 +251,7 @@ internal sealed class ConsoleGame
                 else
                 {
                     theirScore++;
-                    MatchEngine.RecordOpponentGoal(_state.Squad);
+                    _engine.RecordOpponentGoal(_state.Squad);
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($" {min,2}' GOAL!  {opponentName.TrimEnd()}  {ourScore}–{theirScore}");
                     Console.ResetColor();
@@ -262,7 +262,7 @@ internal sealed class ConsoleGame
             if (sim.IncidentMinute == min)
             {
                 var incident = _engine.ResolveIncident(
-                    _state.Squad, min < 81, false,
+                    _state.Squad, min < 81,
                     physioSkillPercent: _state.Physio?.SkillPercent ?? 0);
                 if (incident != null)
                 {

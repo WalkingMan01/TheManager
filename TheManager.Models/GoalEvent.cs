@@ -6,6 +6,6 @@ public class GoalEvent
     /// <summary>Minute the goal is scored. Corresponds to B(I) in FOOT.BAS.</summary>
     public int Minute  { get; set; }
 
-    /// <summary>1 = scored by us, 2 = scored by opponent. Corresponds to c(I).</summary>
-    public int Scorer  { get; set; }
+    /// <summary>True if scored by our team; false if by the opponent. Corresponds to c(I).</summary>
+    public bool IsOurGoal { get; set; }
 }
