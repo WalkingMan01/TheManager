@@ -91,6 +91,27 @@ internal static class PlayMatchScreen
         AnsiConsole.MarkupLine(
             $"  Bank balance: [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]   Morale: [yellow]{state.Club.TeamMorale}[/]");
 
+        if (result.ScoutFindings.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("  [bold dim]SCOUT NEWS[/]");
+            foreach (var f in result.ScoutFindings)
+            {
+                string pos = f.Player.Position switch
+                {
+                    PlayerPosition.Goalkeeper => "GK",
+                    PlayerPosition.Defender   => "DEF",
+                    PlayerPosition.Midfielder => "MID",
+                    PlayerPosition.Attacker   => "ATK",
+                    _                         => "—"
+                };
+                AnsiConsole.MarkupLine(
+                    $"  [dim]{Markup.Escape(f.ScoutName)}[/] found " +
+                    $"[bold]{Markup.Escape(f.Player.Name.Trim())}[/] " +
+                    $"({pos}, skill {f.Player.Skill:F1}) at {Markup.Escape(f.SourceClubName)}");
+            }
+        }
+
         Ui.Pause();
     }
 

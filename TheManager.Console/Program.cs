@@ -46,6 +46,18 @@ while (running)
             FixturesScreen.Show(gameService.State);
             break;
 
+        case WeekAction.Employees:
+            EmployeesScreen.Show(gameService.State, gameService.Random);
+            break;
+
+        case WeekAction.ScoutReports:
+            ScoutReportsScreen.Show(gameService.State, gameService.Random);
+            break;
+
+        case WeekAction.TransferMarket:
+            TransferMarketScreen.Show(gameService.State, gameService.Random);
+            break;
+
         case WeekAction.Quit:
             running = false;
             break;

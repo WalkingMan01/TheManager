@@ -56,8 +56,10 @@ public static class WeeklyTickService
         var crisis     = FinancialCrisisService.Evaluate(gameState, rng);
         var events     = RandomEventService.EvaluateWeeklyEvents(gameState, rng);
         string? resign = StaffService.CheckRandomResignation(gameState, rng);
+        var scoutFindings = ScoutReportService.RunWeeklyReports(gameState, rng);
+        MarketService.GenerateIncomingInterest(gameState, rng);
 
-        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney);
+        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney, scoutFindings);
     }
 
     // ── Youth coaching (BASIC lines 5408–5411) ────────────────────────────────
@@ -106,9 +108,10 @@ public static class WeeklyTickService
 
 /// <summary>Summary of everything that happened during the weekly tick.</summary>
 public record WeeklyTickResult(
-    WeeklyReport      FinanceReport,
-    CrisisResult      Crisis,
-    List<RandomEvent> Events,
-    string?           Resignation,
-    double            Attendance,
-    double            GateMoney);
+    WeeklyReport       FinanceReport,
+    CrisisResult       Crisis,
+    List<RandomEvent>  Events,
+    string?            Resignation,
+    double             Attendance,
+    double             GateMoney,
+    List<ScoutFinding> ScoutFindings);

@@ -147,7 +147,7 @@ public class GameService
         _lostLastMatch = weLost;
 
         FixtureSchedulerService.AdvanceWeek(_gameState);
-        WeeklyTickService.Process(_gameState, ctx, _random);
+        var tick = WeeklyTickService.Process(_gameState, ctx, _random);
 
         return new MatchResult
         {
@@ -158,7 +158,8 @@ public class GameService
             TheirScore    = theirScore,
             MatchLength   = sim.MatchLength,
             Goals         = matchGoals,
-            OtherFixtures = otherFixtures
+            OtherFixtures = otherFixtures,
+            ScoutFindings = tick.ScoutFindings
         };
     }
 
@@ -181,6 +182,9 @@ public class GameService
         // the rounds reached before SeasonService.ResetMatchState clears them.
         _gameState.Club.LeagueCupRound = CupRound.NotEntered;
         _gameState.Club.FACupRound     = CupRound.NotEntered;
+
+        ScoutReportService.ClearScoutMarket(_gameState);
+        _gameState.TransferMarket.PlayersBeingSought.Clear();
 
         _gameState.MatchesRemainingThisSeason = 38;
 

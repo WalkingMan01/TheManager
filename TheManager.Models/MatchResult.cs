@@ -20,4 +20,7 @@ public class MatchResult
 
     /// <summary>Other league fixtures played in the same week (empty for cup matches).</summary>
     public List<OtherFixtureResult> OtherFixtures { get; set; } = new();
+
+    /// <summary>Players discovered by scouts during this week's report pass.</summary>
+    public List<ScoutFinding> ScoutFindings { get; set; } = new();
 }

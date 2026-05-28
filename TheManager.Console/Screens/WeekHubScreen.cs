@@ -4,7 +4,7 @@ using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager.ConsoleApp.Screens;
 
-internal enum WeekAction { CheckMatch, PlayMatch, LeagueTable, Squad, Fixtures, Quit }
+internal enum WeekAction { CheckMatch, PlayMatch, LeagueTable, Squad, Fixtures, Employees, ScoutReports, TransferMarket, Quit }
 
 internal static class WeekHubScreen
 {
@@ -33,6 +33,9 @@ internal static class WeekHubScreen
         choices.Add("League Table");
         choices.Add("Squad");
         choices.Add("Fixtures");
+        choices.Add("Employees");
+        choices.Add("Scout Reports");
+        choices.Add("Transfer Market");
         choices.Add("Quit");
 
         var choice = AnsiConsole.Prompt(
@@ -48,6 +51,9 @@ internal static class WeekHubScreen
             "League Table"           => WeekAction.LeagueTable,
             "Squad"                  => WeekAction.Squad,
             "Fixtures"               => WeekAction.Fixtures,
+            "Employees"              => WeekAction.Employees,
+            "Scout Reports"          => WeekAction.ScoutReports,
+            "Transfer Market"        => WeekAction.TransferMarket,
             _                        => WeekAction.Quit
         };
     }

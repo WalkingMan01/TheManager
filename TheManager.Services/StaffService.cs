@@ -117,6 +117,68 @@ public static class StaffService
         return true;
     }
 
+    // ── Youth promotion (BASIC lines 3998–4021) ──────────────────────────────
+
+    /// <summary>
+    /// Promotes a youth player into the first available reserve squad slot (13–20),
+    /// converting their skill percentage to a player skill rating.
+    ///
+    /// BASIC lines 3998–4021:
+    ///   Eligibility gate:  Y(2,HC+5) &lt; 50 → refused (line 3998).
+    ///   Free-slot search:  T(I)=0 for I=13..20 (lines 3999–4001).
+    ///   Skill conversion:  H(I) = INT(Y(2,HC+5)/30)           (line 4005)
+    ///                           + INT(RND*3)/10  (0.0–0.2)    (line 4006)
+    ///                           + (AP &lt; 3) ? (3−AP) : 0      (line 4007, division bonus)
+    ///                      clamped to minimum 1.1              (line 4008).
+    ///   Youth slot cleared: name and all Y() values zeroed     (lines 4014–4018).
+    ///
+    /// Returns the new <see cref="Player"/> and the squad slot it was placed in,
+    /// or null if the youth player is ineligible or no free reserve slot exists.
+    /// </summary>
+    public static (Player player, int slot)? PromoteYouthPlayer(
+        GameState gameState, int youthIndex, Random rng)
+    {
+        if (youthIndex < 0 || youthIndex >= gameState.YouthTeam.Count) return null;
+
+        var youth = gameState.YouthTeam[youthIndex];
+        if (!youth.IsEligibleForPromotion) return null;
+
+        // Find first empty reserve slot (13–20)
+        int freeSlot = -1;
+        for (int i = 13; i <= 20; i++)
+            if (gameState.Squad[i] is null) { freeSlot = i; break; }
+        if (freeSlot < 0) return null;
+
+        // Skill conversion: INT(skillPercent/30) + 0.0|0.1|0.2 + division bonus
+        int    divNum       = (int)gameState.Club.Division;
+        int    divBonus     = divNum < 3 ? 3 - divNum : 0;   // +2 Div1, +1 Div2
+        double skill        = (int)(youth.SkillPercent / 30.0)
+                            + rng.Next(3) / 10.0
+                            + divBonus;
+        skill = Math.Max(1.1, skill);
+
+        var player = new Player
+        {
+            Name        = youth.Name,
+            Position    = youth.Position,
+            Skill       = skill,
+            Age         = youth.Age,
+            Temper      = youth.Temper,
+            GamesPlayed = 0,
+            SeasonGoals = 0,
+            Appearances = 0
+        };
+        PlayerService.RecalculateStatus(player);
+
+        gameState.Squad[freeSlot] = player;
+
+        // Clear youth slot
+        gameState.YouthTeam.RemoveAt(youthIndex);
+        gameState.Club.YouthPlayerCount = Math.Max(0, gameState.Club.YouthPlayerCount - 1);
+
+        return (player, freeSlot);
+    }
+
     // ── Random resignation (subroutine 4153–4158) ────────────────────────────
 
     /// <summary>
@@ -194,15 +256,19 @@ public static class StaffService
     ///   salary   = 50 + (100 + RND(0–99))
     ///   skill    = 1 + RND(0–98)
     ///   position = 1 + RND(0–3)  (looking for)
-    ///   form     = 16 + RND(0–2) (target form rating, used as age start in BASIC)
+    ///   form     = 4 + RND(0–4)  (target skill tier 4–8 on the 1–9 player-skill scale)
+    ///
+    /// Note: the BASIC stored 16 + RND(0–2) here, which was the youth-player age-start
+    /// value (16–18), not a skill-scale number. ScoutReportService quality-gates on
+    /// LookingForForm &lt;= divisionBonus (max 9), so 16–18 caused scouts to never find
+    /// anyone. The correct range is 4–8 to match the 1–9 player-skill scale.
     /// </summary>
     public static Scout GenerateScout(Random rng) => new()
     {
-        Name                  = NameGenerationService.GenerateName(rng),
-        WeeklySalary          = 50 + 100 + rng.Next(100),
-        SkillPercent          = 1  + rng.Next(99),
-        LookingForPosition    = (PlayerPosition)(1 + rng.Next(4)),
-        LookingForForm        = 16 + rng.Next(3)
+        Name         = NameGenerationService.GenerateName(rng),
+        WeeklySalary = 50 + 100 + rng.Next(100),
+        SkillPercent = 1  + rng.Next(99)
+        // LookingForPosition and LookingForForm are set by the player after hiring
     };
 
     /// <summary>
