@@ -15,7 +15,7 @@ internal static class EmployeesScreen
             AnsiConsole.WriteLine();
             AnsiConsole.MarkupLine(
                 $"  [dim]Weekly staff wage bill:[/]  " +
-                $"[cyan]{Ui.FormatMoney(StaffService.TotalStaffWageBill(state))}[/]");
+                $"[cyan]{Ui.FormatMoney(StaffService.TotalStaffWageBill(state.Coach, state.Physio, state.Scouts, state.YouthTeam))}[/]");
             AnsiConsole.WriteLine();
 
             var choices = BuildMenuChoices(state);
@@ -130,27 +130,27 @@ internal static class EmployeesScreen
         {
             case "Hire coach":
             {
-                var c = StaffService.HireCoach(state, rng);
-                if (c != null) ShowHired("coach", c.Name, c.SkillPercent, c.WeeklySalary);
+                var c = StaffService.HireCoach(state.Club, rng);
+                if (c != null) { state.Coach = c; ShowHired("coach", c.Name, c.SkillPercent, c.WeeklySalary); }
                 break;
             }
             case "Sack coach":
-                if (ConfirmSack(state.Coach!.Name)) StaffService.SackCoach(state);
+                if (ConfirmSack(state.Coach!.Name)) { StaffService.SackCoach(state.Club); state.Coach = null; }
                 break;
 
             case "Hire physio":
             {
-                var p = StaffService.HirePhysio(state, rng);
-                if (p != null) ShowHired("physio", p.Name, p.SkillPercent, p.WeeklySalary);
+                var p = StaffService.HirePhysio(state.Club, rng);
+                if (p != null) { state.Physio = p; ShowHired("physio", p.Name, p.SkillPercent, p.WeeklySalary); }
                 break;
             }
             case "Sack physio":
-                if (ConfirmSack(state.Physio!.Name)) StaffService.SackPhysio(state);
+                if (ConfirmSack(state.Physio!.Name)) { StaffService.SackPhysio(state.Club); state.Physio = null; }
                 break;
 
             case "Hire scout":
             {
-                var s = StaffService.HireScout(state, rng);
+                var s = StaffService.HireScout(state.Club, state.Scouts, rng);
                 if (s != null)
                     ShowHired("scout — set criteria in Scout Reports",
                         s.Name, s.SkillPercent, s.WeeklySalary);
@@ -162,7 +162,7 @@ internal static class EmployeesScreen
 
             case "Sign youth player":
             {
-                var y = StaffService.HireYouthPlayer(state, rng);
+                var y = StaffService.HireYouthPlayer(state.Club, state.YouthTeam, rng);
                 if (y is not null)
                     ShowHired(
                         $"youth {PositionAbbr(y.Position)}, age {y.Age}, pot {y.PotentialSkillPercent}%",
@@ -202,7 +202,7 @@ internal static class EmployeesScreen
         if (pick == "Cancel") return;
         int idx = int.Parse(pick.Split('.')[0]) - 1;
         if (ConfirmSack(state.Scouts[idx].Name))
-            StaffService.SackScout(state, idx);
+            StaffService.SackScout(state.Club, state.Scouts, idx);
     }
 
     private static void ReleaseYouthPlayer(GameState state)
@@ -224,7 +224,7 @@ internal static class EmployeesScreen
                 new SelectionPrompt<string>()
                     .Title($"[yellow]Release {Markup.Escape(state.YouthTeam[idx].Name.Trim())}?[/]")
                     .AddChoices("Yes", "No")) == "Yes")
-            StaffService.SackYouthPlayer(state, idx);
+            StaffService.SackYouthPlayer(state.Club, state.YouthTeam, idx);
     }
 
     private static void PromoteYouthPlayer(GameState state, Random rng)
@@ -252,7 +252,7 @@ internal static class EmployeesScreen
         if (pick == "Cancel") return;
 
         int youthIdx = int.Parse(pick.Split('.')[0]) - 1;
-        var result   = StaffService.PromoteYouthPlayer(state, youthIdx, rng);
+        var result   = StaffService.PromoteYouthPlayer(state.Squad, state.YouthTeam, state.Club, youthIdx, rng);
 
         AnsiConsole.WriteLine();
         if (result is null)

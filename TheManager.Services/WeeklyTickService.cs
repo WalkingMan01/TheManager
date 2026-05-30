@@ -46,7 +46,7 @@ public static class WeeklyTickService
             .Any(i => (gameState.Squad[i]?.GamesPlayed ?? 0) > 400);
 
         int    divNum     = (int)gameState.Club.Division;
-        double staffWages = StaffService.TotalStaffWageBill(gameState);
+        double staffWages = StaffService.TotalStaffWageBill(gameState.Coach, gameState.Physio, gameState.Scouts, gameState.YouthTeam);
 
         var finInput = new WeeklyReportInput
         {
@@ -63,13 +63,22 @@ public static class WeeklyTickService
         };
 
         var report     = FinanceService.CalculateWeeklyReport(finInput, gameState.Finances, rng);
-        var crisis     = FinancialCrisisService.Evaluate(gameState, rng);
-        var events     = RandomEventService.EvaluateWeeklyEvents(gameState, rng);
-        string? resign = StaffService.CheckRandomResignation(gameState, rng);
-        var scoutFindings = ScoutReportService.RunWeeklyReports(gameState, rng);
-        MarketService.GenerateIncomingInterest(gameState, rng);
+        var crisis     = FinancialCrisisService.Evaluate(
+            gameState.Finances, gameState.Club, gameState.Squad,
+            gameState.FixturesPlayed, gameState.CurrentLeague.WeeklyResults, rng);
+        var events     = RandomEventService.EvaluateWeeklyEvents(gameState.Squad, gameState.Club.Name, gameState.AllTeamNames, rng);
+        var resignation = StaffService.CheckRandomResignation(gameState.Club, gameState.Coach, gameState.Physio, gameState.Scouts, rng);
+        if (resignation.Type == ResignationType.Coach)  gameState.Coach  = null;
+        if (resignation.Type == ResignationType.Physio) gameState.Physio = null;
+        string? resign = resignation.ResignerName;
+        var currentScoutSlots = new Player?[] { gameState.Squad[21], gameState.Squad[22], gameState.Squad[23] };
+        var scoutResult       = ScoutReportService.RunWeeklyReports(gameState.Scouts, currentScoutSlots, gameState.AllTeamNames, rng);
+        foreach (var (slot, player) in scoutResult.SquadSlotUpdates)
+            gameState.Squad[slot] = player;
+        gameState.TransferMarket.PlayersBeingSought =
+            MarketService.GenerateIncomingInterest(gameState.Squad, gameState.Club.Division, gameState.Club.Name, gameState.AllTeamNames, rng);
 
-        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney, scoutFindings);
+        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney, scoutResult.Findings);
     }
 
     // ── Youth coaching (BASIC lines 5408–5411) ────────────────────────────────

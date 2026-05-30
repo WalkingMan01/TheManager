@@ -20,25 +20,30 @@ public static class ScoutReportService
     ///   Success probability scales with scout skill: 10% (skill 1) to 50% (skill 99).
     ///   On success: generate a player of the target skill level in squad slot 21/22/23.
     /// </summary>
-    public static List<ScoutFinding> RunWeeklyReports(GameState gameState, Random rng)
+    public static ScoutRunResult RunWeeklyReports(
+        IReadOnlyList<Scout>   scouts,
+        IReadOnlyList<Player?> currentScoutSlots,
+        string[]               allTeamNames,
+        Random                 rng)
     {
-        var findings = new List<ScoutFinding>();
+        var findings    = new List<ScoutFinding>();
+        var slotUpdates = new Dictionary<int, Player?>();
 
         for (int scoutSquadSlot = 21; scoutSquadSlot <= 23; scoutSquadSlot++)
         {
             int scoutListIdx = scoutSquadSlot - 21;   // 0, 1, 2
 
-            if (scoutListIdx >= gameState.Scouts.Count) continue;
-            var scout = gameState.Scouts[scoutListIdx];
+            if (scoutListIdx >= scouts.Count) continue;
+            var scout = scouts[scoutListIdx];
 
             if (!scout.HasCriteria)
             {
-                gameState.Squad[scoutSquadSlot] = null;
+                slotUpdates[scoutSquadSlot] = null;
                 continue;
             }
 
             // Preserve a pending find until the player actions or dismisses it
-            if (gameState.Squad[scoutSquadSlot] is not null) continue;
+            if (currentScoutSlots[scoutListIdx] is not null) continue;
 
             // 1/9 chance of no find this week
             if (1 + rng.Next(9) == 1) continue;
@@ -50,8 +55,8 @@ public static class ScoutReportService
             // Pick a team from the division that matches the target skill tier
             int targetDiv = SkillTierToDivision(scout.LookingForForm);
             int teamIndex = (targetDiv - 1) * 20 + 1 + rng.Next(20);
-            if (teamIndex < 1 || teamIndex >= gameState.AllTeamNames.Length) continue;
-            string sourceClub = gameState.AllTeamNames[teamIndex];
+            if (teamIndex < 1 || teamIndex >= allTeamNames.Length) continue;
+            string sourceClub = allTeamNames[teamIndex];
             if (string.IsNullOrWhiteSpace(sourceClub)) continue;
 
             // Skill found is within ±1 of the target tier, with a 0.0–0.4 decimal fraction
@@ -70,7 +75,7 @@ public static class ScoutReportService
             };
             PlayerService.RecalculateStatus(discoveredPlayer);
 
-            gameState.Squad[scoutSquadSlot] = discoveredPlayer;
+            slotUpdates[scoutSquadSlot] = discoveredPlayer;
 
             findings.Add(new ScoutFinding
             {
@@ -83,19 +88,7 @@ public static class ScoutReportService
             });
         }
 
-        return findings;
-    }
-
-    // ── Clear all scout-market slots ─────────────────────────────────────────
-
-    /// <summary>
-    /// Clears the three scout-market slots (21–23).
-    /// Called at the start of a new season.
-    /// </summary>
-    public static void ClearScoutMarket(GameState gameState)
-    {
-        for (int slot = 21; slot <= 23; slot++)
-            gameState.Squad[slot] = null;
+        return new ScoutRunResult(findings, slotUpdates);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -109,3 +102,10 @@ public static class ScoutReportService
         _    => 4
     };
 }
+
+// ── Result types ──────────────────────────────────────────────────────────────
+
+/// <summary>Output of <see cref="ScoutReportService.RunWeeklyReports"/>.</summary>
+public record ScoutRunResult(
+    List<ScoutFinding>          Findings,
+    Dictionary<int, Player?>    SquadSlotUpdates);

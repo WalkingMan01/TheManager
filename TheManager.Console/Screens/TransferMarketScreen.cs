@@ -220,7 +220,8 @@ internal static class TransferMarketScreen
         if (response == "Accept")
         {
             int squadSlot = offer.SourceSquadSlot;
-            MarketService.SellPlayer(state, squadSlot, bid);
+            var newRecord = MarketService.SellPlayer(state.Squad, state.Finances, state.TransferMarket.PlayersBeingSought, squadSlot, bid);
+            if (newRecord is not null) state.RecordSaleName = newRecord;
 
             AnsiConsole.WriteLine();
             AnsiConsole.MarkupLine(

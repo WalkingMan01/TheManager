@@ -18,6 +18,8 @@ IncomingOfferService
 ContractService
 DirectorFundingService
 
+Check WrapUpSeason, bit of a god method
+
 
 Resolved (?)
 ------------

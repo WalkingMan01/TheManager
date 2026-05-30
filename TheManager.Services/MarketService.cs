@@ -42,37 +42,38 @@ public static class MarketService
     ///     RA = 1 + RND(0–2);  IF RA &lt; 3 → no interest this slot
     ///     Pick random listed player; pick rival club from nearby division.
     /// </summary>
-    public static void GenerateIncomingInterest(GameState gameState, Random rng)
+    public static List<TransferListing> GenerateIncomingInterest(
+        Player?[] squad,
+        Division  ourDivision,
+        string    ourClubName,
+        string[]  allTeamNames,
+        Random    rng)
     {
-        gameState.TransferMarket.PlayersBeingSought.Clear();
-
-        var listed = FindListedPlayers(gameState.Squad);
-        if (listed.Count == 0) return;
+        var interest = new List<TransferListing>(3);
+        var listed   = FindListedPlayers(squad);
+        if (listed.Count == 0) return interest;
 
         for (int slot = 24; slot <= 26; slot++)
         {
             // 1/3 chance of rival interest per slot
             if (1 + rng.Next(3) < 3) continue;
 
-            // Pick a random listed player
             var (squadSlot, player) = listed[rng.Next(listed.Count)];
 
             // Avoid duplicate entries for the same player
-            if (gameState.TransferMarket.PlayersBeingSought
-                    .Any(l => l.SourceSquadSlot == squadSlot)) continue;
+            if (interest.Any(l => l.SourceSquadSlot == squadSlot)) continue;
 
             // Pick a rival club from a nearby division
-            int ourDiv    = (int)gameState.Club.Division;
-            int targetDiv = Math.Clamp(ourDiv + rng.Next(3) - 1, 1, 4);
+            int targetDiv = Math.Clamp((int)ourDivision + rng.Next(3) - 1, 1, 4);
             int teamIndex = (targetDiv - 1) * 20 + 1 + rng.Next(20);
 
-            if (teamIndex < 1 || teamIndex >= gameState.AllTeamNames.Length) continue;
-            string clubName = gameState.AllTeamNames[teamIndex];
+            if (teamIndex < 1 || teamIndex >= allTeamNames.Length) continue;
+            string clubName = allTeamNames[teamIndex];
             if (string.IsNullOrWhiteSpace(clubName)) continue;
-            if (clubName.Trim() == gameState.Club.Name.Trim()) continue;
+            if (clubName.Trim() == ourClubName.Trim()) continue;
 
             int rivalDiv = Math.Clamp((teamIndex - 1) / 20 + 1, 1, 4);
-            gameState.TransferMarket.PlayersBeingSought.Add(new TransferListing
+            interest.Add(new TransferListing
             {
                 SquadSlot       = slot,
                 SourceSquadSlot = squadSlot,
@@ -82,6 +83,8 @@ public static class MarketService
                 OfferedBid      = GenerateRivalBid(player, rivalDiv, rng)
             });
         }
+
+        return interest;
     }
 
     // ── Execute a sale ────────────────────────────────────────────────────────
@@ -91,22 +94,30 @@ public static class MarketService
     /// adds the fee to the bank balance, updates the record sale if beaten,
     /// removes the player from the squad, and clears any market interest.
     /// </summary>
-    public static void SellPlayer(GameState gameState, int squadSlot, double fee)
+    /// <returns>The new record sale player name if the sale set a record; otherwise null.</returns>
+    public static string? SellPlayer(
+        Player?[]             squad,
+        Finances              finances,
+        List<TransferListing> playersBeingSought,
+        int                   squadSlot,
+        double                fee)
     {
-        var player = gameState.Squad[squadSlot];
-        if (player is null) return;
+        var player = squad[squadSlot];
+        if (player is null) return null;
 
-        gameState.Finances.BankBalance += fee;
+        finances.BankBalance += fee;
 
-        if (fee > gameState.Finances.RecordSaleFee)
+        string? newRecordSaleName = null;
+        if (fee > finances.RecordSaleFee)
         {
-            gameState.Finances.RecordSaleFee = fee;
-            gameState.RecordSaleName         = player.Name;
+            finances.RecordSaleFee = fee;
+            newRecordSaleName      = player.Name;
         }
 
-        gameState.Squad[squadSlot] = null;
-        gameState.TransferMarket.PlayersBeingSought
-            .RemoveAll(l => l.SourceSquadSlot == squadSlot);
+        squad[squadSlot] = null;
+        playersBeingSought.RemoveAll(l => l.SourceSquadSlot == squadSlot);
+
+        return newRecordSaleName;
     }
 
     // ── Generate a rival club's bid ───────────────────────────────────────────

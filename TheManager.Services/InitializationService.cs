@@ -257,7 +257,11 @@ public static class InitializationService
         gameState.PreviousClubs[0] = gameState.Club.Name;
 
         // Reset cup state, season history, financial ceilings (subroutine 5544)
-        SeasonService.ResetMatchState(gameState);
+        SeasonService.ResetMatchState(gameState.LeagueCup, gameState.FACup, gameState.European, newDivision);
+        gameState.CurrentWeek            = 1;
+        gameState.FixturesPlayed         = 0;
+        gameState.CurrentMatch           = null;
+        gameState.InEuropeanFriendlyTour = false;
         SeasonService.RecalculateDivisionFinancials(gameState.Finances, newDivision);
 
         gameState.Finances.SharePriceInPence = 2_000 - (int)newDivision * 400;

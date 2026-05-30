@@ -213,20 +213,20 @@ public static class SeasonService
     /// BASIC subroutine 22000 (line 4658):
     ///   Resets OJ, OK, CT, CR, MT, MS, CI, cJ, BK%, CV, cp, cq, gz, be, dt, etc.
     /// </summary>
-    public static void ResetMatchState(GameState gameState)
+    public static void ResetMatchState(
+        CupCompetition       leagueCup,
+        CupCompetition       faCup,
+        EuropeanCompetition? european,
+        Division             division)
     {
-        gameState.CurrentWeek                  = 1;
-        gameState.FixturesPlayed               = 0;
-        gameState.CurrentMatch                 = null;
-        gameState.InEuropeanFriendlyTour       = false;
+        int roundTracker       = 3 - ((int)division > 2 ? 0 : 1);
+        leagueCup.CurrentRound = CupRound.Round1;
+        leagueCup.RoundTracker = roundTracker;
+        faCup.CurrentRound     = CupRound.Round1;
+        faCup.RoundTracker     = roundTracker;
 
-        gameState.LeagueCup.CurrentRound       = CupRound.Round1;
-        gameState.LeagueCup.RoundTracker       = 3 - ((int)gameState.Club.Division > 2 ? 0 : 1);
-        gameState.FACup.CurrentRound           = CupRound.Round1;
-        gameState.FACup.RoundTracker           = gameState.LeagueCup.RoundTracker;
-
-        if (gameState.European != null)
-            gameState.European.RoundState      = 0;
+        if (european != null)
+            european.RoundState = 0;
     }
 
     /// <summary>
@@ -307,7 +307,11 @@ public static class SeasonService
         PlayerService.ApplyWeeklySkillDrift(gameState.Squad, rng);
 
         // 9. Reset match state for new season
-        ResetMatchState(gameState);
+        ResetMatchState(gameState.LeagueCup, gameState.FACup, gameState.European, newDivision);
+        gameState.CurrentWeek            = 1;
+        gameState.FixturesPlayed         = 0;
+        gameState.CurrentMatch           = null;
+        gameState.InEuropeanFriendlyTour = false;
         RecalculateDivisionFinancials(finances, newDivision);
 
         gameState.SeasonsPlayed++;

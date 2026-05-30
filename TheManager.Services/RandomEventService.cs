@@ -20,39 +20,34 @@ public static class RandomEventService
     /// Call after <see cref="FinanceService.CalculateWeeklyReport"/> has run.
     /// </summary>
     public static List<RandomEvent> EvaluateWeeklyEvents(
-        GameState gameState,
+        Player?[] squad,
+        string    clubName,
+        string[]  allTeamNames,
         Random    rng)
     {
         var firedEvents = new List<RandomEvent>();
 
         // ── International call-up / foreign transfer offer ─────────────────────
-        // Looks for a star player (J=105); RA<6 = international, RA=9 = foreign offer
-        int starEventRoll = 1 + rng.Next(35);
-        int starPlayerSlot = FindStarPlayerSlot(gameState.Squad);
+        int starEventRoll  = 1 + rng.Next(35);
+        int starPlayerSlot = FindStarPlayerSlot(squad);
 
         if (starPlayerSlot > 0)
         {
             if (starEventRoll < 6)
-            {
-                firedEvents.Add(BuildInternationalCallUpEvent(gameState, starPlayerSlot));
-            }
+                firedEvents.Add(BuildInternationalCallUpEvent(squad, starPlayerSlot));
             else if (starEventRoll == 9)
-            {
-                firedEvents.Add(BuildForeignTransferOfferEvent(gameState, starPlayerSlot, rng));
-            }
+                firedEvents.Add(BuildForeignTransferOfferEvent(squad, starPlayerSlot, rng));
         }
 
-        // ── Player retires announcement (line 2564–2565) ─────────────────────
-        // Players with ABS(G(I))>29 who are fit may announce retirement
-        var retirementAnnouncement = CheckRetirementAnnouncement(gameState, rng);
-        if (retirementAnnouncement != null) firedEvents.Add(retirementAnnouncement);
+        // ── Player retirement announcement (line 2564–2565) ──────────────────
+        var retirement = CheckRetirementAnnouncement(squad, rng);
+        if (retirement != null) firedEvents.Add(retirement);
 
         // ── Unhappy player requests transfer (lines 2549–2555) ───────────────
-        // RA=8 from the general random roll triggers this chain
         if (1 + rng.Next(35) == 8)
         {
-            var unhappyEvent = CheckUnhappyPlayerTransferRequest(gameState, rng);
-            if (unhappyEvent != null) firedEvents.Add(unhappyEvent);
+            var unhappy = CheckUnhappyPlayerTransferRequest(squad, clubName, allTeamNames, rng);
+            if (unhappy != null) firedEvents.Add(unhappy);
         }
 
         return firedEvents;
@@ -68,18 +63,17 @@ public static class RandomEventService
     /// BASIC lines 2540–2541.
     /// </summary>
     public static void ResolveInternationalCallUp(
-        GameState gameState,
+        Player?[] squad,
         int       playerSlot,
         bool      managerReleasesPlayer,
         Random    rng)
     {
-        var player = gameState.Squad[playerSlot];
+        var player = squad[playerSlot];
         if (player == null) return;
 
         if (managerReleasesPlayer)
         {
-            // Player released — clear slot and promote from reserves (lines 2540, 2966–2969)
-            PromoteReserveToFirstTeam(gameState.Squad, playerSlot);
+            PromoteReserveToFirstTeam(squad, playerSlot);
         }
         else
         {
@@ -97,28 +91,36 @@ public static class RandomEventService
     ///
     /// BASIC lines 2558–2560.
     /// </summary>
-    public static void ResolveForeignTransferOffer(
-        GameState gameState,
+    /// <returns>
+    /// The new record sale player name if the sale beat the existing record; otherwise null.
+    /// </returns>
+    public static string? ResolveForeignTransferOffer(
+        Player?[] squad,
+        Finances  finances,
         int       playerSlot,
         double    offeredFee,
         bool      managerAccepts)
     {
-        if (!managerAccepts) return;
+        if (!managerAccepts) return null;
 
-        var player = gameState.Squad[playerSlot];
-        if (player == null) return;
+        var player = squad[playerSlot];
+        if (player == null) return null;
+
+        string? newRecordSaleName = null;
 
         // Update record sale if this beats it (line 2560)
-        if (offeredFee >= gameState.Finances.RecordSaleFee)
+        if (offeredFee >= finances.RecordSaleFee)
         {
-            gameState.Finances.RecordSaleFee = offeredFee;
-            gameState.RecordSaleName         = player.Name.Trim();
+            finances.RecordSaleFee = offeredFee;
+            newRecordSaleName      = player.Name.Trim();
         }
 
-        gameState.Finances.BankBalance  += (int)offeredFee;
-        gameState.Finances.WeeklyProfit += offeredFee;
+        finances.BankBalance  += (int)offeredFee;
+        finances.WeeklyProfit += offeredFee;
 
-        gameState.Squad[playerSlot] = null;
+        squad[playerSlot] = null;
+
+        return newRecordSaleName;
     }
 
     /// <summary>
@@ -129,21 +131,21 @@ public static class RandomEventService
     /// BASIC lines 2553–2555.
     /// </summary>
     public static void ResolveTransferRequest(
-        GameState gameState,
+        Player?[] squad,
+        Finances  finances,
         int       playerSlot,
         double    requestedFee,
         bool      managerAccepts,
         Random    rng)
     {
-        var player = gameState.Squad[playerSlot];
+        var player = squad[playerSlot];
         if (player == null) return;
 
         if (managerAccepts)
         {
-            // Line 2554: GOSUB 2566 (clear transfer market entries), AI+EV, GOSUB L200
-            gameState.Finances.BankBalance  += (int)requestedFee;
-            gameState.Finances.WeeklyProfit += requestedFee;
-            gameState.Squad[playerSlot] = null;
+            finances.BankBalance  += (int)requestedFee;
+            finances.WeeklyProfit += requestedFee;
+            squad[playerSlot]      = null;
         }
         else
         {
@@ -164,21 +166,20 @@ public static class RandomEventService
         return 0;
     }
 
-    private static RandomEvent BuildInternationalCallUpEvent(GameState gameState, int playerSlot)
+    private static RandomEvent BuildInternationalCallUpEvent(Player?[] squad, int playerSlot)
     {
-        var player = gameState.Squad[playerSlot]!;
+        var player = squad[playerSlot]!;
         return new RandomEvent
         {
-            Type           = RandomEventType.InternationalCallUp,
-            PlayerName     = player.Name.Trim(),
-            PlayerSlot     = playerSlot,
+            Type       = RandomEventType.InternationalCallUp,
+            PlayerName = player.Name.Trim(),
+            PlayerSlot = playerSlot
         };
     }
 
-    private static RandomEvent BuildForeignTransferOfferEvent(
-        GameState gameState, int playerSlot, Random rng)
+    private static RandomEvent BuildForeignTransferOfferEvent(Player?[] squad, int playerSlot, Random rng)
     {
-        var    player   = gameState.Squad[playerSlot]!;
+        var    player   = squad[playerSlot]!;
         double offerFee = 1_500_000 + rng.Next(1_000_000);   // 1.5M–2.5M (line 2046)
 
         return new RandomEvent
@@ -191,22 +192,21 @@ public static class RandomEventService
         };
     }
 
-    private static RandomEvent? CheckRetirementAnnouncement(GameState gameState, Random rng)
+    private static RandomEvent? CheckRetirementAnnouncement(Player?[] squad, Random rng)
     {
         for (int slot = 1; slot <= 20; slot++)
         {
-            var player = gameState.Squad[slot];
-            if (player == null) continue;
-            if (player.DisplayAge <= 29) continue;
+            var player = squad[slot];
+            if (player == null || player.DisplayAge <= 29) continue;
 
             // line 2564: random check — not every over-29 player announces every week
             if (rng.Next(10) != 0) continue;
 
             return new RandomEvent
             {
-                Type       = RandomEventType.RetirementAnnouncement,
-                PlayerName = player.Name.Trim(),
-                PlayerSlot = slot,
+                Type        = RandomEventType.RetirementAnnouncement,
+                PlayerName  = player.Name.Trim(),
+                PlayerSlot  = slot,
                 Description = $"{player.Name.Trim()} announces retirement at end of season"
             };
         }
@@ -214,18 +214,18 @@ public static class RandomEventService
     }
 
     private static RandomEvent? CheckUnhappyPlayerTransferRequest(
-        GameState gameState, Random rng)
+        Player?[] squad, string clubName, string[] allTeamNames, Random rng)
     {
         // Scan from highest squad slot downward (line 2549: FOR I=20 TO 1 STEP -1)
         for (int slot = 20; slot >= 1; slot--)
         {
-            var player = gameState.Squad[slot];
+            var player = squad[slot];
             if (player == null || player.Position == PlayerPosition.None) continue;
 
             // Pick a random destination club (not our own) — line 2551
-            int destinationIndex = 1 + rng.Next(20);
-            string destinationName = gameState.AllTeamNames[destinationIndex];
-            if (destinationName.Trim() == gameState.Club.Name.Trim()) continue;
+            int    destinationIndex = 1 + rng.Next(20);
+            string destinationName  = allTeamNames[destinationIndex];
+            if (destinationName.Trim() == clubName.Trim()) continue;
 
             // Requested fee = INT(H(I)) * H(I) * 6000  (line 2552)
             double requestedFee = (int)player.Skill * player.Skill * 6_000;

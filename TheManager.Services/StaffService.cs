@@ -17,19 +17,18 @@ public static class StaffService
     /// Hires a newly generated coach. Returns null if a coach is already employed.
     /// BASIC line 4122: NL toggle + GOSUB 4144 (generate) or 4145 (sack).
     /// </summary>
-    public static Coach? HireCoach(GameState gameState, Random rng)
+    public static Coach? HireCoach(Club club, Random rng)
     {
-        if (gameState.Club.HasCoach) return null;
-        gameState.Coach         = GenerateCoach(rng);
-        gameState.Club.HasCoach = true;
-        return gameState.Coach;
+        if (club.HasCoach) return null;
+        var coach       = GenerateCoach(rng);
+        club.HasCoach   = true;
+        return coach;
     }
 
     /// <summary>Fires the current coach. BASIC line 4123: GOSUB 4145.</summary>
-    public static void SackCoach(GameState gameState)
+    public static void SackCoach(Club club)
     {
-        gameState.Coach         = null;
-        gameState.Club.HasCoach = false;
+        club.HasCoach = false;
     }
 
     // ── Physio ────────────────────────────────────────────────────────────────
@@ -38,19 +37,18 @@ public static class StaffService
     /// Hires a newly generated physio. Returns null if one is already employed.
     /// BASIC line 4125: NM toggle.
     /// </summary>
-    public static Physio? HirePhysio(GameState gameState, Random rng)
+    public static Physio? HirePhysio(Club club, Random rng)
     {
-        if (gameState.Club.HasPhysio) return null;
-        gameState.Physio         = GeneratePhysio(rng);
-        gameState.Club.HasPhysio = true;
-        return gameState.Physio;
+        if (club.HasPhysio) return null;
+        var physio      = GeneratePhysio(rng);
+        club.HasPhysio  = true;
+        return physio;
     }
 
     /// <summary>Fires the current physio.</summary>
-    public static void SackPhysio(GameState gameState)
+    public static void SackPhysio(Club club)
     {
-        gameState.Physio         = null;
-        gameState.Club.HasPhysio = false;
+        club.HasPhysio = false;
     }
 
     // ── Scouts ────────────────────────────────────────────────────────────────
@@ -59,12 +57,12 @@ public static class StaffService
     /// Hires a new scout (max 3). Returns null if already at capacity.
     /// BASIC lines 4126–4127: NN++ if NN &lt; 3.
     /// </summary>
-    public static Scout? HireScout(GameState gameState, Random rng)
+    public static Scout? HireScout(Club club, List<Scout> scouts, Random rng)
     {
-        if (gameState.Club.ScoutCount >= 3) return null;
+        if (club.ScoutCount >= 3) return null;
         var scout = GenerateScout(rng);
-        gameState.Scouts.Add(scout);
-        gameState.Club.ScoutCount++;
+        scouts.Add(scout);
+        club.ScoutCount++;
         return scout;
     }
 
@@ -72,11 +70,11 @@ public static class StaffService
     /// Fires the scout at <paramref name="index"/> (0-based).
     /// BASIC lines 4139–4149.
     /// </summary>
-    public static bool SackScout(GameState gameState, int index)
+    public static bool SackScout(Club club, List<Scout> scouts, int index)
     {
-        if (index < 0 || index >= gameState.Scouts.Count) return false;
-        gameState.Scouts.RemoveAt(index);
-        gameState.Club.ScoutCount = Math.Max(0, gameState.Club.ScoutCount - 1);
+        if (index < 0 || index >= scouts.Count) return false;
+        scouts.RemoveAt(index);
+        club.ScoutCount = Math.Max(0, club.ScoutCount - 1);
         return true;
     }
 
@@ -91,17 +89,17 @@ public static class StaffService
     ///   Generate player (GOSUB 4144 → 4159).
     ///   RA=1+RND*3; if RA=3 → player refuses; else accept.
     /// </summary>
-    public static YouthPlayer? HireYouthPlayer(GameState gameState, Random rng)
+    public static YouthPlayer? HireYouthPlayer(Club club, List<YouthPlayer> youthTeam, Random rng)
     {
-        if (gameState.Club.YouthPlayerCount >= 7) return null;
+        if (club.YouthPlayerCount >= 7) return null;
 
         var candidate = GenerateYouthPlayer(rng);
 
         // 1/3 chance the prospect declines (line 4138: RA=1+RND*3; if RA=3 → refuse)
         if (1 + rng.Next(3) == 3) return null;
 
-        gameState.YouthTeam.Add(candidate);
-        gameState.Club.YouthPlayerCount++;
+        youthTeam.Add(candidate);
+        club.YouthPlayerCount++;
         return candidate;
     }
 
@@ -109,11 +107,11 @@ public static class StaffService
     /// Releases the youth player at <paramref name="index"/> (0-based).
     /// BASIC lines 4131–4132.
     /// </summary>
-    public static bool SackYouthPlayer(GameState gameState, int index)
+    public static bool SackYouthPlayer(Club club, List<YouthPlayer> youthTeam, int index)
     {
-        if (index < 0 || index >= gameState.YouthTeam.Count) return false;
-        gameState.YouthTeam.RemoveAt(index);
-        gameState.Club.YouthPlayerCount = Math.Max(0, gameState.Club.YouthPlayerCount - 1);
+        if (index < 0 || index >= youthTeam.Count) return false;
+        youthTeam.RemoveAt(index);
+        club.YouthPlayerCount = Math.Max(0, club.YouthPlayerCount - 1);
         return true;
     }
 
@@ -136,25 +134,25 @@ public static class StaffService
     /// or null if the youth player is ineligible or no free reserve slot exists.
     /// </summary>
     public static (Player player, int slot)? PromoteYouthPlayer(
-        GameState gameState, int youthIndex, Random rng)
+        Player?[] squad, List<YouthPlayer> youthTeam, Club club, int youthIndex, Random rng)
     {
-        if (youthIndex < 0 || youthIndex >= gameState.YouthTeam.Count) return null;
+        if (youthIndex < 0 || youthIndex >= youthTeam.Count) return null;
 
-        var youth = gameState.YouthTeam[youthIndex];
+        var youth = youthTeam[youthIndex];
         if (!youth.IsEligibleForPromotion) return null;
 
         // Find first empty reserve slot (13–20)
         int freeSlot = -1;
         for (int i = 13; i <= 20; i++)
-            if (gameState.Squad[i] is null) { freeSlot = i; break; }
+            if (squad[i] is null) { freeSlot = i; break; }
         if (freeSlot < 0) return null;
 
         // Skill conversion: INT(skillPercent/30) + 0.0|0.1|0.2 + division bonus
-        int    divNum       = (int)gameState.Club.Division;
-        int    divBonus     = divNum < 3 ? 3 - divNum : 0;   // +2 Div1, +1 Div2
-        double skill        = (int)(youth.SkillPercent / 30.0)
-                            + rng.Next(3) / 10.0
-                            + divBonus;
+        int    divNum   = (int)club.Division;
+        int    divBonus = divNum < 3 ? 3 - divNum : 0;   // +2 Div1, +1 Div2
+        double skill    = (int)(youth.SkillPercent / 30.0)
+                        + rng.Next(3) / 10.0
+                        + divBonus;
         skill = Math.Max(1.1, skill);
 
         var player = new Player
@@ -170,11 +168,10 @@ public static class StaffService
         };
         PlayerService.RecalculateStatus(player);
 
-        gameState.Squad[freeSlot] = player;
+        squad[freeSlot] = player;
 
-        // Clear youth slot
-        gameState.YouthTeam.RemoveAt(youthIndex);
-        gameState.Club.YouthPlayerCount = Math.Max(0, gameState.Club.YouthPlayerCount - 1);
+        youthTeam.RemoveAt(youthIndex);
+        club.YouthPlayerCount = Math.Max(0, club.YouthPlayerCount - 1);
 
         return (player, freeSlot);
     }
@@ -193,33 +190,34 @@ public static class StaffService
     ///
     /// Returns a description of who resigned, or null if no event fired.
     /// </summary>
-    public static string? CheckRandomResignation(GameState gameState, Random rng)
+    public static ResignationResult CheckRandomResignation(
+        Club club, Coach? coach, Physio? physio, List<Scout> scouts, Random rng)
     {
         int resignationRoll = 1 + rng.Next(99);
-        if (resignationRoll != 8) return null;   // 1/99 chance each week
+        if (resignationRoll != 8) return ResignationResult.None;   // 1/99 chance each week
 
-        int staffSlot = 1 + rng.Next(5);   // picks from coach/physio/scout 1-3
+        int staffSlot = 1 + rng.Next(5);
 
         switch (staffSlot)
         {
-            case 1 when gameState.Club.HasCoach:
-                string coachName = gameState.Coach?.Name.Trim() ?? "Coach";
-                SackCoach(gameState);
-                return coachName;
+            case 1 when club.HasCoach:
+                string coachName = coach?.Name.Trim() ?? "Coach";
+                SackCoach(club);
+                return new ResignationResult(coachName, ResignationType.Coach);
 
-            case 2 when gameState.Club.HasPhysio:
-                string physioName = gameState.Physio?.Name.Trim() ?? "Physio";
-                SackPhysio(gameState);
-                return physioName;
+            case 2 when club.HasPhysio:
+                string physioName = physio?.Name.Trim() ?? "Physio";
+                SackPhysio(club);
+                return new ResignationResult(physioName, ResignationType.Physio);
 
-            case >= 3 and <= 5 when gameState.Club.ScoutCount > 0:
-                int scoutIndex = Math.Min(staffSlot - 3, gameState.Scouts.Count - 1);
-                string scoutName = gameState.Scouts[scoutIndex].Name.Trim();
-                SackScout(gameState, scoutIndex);
-                return scoutName;
+            case >= 3 and <= 5 when club.ScoutCount > 0:
+                int scoutIndex = Math.Min(staffSlot - 3, scouts.Count - 1);
+                string scoutName = scouts[scoutIndex].Name.Trim();
+                SackScout(club, scouts, scoutIndex);
+                return new ResignationResult(scoutName, ResignationType.Scout);
         }
 
-        return null;
+        return ResignationResult.None;
     }
 
     // ── Staff generation (subroutine 4159–4161) ───────────────────────────────
@@ -297,19 +295,31 @@ public static class StaffService
         };
     }
 
-    // ── Weekly wage total for all staff ──────────────────────────────────────
+    // ── Weekly wage total for all staff ─────────────────────────────────────
 
     /// <summary>
     /// Sums the weekly wage of all current staff members.
     /// Corresponds to the staff wage loop in subroutine 4808 (lines 3928–3937).
     /// </summary>
-    public static double TotalStaffWageBill(GameState gameState)
+    public static double TotalStaffWageBill(
+        Coach? coach, Physio? physio,
+        IReadOnlyList<Scout> scouts, IReadOnlyList<YouthPlayer> youthTeam)
     {
         double total = 0;
-        if (gameState.Coach  != null) total += gameState.Coach.WeeklySalary;
-        if (gameState.Physio != null) total += gameState.Physio.WeeklySalary;
-        foreach (var scout in gameState.Scouts)        total += scout.WeeklySalary;
-        foreach (var youth in gameState.YouthTeam)     total += youth.WeeklySalary;
+        if (coach  != null) total += coach.WeeklySalary;
+        if (physio != null) total += physio.WeeklySalary;
+        foreach (var scout in scouts)    total += scout.WeeklySalary;
+        foreach (var youth in youthTeam) total += youth.WeeklySalary;
         return total;
     }
+}
+
+// ── Result types ──────────────────────────────────────────────────────────────
+
+public enum ResignationType { None, Coach, Physio, Scout }
+
+/// <summary>Output of <see cref="StaffService.CheckRandomResignation"/>.</summary>
+public record ResignationResult(string? ResignerName, ResignationType Type)
+{
+    public static readonly ResignationResult None = new(null, ResignationType.None);
 }

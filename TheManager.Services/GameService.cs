@@ -29,8 +29,7 @@ public class GameService
     public Division Division       { get; init; } = Division.Four;
 
     public GameState State => _gameState;
-    public Random    Random => _random;
-    public Random    Rng    => _random;   // alias for callers that use Rng
+    public Random    Random => _random;  
 
     public GameService()
     {
@@ -45,7 +44,7 @@ public class GameService
     {
         InitializationService.SetupNewGame(_gameState, Team, Division, Manager, _random);
         _gameState.Fixtures = FixtureSchedulerService.GenerateSeasonFixtures(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
-        LeagueService.InitialiseTable(_gameState);
+        _gameState.CurrentLeague = LeagueService.InitialiseTable(_gameState.Club.Division, _gameState.AllTeamNames);
     }
 
     // ── Match pipeline ────────────────────────────────────────────────────────
@@ -188,7 +187,7 @@ public class GameService
         _gameState.Club.LeagueCupRound = CupRound.NotEntered;
         _gameState.Club.FACupRound     = CupRound.NotEntered;
 
-        ScoutReportService.ClearScoutMarket(_gameState);
+        for (int slot = 21; slot <= 23; slot++) _gameState.Squad[slot] = null;
         _gameState.TransferMarket.PlayersBeingSought.Clear();
 
         _gameState.MatchesRemainingThisSeason = 38;
@@ -207,7 +206,7 @@ public class GameService
         // Regenerate the fixture calendar and league table for the new season.
         _gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(_gameState.Club.Division);
         _gameState.Fixtures = FixtureSchedulerService.GenerateSeasonFixtures(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
-        LeagueService.InitialiseTable(_gameState);
+        _gameState.CurrentLeague = LeagueService.InitialiseTable(_gameState.Club.Division, _gameState.AllTeamNames);
 
         _lostLastMatch = false;
     }

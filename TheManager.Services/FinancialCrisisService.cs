@@ -26,13 +26,15 @@ public static class FinancialCrisisService
     /// If the result indicates the manager was sacked, the caller should trigger
     /// <see cref="InitializationService.JoinNewClub"/> for the next available post.
     /// </summary>
-    public static CrisisResult Evaluate(GameState gameState, Random rng)
+    public static CrisisResult Evaluate(
+        Finances  finances,
+        Club      club,
+        Player?[] squad,
+        int       fixturesPlayed,
+        string[]  weeklyResults,
+        Random    rng)
     {
-        var finances = gameState.Finances;
-        var club     = gameState.Club;
-
         // ── 1. Shares-sold danger (line 5417: JU=1) ──────────────────────────
-        // When AU falls below 1 the new board sacks the manager immediately.
         if (finances.SharesSoldDanger)
         {
             club.ManagerContractWeeks = 0;
@@ -41,13 +43,10 @@ public static class FinancialCrisisService
         }
 
         // ── 2. Form check (lines 5418–5422) ───────────────────────────────────
-        // Requires at least 15 fixtures played before any confidence check.
-        if (gameState.FixturesPlayed >= 15)
+        if (fixturesPlayed >= 15)
         {
-            int formPoints = CalculateFormPoints(gameState.CurrentLeague.WeeklyResults,
-                                                 gameState.FixturesPlayed);
+            int formPoints = CalculateFormPoints(weeklyResults, fixturesPlayed);
 
-            // OP ≤ 6 means fewer than ~3 wins in 14 games → confidence vote
             if (formPoints <= 6)
             {
                 int voteRoll = 1 + rng.Next(2);
@@ -67,7 +66,7 @@ public static class FinancialCrisisService
             return new CrisisResult(CrisisOutcome.NoAction);
 
         // ── 4. Emergency rescue sequence ──────────────────────────────────────
-        return RunRescueSequence(gameState, rng);
+        return RunRescueSequence(finances, club, squad, rng);
     }
 
     // ── Form points (lines 5419–5420) ────────────────────────────────────────
@@ -107,11 +106,10 @@ public static class FinancialCrisisService
 
     // ── Emergency rescue (lines 5423–5446) ───────────────────────────────────
 
-    private static CrisisResult RunRescueSequence(GameState gameState, Random rng)
+    private static CrisisResult RunRescueSequence(
+        Finances finances, Club club, Player?[] squad, Random rng)
     {
-        var finances = gameState.Finances;
-        var club     = gameState.Club;
-        var actions  = new List<string>();
+        var actions = new List<string>();
 
         // Step A — use remaining overdraft as an emergency loan (lines 5424–5425)
         if (finances.OverdraftAvailable > 0)
@@ -154,15 +152,15 @@ public static class FinancialCrisisService
         int rescueAttempts = 0;
         while (finances.BankBalance < 0 && rescueAttempts++ < 20)
         {
-            int listedSlot = FindTransferListedSlot(gameState.Squad);
+            int listedSlot = FindTransferListedSlot(squad);
             if (listedSlot == 0) break;
 
-            var    player    = gameState.Squad[listedSlot]!;
+            var    player    = squad[listedSlot]!;
             double salePrice = ForceSalePrice(player, rng);
             string soldName  = player.Name.Trim();
 
-            finances.BankBalance += (int)salePrice;
-            gameState.Squad[listedSlot] = null;
+            finances.BankBalance   += (int)salePrice;
+            squad[listedSlot]       = null;
             actions.Add($"Directors sold {soldName} for £{(int)salePrice:N0} to get out of financial trouble.");
         }
 
