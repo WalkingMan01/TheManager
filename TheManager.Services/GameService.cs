@@ -14,7 +14,7 @@ namespace TheManager.Services;
 /// </summary>
 public class GameService
 {
-    private const int MORALE_SHIFT_DIVISOR = 6;
+    private const int MoraleShiftDivisor = 6;
 
     private GameState    _gameState;
     private readonly Random       _random;
@@ -44,7 +44,7 @@ public class GameService
     public void StartGame()
     {
         InitializationService.SetupNewGame(_gameState, Team, Division, Manager, _random);
-        FixtureSchedulerService.GetSeasonFixtures(_gameState);
+        _gameState.Fixtures = FixtureSchedulerService.GenerateSeasonFixtures(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
         LeagueService.InitialiseTable(_gameState);
     }
 
@@ -52,7 +52,7 @@ public class GameService
 
     public MatchResult PlayMatch()
     {
-        var scheduled = FixtureSchedulerService.GetCurrentMatch(_gameState);
+        var scheduled = FixtureSchedulerService.GetCurrentMatch(_gameState.CurrentWeek, _gameState.Fixtures);
 
         if (scheduled.MatchType == MatchType.EndOfSeason)
         {
@@ -112,8 +112,8 @@ public class GameService
         PlayerService.ApplyPostMatchSkillChanges(_gameState.Squad, weWon, weLost, cleanSheet);
 
         // BASIC 3305: win → me += INT(me/2), loss → me -= INT(me/2), draw → unchanged
-        if      (weWon)  _gameState.Club.TeamMorale += _gameState.Club.TeamMorale / MORALE_SHIFT_DIVISOR;
-        else if (weLost) _gameState.Club.TeamMorale -= _gameState.Club.TeamMorale / MORALE_SHIFT_DIVISOR;
+        if      (weWon)  _gameState.Club.TeamMorale += _gameState.Club.TeamMorale / MoraleShiftDivisor;
+        else if (weLost) _gameState.Club.TeamMorale -= _gameState.Club.TeamMorale / MoraleShiftDivisor;
         _gameState.Club.TeamMorale = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
 
         // ── League recording ──────────────────────────────────────────────────
@@ -148,7 +148,10 @@ public class GameService
 
         _lostLastMatch = weLost;
 
-        FixtureSchedulerService.AdvanceWeek(_gameState);
+        var week = FixtureSchedulerService.AdvanceWeek(_gameState.CurrentWeek, _gameState.FixturesPlayed);
+        _gameState.CurrentWeek               = week.CurrentWeek;
+        _gameState.FixturesPlayed            = week.FixturesPlayed;
+        _gameState.MatchesRemainingThisSeason = week.MatchesRemainingThisSeason;
         var tick = WeeklyTickService.Process(_gameState, ctx, _random);
 
         return new MatchResult
@@ -202,8 +205,8 @@ public class GameService
                      .Select(ToCupFixture)];
 
         // Regenerate the fixture calendar and league table for the new season.
-        FixtureSchedulerService.ResetOpponentPointer(_gameState);
-        FixtureSchedulerService.GetSeasonFixtures(_gameState);
+        _gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(_gameState.Club.Division);
+        _gameState.Fixtures = FixtureSchedulerService.GenerateSeasonFixtures(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
         LeagueService.InitialiseTable(_gameState);
 
         _lostLastMatch = false;

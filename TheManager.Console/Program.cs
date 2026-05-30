@@ -17,7 +17,7 @@ gameService.StartGame();
 bool running = true;
 while (running)
 {
-    var match  = FixtureSchedulerService.GetCurrentMatch(gameService.State);
+    var match  = FixtureSchedulerService.GetCurrentMatch(gameService.State.CurrentWeek, gameService.State.Fixtures);
     var action = WeekHubScreen.Show(gameService.State, match);
 
     switch (action)

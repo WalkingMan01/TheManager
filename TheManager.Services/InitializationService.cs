@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using TheManager.Models;
 
 namespace TheManager.Services;
@@ -15,8 +14,8 @@ namespace TheManager.Services;
 /// </summary>
 public static class InitializationService
 {
-    private const int MORALE_MINIMUM = 60;  // ToDo: Was 30 in original
-    private const int MORALE_RANGE = 20;    // ToDo: Was 20 in original
+    private const int MoraleMinimum = 60;  // ToDo: Was 30 in original
+    private const int MoraleRange   = 20;  // ToDo: Was 20 in original
 
     // ── New squad generation (subroutine 1501–1514) ───────────────────────────
 
@@ -35,82 +34,82 @@ public static class InitializationService
     ///     contract  = 20 + RND(0–55) weeks
     ///     temper    = 0–9 clamped random
     /// </summary>
-    public static void GenerateStartingSquad(GameState gameState, Random random)
+    public static SquadGenerationResult GenerateStartingSquad(Division division, Random rng)
     {
-        var club     = gameState.Club;
-        var   finances = gameState.Finances;
-        int   divNum   = (int)club.Division;
-        int squadSize = 16; // ToDo: Changed to 16               // 12–16 (RZ)
-        //int   squadSize = 12 + rng.Next(5);               // 12–16 (RZ)
+        int divNum = (int)division;
+        const int squadSize = 16;
 
-        club.TeamMorale = MORALE_MINIMUM + random.Next(MORALE_RANGE);               // me
+        int teamMorale = Math.Max(2, Math.Min(99, MoraleMinimum + rng.Next(MoraleRange)));
 
+        var squad = new Player?[29];
         for (int slot = 1; slot <= 20; slot++)
+            squad[slot] = slot <= squadSize ? GeneratePlayer(slot, divNum, rng) : null;
+
+        double playerWageBill =
+            squad.Skip(1).Take(20).Where(p => p is not null).Sum(p => p!.WeeklyWage);
+
+        // Bank balance setup (lines 1104–1110)
+        double bankBalance = 150_000 + rng.Next((int)(500_000.0 / divNum));
+
+        return new SquadGenerationResult(squad, teamMorale, playerWageBill, (int)bankBalance);
+    }
+
+    /// <summary>
+    /// Creates a single player for the given squad slot and division.
+    /// Extracted for testability — no GameState dependency.
+    ///
+    /// BASIC lines 1073–1089.
+    /// </summary>
+    internal static Player GeneratePlayer(int slot, int divNum, Random rng)
+    {
+        var player = new Player();
+
+        // Position assignment (line 1074)
+        player.Position = slot switch
         {
-            if (slot > squadSize)
-            {
-                gameState.Squad[slot] = null;
-                continue;
-            }
+            1              => PlayerPosition.Goalkeeper,
+            >= 2 and <= 5  => PlayerPosition.Defender,
+            >= 6 and <= 8  => PlayerPosition.Midfielder,
+            >= 9 and <= 11 => PlayerPosition.Attacker,
+            _              => (PlayerPosition)(1 + rng.Next(4))
+        };
 
-            var player = new Player();
+        // Skill: |division-5| + 0.0–3.9  (line 1073: H(Y)=ABS(AP-5)+RND*39/10)
+        player.Skill = Math.Abs(divNum - 5) + rng.Next(39) / 10.0;
 
-            // Position assignment — matches BASIC line 1074
-            player.Position = slot switch
-            {
-                1                          => PlayerPosition.Goalkeeper,
-                >= 2 and <= 5              => PlayerPosition.Defender,
-                >= 6 and <= 8              => PlayerPosition.Midfielder,
-                >= 9 and <= 11             => PlayerPosition.Attacker,
-                _                          => (PlayerPosition)(1 + random.Next(4))
-            };
+        // Age 18–35 (line 1076: G(Y)=18+INT(RND*18))
+        player.Age = 18 + rng.Next(18);
 
-            // Skill: |division-5| + 0.0–3.9  (line 1073: H(Y)=ABS(AP-5)+RND*39/10)
-            player.Skill = Math.Abs(divNum - 5) + random.Next(39) / 10.0;
+        // Games played this season (line 1086)
+        int gamesRange    = Math.Max(0, (player.Age - 17) * 30 - 30);
+        player.GamesPlayed = gamesRange > 0 ? 30 + rng.Next(gamesRange) : 30;
 
-            // Age 18–35 (line 1076: G(Y)=18+INT(RND*18))
-            player.Age = 18 + random.Next(18);
+        // Temper 0–9 (lines 1088–1089)
+        player.Temper = Math.Max(0, Math.Min(9, -3 + rng.Next(17)));
 
-            // Games played this season (line 1086: x(Y)=30+RND*(((G-17)*30)-30))
-            int gamesRange    = Math.Max(0, (player.Age - 17) * 30 - 30);
-            player.GamesPlayed = gamesRange > 0 ? 30 + random.Next(gamesRange) : 30;
+        player.WeeklyWage    = CalculateWage(player.Skill, player.Age, rng);
+        player.ContractWeeks = 20 + rng.Next(56);
+        player.Name          = NameGenerationService.GenerateName(rng);
 
-            // Temper 0–9 (lines 1088–1089)
-            int rawTemper  = -3 + random.Next(17);
-            player.Temper  = Math.Max(0, Math.Min(9, rawTemper));
+        PlayerService.RecalculateStatus(player);
+        return player;
+    }
 
-            // Wage: base = 51–70, multiplied by INT(skill), divided by age factor (lines 1077–1082)
-            // V(1,Y)=1+INT(RND*20)+50; V(1,Y)=INT(V(1,Y))*INT(H(Y)); V(1,Y)/=HV; min 50
-            int    ageDivisor  = Math.Max(1, player.Age - 27);
-            double wageBase    = (1 + random.Next(20) + 50) * (int)player.Skill
-                                 + (player.Skill > 9.6 ? 1_000 : 0);
-            player.WeeklyWage  = Math.Max(50, (int)(wageBase / ageDivisor));
-
-            // Contract: 20–75 weeks remaining (line 1084: V(2,Y)=20+INT(RND*56))
-            player.ContractWeeks = 20 + random.Next(56);
-
-            // Name
-            player.Name = NameGenerationService.GenerateName(random);
-
-            PlayerService.RecalculateStatus(player);
-            gameState.Squad[slot] = player;
-        }
-
-        // Total wage bill (line 1083: NP=INT(NP+V(1,Y)))
-        gameState.Finances.PlayerWageBill =
-            gameState.Squad.Skip(1).Take(20)
-                .Where(p => p is not null)
-                .Sum(p => p!.WeeklyWage);
-
-        // Financial setup (lines 1104–1110)
-        int   leagueBonus = (int)((150 + random.Next(200)) / (double)divNum);
-        int   cupBonus    = (int)((200 + random.Next(300)) / (double)divNum);
-        double bankBalance = 150_000 + random.Next((int)(500_000.0 / divNum));
-
-        club.TeamMorale = Math.Max(2, Math.Min(99, club.TeamMorale));
-
-        // Store bonuses in finance object (NW/NV via Finances extension)
-        gameState.Finances.BankBalance = (int)bankBalance;
+    /// <summary>
+    /// Calculates the weekly wage for a player given their skill and age.
+    /// Extracted for testability — pure function aside from the RNG call.
+    ///
+    /// BASIC lines 1077–1082:
+    ///   V(1,Y) = (1 + RND*20 + 50) * INT(H(Y)) [+ 1000 if star]
+    ///   V(1,Y) = INT(V(1,Y) / HV)   where HV = MAX(1, age-27)
+    ///   V(1,Y) = MAX(50, V(1,Y))
+    /// </summary>
+    internal static double CalculateWage(double skill, int age, Random rng)
+    {
+        int    ageDivisor = Math.Max(1, age - 27);
+        double wageBase   = (1 + rng.Next(20) + 50) * (int)skill
+                            + (skill > 9.6 ? 1_000 : 0);
+        return Math.Max(50, (int)(wageBase / ageDivisor));
     }
 
     // ── Starting staff (subroutines 5601–5624) ────────────────────────────────
@@ -124,28 +123,22 @@ public static class InitializationService
     ///   NN = RND(0–3) scouts
     ///   NO = RND(0–4) youth players
     /// </summary>
-    public static void GenerateStartingStaff(GameState gameState, Random rng)
+    public static StartingStaff GenerateStartingStaff(Random rng)
     {
-        // Coach and physio always present
-        gameState.Coach = StaffService.GenerateCoach(rng);
-        gameState.Club.HasCoach = true;
-
-        gameState.Physio = StaffService.GeneratePhysio(rng);
-        gameState.Club.HasPhysio = true;
+        var coach  = StaffService.GenerateCoach(rng);
+        var physio = StaffService.GeneratePhysio(rng);
 
         // 0–3 scouts (line 5580: NN=INT(RND*4); if NN=0 goto 5607)
-        int scoutCount = rng.Next(4);
-        gameState.Scouts.Clear();
-        for (int i = 0; i < scoutCount; i++)
-            gameState.Scouts.Add(StaffService.GenerateScout(rng));
-        gameState.Club.ScoutCount = scoutCount;
+        var scouts = Enumerable.Range(0, rng.Next(4))
+            .Select(_ => StaffService.GenerateScout(rng))
+            .ToList();
 
         // 0–4 youth players (subroutine 5623)
-        int youthCount = rng.Next(5);
-        gameState.YouthTeam.Clear();
-        for (int i = 0; i < youthCount; i++)
-            gameState.YouthTeam.Add(StaffService.GenerateYouthPlayer(rng));
-        gameState.Club.YouthPlayerCount = youthCount;
+        var youthPlayers = Enumerable.Range(0, rng.Next(5))
+            .Select(_ => StaffService.GenerateYouthPlayer(rng))
+            .ToList();
+
+        return new StartingStaff(coach, physio, scouts, youthPlayers);
     }
 
     // ── New game setup ────────────────────────────────────────────────────────
@@ -178,9 +171,23 @@ public static class InitializationService
         gameState.Finances.SharesOwned       = 100_000;
 
         // Generate starting squad and staff
-        GenerateStartingSquad(gameState, rng);
+        var squadResult = GenerateStartingSquad(division, rng);
+        gameState.Squad                    = squadResult.Squad;
+        gameState.Club.TeamMorale          = squadResult.TeamMorale;
+        gameState.Finances.PlayerWageBill  = squadResult.PlayerWageBill;
+        gameState.Finances.BankBalance     = squadResult.BankBalance;
+
         TeamData.Seed(gameState);
-        GenerateStartingStaff(gameState, rng);
+
+        var staff = GenerateStartingStaff(rng);
+        gameState.Coach               = staff.Coach;
+        gameState.Physio              = staff.Physio;
+        gameState.Scouts              = staff.Scouts;
+        gameState.YouthTeam           = staff.YouthPlayers;
+        gameState.Club.HasCoach       = true;
+        gameState.Club.HasPhysio      = true;
+        gameState.Club.ScoutCount     = staff.Scouts.Count;
+        gameState.Club.YouthPlayerCount = staff.YouthPlayers.Count;
 
         // Cup draws (BASIC lines 4900–4904)
         var lcBracket = CupService.SetupInitialBracket(gameState.AllTeamNames, rng);
@@ -199,7 +206,7 @@ public static class InitializationService
         gameState.SeasonSlot               = 1;
         gameState.Club.ManagerContractWeeks = 52;   // initial 1-season contract
 
-        FixtureSchedulerService.ResetOpponentPointer(gameState);
+        gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(gameState.Club.Division);
 
         // Team ratings
         PlayerService.CalculateTeamRatings(gameState.Squad);
@@ -261,11 +268,24 @@ public static class InitializationService
         // Reset season history slot (line 4556: ns=1)
         gameState.SeasonSlot = 1;
 
-        // Generate a new squad for the club
-        GenerateStartingSquad(gameState, rng);
-        GenerateStartingStaff(gameState, rng);
+        // Generate a new squad and staff for the club
+        var squadResult = GenerateStartingSquad(newDivision, rng);
+        gameState.Squad                    = squadResult.Squad;
+        gameState.Club.TeamMorale          = squadResult.TeamMorale;
+        gameState.Finances.PlayerWageBill  = squadResult.PlayerWageBill;
+        gameState.Finances.BankBalance     = squadResult.BankBalance;
 
-        FixtureSchedulerService.ResetOpponentPointer(gameState);
+        var staff = GenerateStartingStaff(rng);
+        gameState.Coach               = staff.Coach;
+        gameState.Physio              = staff.Physio;
+        gameState.Scouts              = staff.Scouts;
+        gameState.YouthTeam           = staff.YouthPlayers;
+        gameState.Club.HasCoach       = true;
+        gameState.Club.HasPhysio      = true;
+        gameState.Club.ScoutCount     = staff.Scouts.Count;
+        gameState.Club.YouthPlayerCount = staff.YouthPlayers.Count;
+
+        gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(gameState.Club.Division);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -278,3 +298,19 @@ public static class InitializationService
         AwayDivision = (Division)Math.Clamp(pair.AwayDivision, 1, 4)
     };
 }
+
+// ── Result types ──────────────────────────────────────────────────────────────
+
+/// <summary>Output of <see cref="InitializationService.GenerateStartingSquad"/>.</summary>
+public record SquadGenerationResult(
+    Player?[] Squad,
+    int       TeamMorale,
+    double    PlayerWageBill,
+    double    BankBalance);
+
+/// <summary>Output of <see cref="InitializationService.GenerateStartingStaff"/>.</summary>
+public record StartingStaff(
+    Coach             Coach,
+    Physio            Physio,
+    List<Scout>       Scouts,
+    List<YouthPlayer> YouthPlayers);

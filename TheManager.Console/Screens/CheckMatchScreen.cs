@@ -9,7 +9,7 @@ internal static class CheckMatchScreen
 {
     public static void Show(GameState state, Random rng)
     {
-        var match = FixtureSchedulerService.GetCurrentMatch(state);
+        var match = FixtureSchedulerService.GetCurrentMatch(state.CurrentWeek, state.Fixtures);
 
         Ui.Header($"CHECK MATCH  ·  Week {match.Week}  ·  {MatchTypeLabel(match.MatchType)}");
 

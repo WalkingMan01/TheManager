@@ -11,6 +11,14 @@ Check StartNewGame
 InitLeagueTable in gameState
 gameState add property getters / setters
 
+Following services not wired in
+GroundImprovementService
+InsuranceService
+IncomingOfferService
+ContractService
+DirectorFundingService
+
+
 Resolved (?)
 ------------
 Debug playmatch (Looks ok!)

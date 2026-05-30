@@ -36,29 +36,13 @@ public static class FixtureSchedulerService
     ///   For league weeks V cycles through teams in the division (subroutine 887).
     ///   Home/away is determined by cJ being even (lines 1711–1712).
     /// </summary>
-    public static ScheduledMatch GetCurrentMatch(GameState gameState)
+    public static ScheduledMatch GetCurrentMatch(int currentWeek, IReadOnlyList<ScheduledMatch> fixtures)
     {
-        //int week = gameState.CurrentWeek;
+        if (currentWeek > Constants.WeeksInSeason)
+            return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = currentWeek };
 
-        //if (week > Models.Constants.WeeksInSeason)
-        //    return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = week };
-
-        //string opponentName = AdvanceOpponentPointer(gameState);
-        //bool   isHomeGame   = gameState.MatchesRemainingThisSeason % 2 == 0;
-
-        //return new ScheduledMatch
-        //{
-        //    MatchType         = MatchType.League,
-        //    Week              = week,
-        //    OpponentName      = opponentName,
-        //    OpponentTeamIndex = gameState.CurrentOpponentIndex,
-        //    IsHomeGame        = isHomeGame
-        //};
-        if (gameState.CurrentWeek > Constants.WeeksInSeason)
-            return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = gameState.CurrentWeek };
-
-        return gameState.Fixtures.FirstOrDefault(m => m.Week == gameState.CurrentWeek)
-            ?? new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = gameState.CurrentWeek };
+        return fixtures.FirstOrDefault(m => m.Week == currentWeek)
+            ?? new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = currentWeek };
     }
 
     /// <summary>
@@ -68,11 +52,10 @@ public static class FixtureSchedulerService
     /// BASIC lines 422–424:
     ///   CI=CI+1; if NC=0 then skip to weekly news; else GOTO 1701.
     /// </summary>
-    public static void AdvanceWeek(GameState gameState)
+    public static WeekAdvanceResult AdvanceWeek(int currentWeek, int fixturesPlayed)
     {
-        gameState.CurrentWeek++;
-        gameState.FixturesPlayed             = Math.Min(38, gameState.FixturesPlayed + 1);
-        gameState.MatchesRemainingThisSeason = 38 - gameState.FixturesPlayed;
+        int newFixturesPlayed = Math.Min(38, fixturesPlayed + 1);
+        return new WeekAdvanceResult(currentWeek + 1, newFixturesPlayed, 38 - newFixturesPlayed);
     }
 
     /// <summary>
@@ -81,10 +64,8 @@ public static class FixtureSchedulerService
     ///
     /// BASIC subroutine 23000 (line 4676): V=cM.
     /// </summary>
-    public static void ResetOpponentPointer(GameState gameState)
-    {
-        gameState.CurrentOpponentIndex = DivisionRange(gameState.Club.Division).Start;
-    }
+    public static int GetDivisionStartIndex(Division division)
+        => DivisionRange(division).Start;
 
     /// <summary>
     /// Generates the full 38-fixture season schedule using the circle-method
@@ -95,17 +76,17 @@ public static class FixtureSchedulerService
     /// returns the 10 fixtures for one league round. Rounds 0–18 form the first
     /// half; rounds 19–37 reverse home/away to give the second half.
     /// </summary>
-    public static void GetSeasonFixtures(GameState gameState)
+    public static List<ScheduledMatch> GenerateSeasonFixtures(Division division, string clubName, string[] allTeamNames)
     {
-        var (divStart, _) = DivisionRange(gameState.Club.Division);
-        string ourTrimmed = gameState.Club.Name.Trim();
+        var (divStart, _) = DivisionRange(division);
+        string ourTrimmed = clubName.Trim();
 
         // Build the ordered team list for this division (indices 0..19 within division)
         var divTeams = new string[20];
         int playerIdx = 0;
         for (int i = 0; i < 20; i++)
         {
-            divTeams[i] = gameState.AllTeamNames[divStart + i];
+            divTeams[i] = allTeamNames[divStart + i];
             if (divTeams[i].Trim().Equals(ourTrimmed, StringComparison.OrdinalIgnoreCase))
                 playerIdx = i;
         }
@@ -115,12 +96,10 @@ public static class FixtureSchedulerService
         for (int round = 0; round < Constants.WeeksInSeason; round++)
         {
             var pairs = GetRoundPairings(round);
+            var pair  = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
 
-            // Find the pair that contains the player
-            var pair = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
-
-            bool   isHome      = pair.homeIdx == playerIdx;
-            int    oppDivIdx   = isHome ? pair.awayIdx : pair.homeIdx;
+            bool   isHome       = pair.homeIdx == playerIdx;
+            int    oppDivIdx    = isHome ? pair.awayIdx : pair.homeIdx;
             string opponentName = divTeams[oppDivIdx];
 
             fixtures.Add(new ScheduledMatch
@@ -133,7 +112,7 @@ public static class FixtureSchedulerService
             });
         }
 
-        gameState.Fixtures = fixtures;
+        return fixtures;
     }
 
     /// <summary>
@@ -224,3 +203,8 @@ public static class FixtureSchedulerService
         return (end - 19, end);
     }
 }
+
+// ── Result types ──────────────────────────────────────────────────────────────
+
+/// <summary>Output of <see cref="FixtureSchedulerService.AdvanceWeek"/>.</summary>
+public record WeekAdvanceResult(int CurrentWeek, int FixturesPlayed, int MatchesRemainingThisSeason);
