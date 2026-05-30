@@ -6,7 +6,7 @@ namespace TheManager.ConsoleApp.Screens;
 
 internal static class SquadScreen
 {
-    private const int TargetWidth  = 82;
+    private const int TargetWidth  = 100;
     private const int TargetHeight = 36;
 
     public static void Show(GameState state)
@@ -78,7 +78,9 @@ internal static class SquadScreen
             .AddColumn(new TableColumn("[dim]Skill[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Age[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Temper[/]").RightAligned())
-            .AddColumn(new TableColumn("[dim]Games[/]").RightAligned());
+            .AddColumn(new TableColumn("[dim]Games[/]").RightAligned())
+            .AddColumn(new TableColumn("[dim]Wage[/]").RightAligned())
+            .AddColumn(new TableColumn("[dim]Ctr[/]").RightAligned());
 
         AddSection(table, "FIRST TEAM", 1,  11, squad);
         AddSection(table, "SUBSTITUTE", 12, 12, squad);
@@ -119,7 +121,8 @@ internal static class SquadScreen
             new Markup(""),
             new Markup(""),
             new Markup($"[bold dim] {title}[/]"),
-            new Markup(""), new Markup(""), new Markup(""), new Markup(""));
+            new Markup(""), new Markup(""), new Markup(""), new Markup(""),
+            new Markup(""), new Markup(""));
 
         for (int slot = from; slot <= to; slot++)
         {
@@ -129,6 +132,11 @@ internal static class SquadScreen
                           : player.IsStar  ? $"[yellow]{player.Name}[/]"
                           : player.Name;
 
+            string wage     = player is null ? "[dim]—[/]" : $"£{(int)player.WeeklyWage}";
+            string contract = player is null ? "[dim]—[/]"
+                            : player.ContractWeeks == 0 ? "[red]exp[/]"
+                            : $"{player.ContractWeeks}w";
+
             table.AddRow(
                 $"[dim]{slot}[/]",
                 pos,
@@ -136,7 +144,9 @@ internal static class SquadScreen
                 player?.DisplaySkill.ToString() ?? "[dim]—[/]",
                 player?.DisplayAge.ToString()   ?? "[dim]—[/]",
                 player?.Temper.ToString()        ?? "[dim]—[/]",
-                player?.GamesPlayed.ToString()   ?? "[dim]—[/]");
+                player?.GamesPlayed.ToString()   ?? "[dim]—[/]",
+                wage,
+                contract);
         }
     }
 

@@ -14,6 +14,8 @@ namespace TheManager.Services;
 /// </summary>
 public class GameService
 {
+    private const int MORALE_SHIFT_DIVISOR = 6;
+
     private GameState    _gameState;
     private readonly Random       _random;
     private readonly MatchEngineService  _engine;
@@ -110,8 +112,8 @@ public class GameService
         PlayerService.ApplyPostMatchSkillChanges(_gameState.Squad, weWon, weLost, cleanSheet);
 
         // BASIC 3305: win → me += INT(me/2), loss → me -= INT(me/2), draw → unchanged
-        if      (weWon)  _gameState.Club.TeamMorale += _gameState.Club.TeamMorale / 2;
-        else if (weLost) _gameState.Club.TeamMorale -= _gameState.Club.TeamMorale / 2;
+        if      (weWon)  _gameState.Club.TeamMorale += _gameState.Club.TeamMorale / MORALE_SHIFT_DIVISOR;
+        else if (weLost) _gameState.Club.TeamMorale -= _gameState.Club.TeamMorale / MORALE_SHIFT_DIVISOR;
         _gameState.Club.TeamMorale = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
 
         // ── League recording ──────────────────────────────────────────────────

@@ -64,6 +64,14 @@ public class Player
     /// <summary>Appearances this season. Corresponds to E(2,I).</summary>
     public int Appearances { get; set; }
 
+    // ── Contract ─────────────────────────────────────────────────────────────
+
+    /// <summary>Weekly wage in pounds. Corresponds to V(1,I) in FOOT.BAS.</summary>
+    public double WeeklyWage { get; set; }
+
+    /// <summary>Contract weeks remaining (counts down each week). Corresponds to V(2,I) in FOOT.BAS.</summary>
+    public int ContractWeeks { get; set; }
+
     // ── Misc ──────────────────────────────────────────────────────────────────
 
     /// <summary>

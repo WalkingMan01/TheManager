@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using TheManager.Models;
 
 namespace TheManager.Services;
@@ -14,6 +15,9 @@ namespace TheManager.Services;
 /// </summary>
 public static class InitializationService
 {
+    private const int MORALE_MINIMUM = 60;  // ToDo: Was 30 in original
+    private const int MORALE_RANGE = 20;    // ToDo: Was 20 in original
+
     // ── New squad generation (subroutine 1501–1514) ───────────────────────────
 
     /// <summary>
@@ -31,15 +35,15 @@ public static class InitializationService
     ///     contract  = 20 + RND(0–55) weeks
     ///     temper    = 0–9 clamped random
     /// </summary>
-    public static void GenerateStartingSquad(GameState gameState, Random rng)
+    public static void GenerateStartingSquad(GameState gameState, Random random)
     {
-        var   club     = gameState.Club;
+        var club     = gameState.Club;
         var   finances = gameState.Finances;
         int   divNum   = (int)club.Division;
         int squadSize = 16; // ToDo: Changed to 16               // 12–16 (RZ)
         //int   squadSize = 12 + rng.Next(5);               // 12–16 (RZ)
 
-        club.TeamMorale = 30 + rng.Next(20);               // me
+        club.TeamMorale = MORALE_MINIMUM + random.Next(MORALE_RANGE);               // me
 
         for (int slot = 1; slot <= 20; slot++)
         {
@@ -58,34 +62,50 @@ public static class InitializationService
                 >= 2 and <= 5              => PlayerPosition.Defender,
                 >= 6 and <= 8              => PlayerPosition.Midfielder,
                 >= 9 and <= 11             => PlayerPosition.Attacker,
-                _                          => (PlayerPosition)(1 + rng.Next(4))
+                _                          => (PlayerPosition)(1 + random.Next(4))
             };
 
             // Skill: |division-5| + 0.0–3.9  (line 1073: H(Y)=ABS(AP-5)+RND*39/10)
-            player.Skill = Math.Abs(divNum - 5) + rng.Next(39) / 10.0;
+            player.Skill = Math.Abs(divNum - 5) + random.Next(39) / 10.0;
 
             // Age 18–35 (line 1076: G(Y)=18+INT(RND*18))
-            player.Age = 18 + rng.Next(18);
+            player.Age = 18 + random.Next(18);
 
             // Games played this season (line 1086: x(Y)=30+RND*(((G-17)*30)-30))
             int gamesRange    = Math.Max(0, (player.Age - 17) * 30 - 30);
-            player.GamesPlayed = gamesRange > 0 ? 30 + rng.Next(gamesRange) : 30;
+            player.GamesPlayed = gamesRange > 0 ? 30 + random.Next(gamesRange) : 30;
 
             // Temper 0–9 (lines 1088–1089)
-            int rawTemper  = -3 + rng.Next(17);
+            int rawTemper  = -3 + random.Next(17);
             player.Temper  = Math.Max(0, Math.Min(9, rawTemper));
 
+            // Wage: base = 51–70, multiplied by INT(skill), divided by age factor (lines 1077–1082)
+            // V(1,Y)=1+INT(RND*20)+50; V(1,Y)=INT(V(1,Y))*INT(H(Y)); V(1,Y)/=HV; min 50
+            int    ageDivisor  = Math.Max(1, player.Age - 27);
+            double wageBase    = (1 + random.Next(20) + 50) * (int)player.Skill
+                                 + (player.Skill > 9.6 ? 1_000 : 0);
+            player.WeeklyWage  = Math.Max(50, (int)(wageBase / ageDivisor));
+
+            // Contract: 20–75 weeks remaining (line 1084: V(2,Y)=20+INT(RND*56))
+            player.ContractWeeks = 20 + random.Next(56);
+
             // Name
-            player.Name = NameGenerationService.GenerateName(rng);
+            player.Name = NameGenerationService.GenerateName(random);
 
             PlayerService.RecalculateStatus(player);
             gameState.Squad[slot] = player;
         }
 
+        // Total wage bill (line 1083: NP=INT(NP+V(1,Y)))
+        gameState.Finances.PlayerWageBill =
+            gameState.Squad.Skip(1).Take(20)
+                .Where(p => p is not null)
+                .Sum(p => p!.WeeklyWage);
+
         // Financial setup (lines 1104–1110)
-        int   leagueBonus = (int)((150 + rng.Next(200)) / (double)divNum);
-        int   cupBonus    = (int)((200 + rng.Next(300)) / (double)divNum);
-        double bankBalance = 150_000 + rng.Next((int)(500_000.0 / divNum));
+        int   leagueBonus = (int)((150 + random.Next(200)) / (double)divNum);
+        int   cupBonus    = (int)((200 + random.Next(300)) / (double)divNum);
+        double bankBalance = 150_000 + random.Next((int)(500_000.0 / divNum));
 
         club.TeamMorale = Math.Max(2, Math.Min(99, club.TeamMorale));
 

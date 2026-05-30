@@ -27,6 +27,16 @@ public static class WeeklyTickService
 
         gameState.Club.ManagerContractWeeks = Math.Max(0, gameState.Club.ManagerContractWeeks - 1);
 
+        // Decrement each player's contract (line 188: V(2,I)=V(2,I)+(V(2,I)>0) which subtracts 1)
+        foreach (var player in gameState.Squad.Skip(1).Take(20).OfType<Player>())
+            if (player.ContractWeeks > 0) player.ContractWeeks--;
+
+        // Recalculate wage bill from actual squad wages
+        gameState.Finances.PlayerWageBill =
+            gameState.Squad.Skip(1).Take(20)
+                .Where(p => p is not null)
+                .Sum(p => p!.WeeklyWage);
+
         double attendance = CalculateGateAttendance(gameState, ctx, rng);
         double gateMoney  = attendance * gameState.Club.TicketPriceInPounds;
         gameState.Finances.LastMatchAttendance = attendance;
