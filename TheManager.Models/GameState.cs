@@ -146,7 +146,7 @@ public class GameState
     /// Difficulty level. JT=1 = hard, 0 = normal, -1 = easy.
     /// Corresponds to JT / AB.
     /// </summary>
-    public int DifficultyLevel { get; set; } = -1;
+    public int DifficultyLevel { get; set; } = 0;
 
     // ── In-progress match ─────────────────────────────────────────────────────
 

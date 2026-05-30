@@ -58,6 +58,10 @@ while (running)
             TransferMarketScreen.Show(gameService.State, gameService.Random);
             break;
 
+        case WeekAction.Difficulty:
+            DifficultyScreen.Show(gameService.State);
+            break;
+
         case WeekAction.Quit:
             running = false;
             break;
