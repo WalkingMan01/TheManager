@@ -1,4 +1,5 @@
 using Spectre.Console;
+using TheManager.ConsoleApp;
 using TheManager.ConsoleApp.Screens;
 using TheManager.Services;
 
@@ -56,6 +57,10 @@ while (running)
 
         case WeekAction.TransferMarket:
             TransferMarketScreen.Show(gameService.State, gameService.Random);
+            break;
+
+        case WeekAction.ManagerProfile:
+            ManagerProfileScreen.Show(gameService.State);
             break;
 
         case WeekAction.Difficulty:

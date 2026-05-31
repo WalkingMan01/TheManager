@@ -15,6 +15,7 @@ namespace TheManager.Services;
 public class GameService
 {
     private const int MoraleShiftDivisor = 6;
+    private const int MinimumMorale = 50;
 
     private GameState    _gameState;
     private readonly Random       _random;
@@ -113,7 +114,7 @@ public class GameService
         // BASIC 3305: win → me += INT(me/2), loss → me -= INT(me/2), draw → unchanged
         if      (weWon)  _gameState.Club.TeamMorale += _gameState.Club.TeamMorale / MoraleShiftDivisor;
         else if (weLost) _gameState.Club.TeamMorale -= _gameState.Club.TeamMorale / MoraleShiftDivisor;
-        _gameState.Club.TeamMorale = Math.Max(2, Math.Min(99, _gameState.Club.TeamMorale));
+        _gameState.Club.TeamMorale = Math.Max(MinimumMorale, Math.Min(99, _gameState.Club.TeamMorale));
 
         // ── League recording ──────────────────────────────────────────────────
         List<OtherFixtureResult> otherFixtures = [];

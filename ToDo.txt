@@ -1,10 +1,11 @@
 
+
+Managerial Profile to be added - record
+Sacking manager needs to be updated - or maybes just end the game
 Youth players shouldnt show potential
-Squad players deplete
+Squad players deplete and increase too much
 Opponents are too good
 
-
-Check WeeklyTick
 
 Check StartNewGame
 

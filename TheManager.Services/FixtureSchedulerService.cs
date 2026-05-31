@@ -69,19 +69,18 @@ public static class FixtureSchedulerService
 
     /// <summary>
     /// Generates the full 38-fixture season schedule using the circle-method
-    /// round-robin algorithm and stores the result in <see cref="GameState.Fixtures"/>.
+    /// round-robin algorithm, then reorders the fixtures to alternate home and
+    /// away games as evenly as possible (H/A/H/A/…).
     ///
-    /// The 20 division teams are treated as a fixed team (index 19 within the
-    /// division) plus 19 rotating teams. Each call to <see cref="GetRoundPairings"/>
-    /// returns the 10 fixtures for one league round. Rounds 0–18 form the first
-    /// half; rounds 19–37 reverse home/away to give the second half.
+    /// The circle-method guarantees each opponent is faced exactly once home
+    /// and once away. The reordering only changes the week each match is played,
+    /// not who plays who or the H/A assignment per opponent.
     /// </summary>
     public static List<ScheduledMatch> GenerateSeasonFixtures(Division division, string clubName, string[] allTeamNames)
     {
         var (divStart, _) = DivisionRange(division);
         string ourTrimmed = clubName.Trim();
 
-        // Build the ordered team list for this division (indices 0..19 within division)
         var divTeams = new string[20];
         int playerIdx = 0;
         for (int i = 0; i < 20; i++)
@@ -91,25 +90,46 @@ public static class FixtureSchedulerService
                 playerIdx = i;
         }
 
-        var fixtures = new List<ScheduledMatch>(Constants.WeeksInSeason);
+        // Collect all 38 matchups from the circle-method schedule
+        var home = new List<(string opp, int oppIdx)>(19);
+        var away = new List<(string opp, int oppIdx)>(19);
 
         for (int round = 0; round < Constants.WeeksInSeason; round++)
         {
-            var pairs = GetRoundPairings(round);
-            var pair  = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
+            var pairs   = GetRoundPairings(round);
+            var pair    = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
+            bool isHome = pair.homeIdx == playerIdx;
+            int  oi     = isHome ? pair.awayIdx : pair.homeIdx;
 
-            bool   isHome       = pair.homeIdx == playerIdx;
-            int    oppDivIdx    = isHome ? pair.awayIdx : pair.homeIdx;
-            string opponentName = divTeams[oppDivIdx];
+            if (isHome) home.Add((divTeams[oi], divStart + oi));
+            else        away.Add((divTeams[oi], divStart + oi));
+        }
 
-            fixtures.Add(new ScheduledMatch
+        // Interleave home and away to achieve H/A/H/A alternation.
+        // With exactly 19 of each the result is a perfect alternating sequence.
+        var fixtures = new List<ScheduledMatch>(Constants.WeeksInSeason);
+        int h = 0, a = 0, week = 1;
+
+        while (h < home.Count || a < away.Count)
+        {
+            if (h < home.Count)
             {
-                MatchType         = MatchType.League,
-                Week              = round + 1,
-                OpponentName      = opponentName,
-                OpponentTeamIndex = divStart + oppDivIdx,
-                IsHomeGame        = isHome
-            });
+                var (opp, idx) = home[h++];
+                fixtures.Add(new ScheduledMatch
+                {
+                    MatchType = MatchType.League, Week = week++,
+                    OpponentName = opp, OpponentTeamIndex = idx, IsHomeGame = true
+                });
+            }
+            if (a < away.Count)
+            {
+                var (opp, idx) = away[a++];
+                fixtures.Add(new ScheduledMatch
+                {
+                    MatchType = MatchType.League, Week = week++,
+                    OpponentName = opp, OpponentTeamIndex = idx, IsHomeGame = false
+                });
+            }
         }
 
         return fixtures;

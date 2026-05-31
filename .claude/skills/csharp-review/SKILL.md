@@ -39,9 +39,11 @@ You are reviewing C# code in the TheManager project (.NET 10). The codebase is a
   ```csharp
   // ── Section Name ──────────────────────────────────────────────────────────
   ```
-- Enums must live in `FootballBos.Models/Enums.cs`, not in separate files or inline.
+- Enums must live in `TheManager.Models/Enums.cs`, not in separate files or inline.
 - No magic numbers — use named constants or enum values.
 - No unnecessary comments explaining *what* the code does; only comment the *why* when non-obvious.
+- Use `var` for local variable declarations where the type is inferable — avoid spelling out the type explicitly.
+- Prefer LINQ over manual loops for querying, filtering, and transforming collections.
 
 ## Output Format
 
