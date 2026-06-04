@@ -2,6 +2,10 @@
   <Folder Name="/Solution Items/">
     <File Path="ToDo.txt" />
   </Folder>
+  <Folder Name="/Solution Items/Docs/" />
+  <Folder Name="/Solution Items/Docs/Specs/">
+    <File Path="docs/specs/manager-sacking.md" />
+  </Folder>
   <Project Path="TheManager.Console/TheManager.Console.csproj" />
   <Project Path="TheManager.MatchHarness/TheManager.MatchHarness.csproj" />
   <Project Path="TheManager.Models/TheManager.Models.csproj" />

@@ -58,7 +58,7 @@ public class FinancialCrisisServiceTests
         finances.BankBalance = 10_000;
 
         var result = FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], new Random(0));
+            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], leaguePosition: 10, new Random(0));
 
         Assert.Equal(CrisisOutcome.NoAction, result.Outcome);
     }
@@ -70,9 +70,21 @@ public class FinancialCrisisServiceTests
         finances.SharesSoldDanger = true;
 
         var result = FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], new Random(0));
+            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], leaguePosition: 10, new Random(0));
 
         Assert.Equal(CrisisOutcome.SackedSharesSold, result.Outcome);
+    }
+
+    [Fact]
+    public void Evaluate_SharesSoldDanger_DoesNotSackManager()
+    {
+        var (finances, club, squad) = MakeHealthySetup();
+        finances.SharesSoldDanger = true;
+
+        var result = FinancialCrisisService.Evaluate(
+            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], leaguePosition: 10, new Random(0));
+
+        Assert.False(result.ManagerSacked);
     }
 
     [Fact]
@@ -83,7 +95,7 @@ public class FinancialCrisisServiceTests
         club.ManagerContractWeeks       = 52;
 
         FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], new Random(0));
+            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], leaguePosition: 10, new Random(0));
 
         Assert.Equal(0, club.ManagerContractWeeks);
     }
@@ -99,7 +111,21 @@ public class FinancialCrisisServiceTests
         for (int i = 0; i < 20; i++) results[i] = "12";
 
         var result = FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 20, weeklyResults: results, new Random(0));
+            finances, club, squad, fixturesPlayed: 20, weeklyResults: results, leaguePosition: 10, new Random(0));
+
+        Assert.Equal(CrisisOutcome.NoAction, result.Outcome);
+    }
+
+    [Fact]
+    public void Evaluate_PoorForm_PositionNotBottomThree_ReturnsNoAction()
+    {
+        // Poor form but safe league position (17th) → no notice
+        var (finances, club, squad) = MakeHealthySetup();
+        finances.BankBalance = 50_000;
+
+        var results = AllLossResults(fixturesPlayed: 20);
+        var result  = FinancialCrisisService.Evaluate(
+            finances, club, squad, fixturesPlayed: 20, weeklyResults: results, leaguePosition: 17, new Random(0));
 
         Assert.Equal(CrisisOutcome.NoAction, result.Outcome);
     }
@@ -112,7 +138,7 @@ public class FinancialCrisisServiceTests
         finances.OverdraftAvailable = 100_000;
 
         var result = FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], new Random(0));
+            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], leaguePosition: 10, new Random(0));
 
         Assert.Equal(CrisisOutcome.Rescued, result.Outcome);
     }
@@ -125,7 +151,7 @@ public class FinancialCrisisServiceTests
         finances.OverdraftAvailable = 100_000;
 
         FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], new Random(0));
+            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], leaguePosition: 10, new Random(0));
 
         Assert.True(finances.BankBalance >= 0);
     }
@@ -140,9 +166,10 @@ public class FinancialCrisisServiceTests
 
         var results = AllLossResults(fixturesPlayed: 20);
         var result  = FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 20, weeklyResults: results, new Random(seed));
+            finances, club, squad, fixturesPlayed: 20, weeklyResults: results, leaguePosition: 18, new Random(seed));
 
         Assert.Equal(CrisisOutcome.OnNotice, result.Outcome);
+        Assert.True(result.ManagerSacked);
         Assert.Equal(0, club.ManagerContractWeeks);
     }
 
@@ -156,9 +183,10 @@ public class FinancialCrisisServiceTests
 
         var results = AllLossResults(fixturesPlayed: 20);
         var result  = FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 20, weeklyResults: results, new Random(seed));
+            finances, club, squad, fixturesPlayed: 20, weeklyResults: results, leaguePosition: 18, new Random(seed));
 
         Assert.Equal(CrisisOutcome.AnotherChance, result.Outcome);
+        Assert.False(result.ManagerSacked);
         Assert.Equal(52, club.ManagerContractWeeks);   // contract unchanged
     }
 
@@ -173,9 +201,10 @@ public class FinancialCrisisServiceTests
         finances.SharesOwned        = 1;         // can't sell (need ≥ 2)
 
         var result = FinancialCrisisService.Evaluate(
-            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], new Random(0));
+            finances, club, squad, fixturesPlayed: 0, weeklyResults: new string[38], leaguePosition: 10, new Random(0));
 
         Assert.Equal(CrisisOutcome.Sacked, result.Outcome);
+        Assert.False(result.ManagerSacked);   // financial crisis does not trigger sacking flow
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -207,6 +207,25 @@ public static class LeagueService
         return 10;
     }
 
+    // ── Mid-season division swap ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Replaces the team names in an existing league table with those from a
+    /// different division, preserving all stats (played, won, drawn, GF, GA).
+    ///
+    /// Used when the manager joins a new club mid-season: the standings carry
+    /// over so the table is not blank, but the clubs shown are from the new
+    /// division.
+    /// </summary>
+    public static void SwapDivisionTeams(LeagueTable table, Division newDivision, string[] allTeamNames)
+    {
+        int divStart = (int)newDivision * 20 - 19;
+        table.Division = newDivision;
+
+        for (int i = 0; i < table.Entries.Count && i < 20; i++)
+            table.Entries[i].TeamName = allTeamNames[divStart + i];
+    }
+
     // ── League table initialisation ───────────────────────────────────────────
 
     /// <summary>

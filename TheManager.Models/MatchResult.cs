@@ -23,4 +23,18 @@ public class MatchResult
 
     /// <summary>Players discovered by scouts during this week's report pass.</summary>
     public List<ScoutFinding> ScoutFindings { get; set; } = new();
+
+    // ── Sacking ───────────────────────────────────────────────────────────────
+
+    /// <summary>True when the manager was sacked this week due to poor form.</summary>
+    public bool ManagerSacked { get; set; }
+
+    /// <summary>The reason given for the sacking. Non-null when <see cref="ManagerSacked"/> is true.</summary>
+    public string? SackingReason { get; set; }
+
+    /// <summary>The new club the manager has joined. Non-null when <see cref="ManagerSacked"/> is true.</summary>
+    public string? NewClubName { get; set; }
+
+    /// <summary>The division of the new club. Non-null when <see cref="ManagerSacked"/> is true.</summary>
+    public Division? NewClubDivision { get; set; }
 }

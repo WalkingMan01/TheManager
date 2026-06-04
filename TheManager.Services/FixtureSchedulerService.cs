@@ -136,6 +136,25 @@ public static class FixtureSchedulerService
     }
 
     /// <summary>
+    /// Returns the circle-method round (0–37) in which <paramref name="playerIdx"/>
+    /// is paired against <paramref name="opponentIdx"/>.
+    ///
+    /// Used to pass the correct round to <see cref="LeagueService.SimulateOtherFixtures"/>
+    /// so its skip logic aligns with the match actually played rather than the
+    /// interleaved fixture-count index.
+    /// </summary>
+    public static int FindLeagueRound(int playerIdx, int opponentIdx)
+    {
+        for (int round = 0; round < Constants.WeeksInSeason; round++)
+        {
+            foreach (var (h, a) in GetRoundPairings(round))
+                if ((h == playerIdx && a == opponentIdx) || (h == opponentIdx && a == playerIdx))
+                    return round;
+        }
+        return 0;
+    }
+
+    /// <summary>
     /// Returns the 10 home/away pairings (as division-relative indices 0..19)
     /// for a given league round using the circle-method round-robin algorithm.
     ///

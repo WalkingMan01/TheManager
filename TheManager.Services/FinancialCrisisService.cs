@@ -23,8 +23,13 @@ public static class FinancialCrisisService
     /// describing what (if anything) happened.
     ///
     /// Call this once per week after <see cref="FinanceService.CalculateWeeklyReport"/>.
-    /// If the result indicates the manager was sacked, the caller should trigger
-    /// <see cref="InitializationService.JoinNewClub"/> for the next available post.
+    /// If the result indicates the manager was sacked (<see cref="CrisisResult.ManagerSacked"/>),
+    /// the caller should trigger <see cref="InitializationService.JoinNewClubMidSeason"/> for the
+    /// next available post.
+    ///
+    /// Sacking only occurs for poor on-pitch form (≤6 form-points in last 14 matches)
+    /// combined with a bottom-3 league position. Financial crisis triggers rescue measures
+    /// but never sacks the manager.
     /// </summary>
     public static CrisisResult Evaluate(
         Finances  finances,
@@ -32,9 +37,12 @@ public static class FinancialCrisisService
         Player?[] squad,
         int       fixturesPlayed,
         string[]  weeklyResults,
+        int       leaguePosition,
         Random    rng)
     {
         // ── 1. Shares-sold danger (line 5417: JU=1) ──────────────────────────
+        // Financial crisis does not sack the manager; the outcome is recorded
+        // but ManagerSacked returns false for this outcome.
         if (finances.SharesSoldDanger)
         {
             club.ManagerContractWeeks = 0;
@@ -43,7 +51,8 @@ public static class FinancialCrisisService
         }
 
         // ── 2. Form check (lines 5418–5422) ───────────────────────────────────
-        if (fixturesPlayed >= 15)
+        // Only triggers when the club is in the bottom 3 (positions 18–20).
+        if (fixturesPlayed >= 15 && leaguePosition >= 18)
         {
             int formPoints = CalculateFormPoints(weeklyResults, fixturesPlayed);
 
@@ -243,8 +252,12 @@ public class CrisisResult
     public List<string>   Actions     { get; }
     public string         Summary     { get; }
 
-    public bool ManagerSacked =>
-        Outcome is CrisisOutcome.Sacked or CrisisOutcome.OnNotice or CrisisOutcome.SackedSharesSold;
+    /// <summary>
+    /// True only when the manager should be moved to a new club.
+    /// Financial crisis (<see cref="CrisisOutcome.Sacked"/>, <see cref="CrisisOutcome.SackedSharesSold"/>)
+    /// does not trigger the sacking flow — only poor form (<see cref="CrisisOutcome.OnNotice"/>) does.
+    /// </summary>
+    public bool ManagerSacked => Outcome is CrisisOutcome.OnNotice;
 
     public CrisisResult(CrisisOutcome outcome, string summary = "")
     {

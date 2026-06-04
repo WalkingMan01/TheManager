@@ -292,6 +292,83 @@ public static class InitializationService
         gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(gameState.Club.Division);
     }
 
+    // ── Join new club mid-season (post-sacking) ───────────────────────────────
+
+    /// <summary>
+    /// Transitions the manager to a new club mid-season after being sacked.
+    ///
+    /// Identical to <see cref="JoinNewClub"/> except the season clock
+    /// (<c>CurrentWeek</c>, <c>FixturesPlayed</c>, <c>MatchesRemainingThisSeason</c>)
+    /// is preserved so the current season continues. The caller is responsible for
+    /// regenerating <c>Fixtures</c> and <c>CurrentLeague</c> for the new division.
+    /// </summary>
+    public static void JoinNewClubMidSeason(
+        GameState gameState,
+        string    newClubName,
+        Division  newDivision,
+        int       startingLeaguePosition,
+        Random    rng)
+    {
+        // Capture old club name before overwriting
+        string oldClubName = gameState.Club.Name;
+
+        // Swap club identity
+        gameState.Club.Name          = newClubName.PadRight(9)[..9];
+        gameState.Club.Division      = newDivision;
+        gameState.Club.LeaguePosition = startingLeaguePosition;
+
+        if ((int)newDivision > 2)
+            gameState.Club.GroundImprovementCost = 0;
+
+        // Reset all-time records
+        gameState.Finances.RecordSigningFee    = 0;
+        gameState.Finances.RecordSaleFee       = 0;
+        gameState.RecordSigningName            = string.Empty;
+        gameState.RecordSaleName               = string.Empty;
+        gameState.HighestGoalscorerName        = string.Empty;
+        gameState.MostAppearancesName          = string.Empty;
+        gameState.HighestPaidPlayerName        = string.Empty;
+
+        // Shift previous clubs list
+        gameState.PreviousClubs[2] = gameState.PreviousClubs[1];
+        gameState.PreviousClubs[1] = gameState.PreviousClubs[0];
+        gameState.PreviousClubs[0] = oldClubName;
+
+        // Reset cup state and financial ceilings (season clock preserved)
+        SeasonService.ResetMatchState(gameState.LeagueCup, gameState.FACup, gameState.European, newDivision);
+        gameState.CurrentMatch           = null;
+        gameState.InEuropeanFriendlyTour = false;
+        SeasonService.RecalculateDivisionFinancials(gameState.Finances, newDivision);
+
+        gameState.Finances.SharePriceInPence    = 2_000 - (int)newDivision * 400;
+        gameState.Finances.SharesOwned          = 100_000;
+        gameState.Finances.LoanOutstanding      = 0;
+        gameState.Finances.MortgageOutstanding  = 0;
+
+        // Clear transfer slots
+        for (int slot = 21; slot <= 26; slot++) gameState.Squad[slot] = null;
+        gameState.TransferMarket.IncomingOffers.Clear();
+
+        // Generate a new squad and staff
+        var squadResult = GenerateStartingSquad(newDivision, rng);
+        gameState.Squad                   = squadResult.Squad;
+        gameState.Club.TeamMorale         = squadResult.TeamMorale;
+        gameState.Finances.PlayerWageBill = squadResult.PlayerWageBill;
+        gameState.Finances.BankBalance    = squadResult.BankBalance;
+
+        var staff = GenerateStartingStaff(rng);
+        gameState.Coach                  = staff.Coach;
+        gameState.Physio                 = staff.Physio;
+        gameState.Scouts                 = staff.Scouts;
+        gameState.YouthTeam              = staff.YouthPlayers;
+        gameState.Club.HasCoach          = true;
+        gameState.Club.HasPhysio         = true;
+        gameState.Club.ScoutCount        = staff.Scouts.Count;
+        gameState.Club.YouthPlayerCount  = staff.YouthPlayers.Count;
+
+        gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(newDivision);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static CupFixture ToCupFixture(CupFixturePair pair) => new()

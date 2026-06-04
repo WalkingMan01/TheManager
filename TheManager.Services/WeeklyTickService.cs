@@ -62,10 +62,14 @@ public static class WeeklyTickService
             Division                 = divNum
         };
 
+        int leaguePosition = Math.Max(1,
+            gameState.CurrentLeague.Entries
+                .FindIndex(e => e.TeamName.Trim() == gameState.Club.Name.Trim()) + 1);
+
         var report     = FinanceService.CalculateWeeklyReport(finInput, gameState.Finances, rng);
         var crisis     = FinancialCrisisService.Evaluate(
             gameState.Finances, gameState.Club, gameState.Squad,
-            gameState.FixturesPlayed, gameState.CurrentLeague.WeeklyResults, rng);
+            gameState.FixturesPlayed, gameState.CurrentLeague.WeeklyResults, leaguePosition, rng);
         var events     = RandomEventService.EvaluateWeeklyEvents(gameState.Squad, gameState.Club.Name, gameState.AllTeamNames, rng);
         var resignation = StaffService.CheckRandomResignation(gameState.Club, gameState.Coach, gameState.Physio, gameState.Scouts, rng);
         if (resignation.Type == ResignationType.Coach)  gameState.Coach  = null;

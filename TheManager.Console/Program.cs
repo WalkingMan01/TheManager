@@ -32,7 +32,14 @@ while (running)
             if (result.WasEndOfSeason)
                 running = EndOfSeasonScreen.Show(gameService.State);
             else
+            {
                 PlayMatchScreen.ShowResult(result, gameService.State);
+                if (result.ManagerSacked)
+                    SackingScreen.Show(
+                        result.SackingReason ?? "You have been sacked.",
+                        result.NewClubName   ?? string.Empty,
+                        result.NewClubDivision ?? TheManager.Models.Division.Four);
+            }
             break;
 
         case WeekAction.LeagueTable:
@@ -65,6 +72,10 @@ while (running)
 
         case WeekAction.Difficulty:
             DifficultyScreen.Show(gameService.State);
+            break;
+
+        case WeekAction.SackMyself:
+            SackMyselfScreen.Show(gameService);
             break;
 
         case WeekAction.Quit:
