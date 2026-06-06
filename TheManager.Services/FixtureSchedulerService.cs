@@ -90,46 +90,30 @@ public static class FixtureSchedulerService
                 playerIdx = i;
         }
 
-        // Collect all 38 matchups from the circle-method schedule
-        var home = new List<(string opp, int oppIdx)>(19);
-        var away = new List<(string opp, int oppIdx)>(19);
+        // Schedule fixtures in circle-method round order (rounds 0–37).
+        // Each opponent appears exactly once in rounds 0–18 and once in 19–37,
+        // so no two consecutive fixtures are against the same team.
+        // Splitting into home/away lists and interleaving is avoided: for the
+        // pivot team (index 19) that approach produces identical H and A lists,
+        // causing every opponent to be played home+away in back-to-back weeks.
+        var fixtures = new List<ScheduledMatch>(Constants.WeeksInSeason);
+        int week = 1;
 
         for (int round = 0; round < Constants.WeeksInSeason; round++)
         {
-            var pairs   = GetRoundPairings(round);
-            var pair    = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
+            var  pairs  = GetRoundPairings(round);
+            var  pair   = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
             bool isHome = pair.homeIdx == playerIdx;
             int  oi     = isHome ? pair.awayIdx : pair.homeIdx;
 
-            if (isHome) home.Add((divTeams[oi], divStart + oi));
-            else        away.Add((divTeams[oi], divStart + oi));
-        }
-
-        // Interleave home and away to achieve H/A/H/A alternation.
-        // With exactly 19 of each the result is a perfect alternating sequence.
-        var fixtures = new List<ScheduledMatch>(Constants.WeeksInSeason);
-        int h = 0, a = 0, week = 1;
-
-        while (h < home.Count || a < away.Count)
-        {
-            if (h < home.Count)
+            fixtures.Add(new ScheduledMatch
             {
-                var (opp, idx) = home[h++];
-                fixtures.Add(new ScheduledMatch
-                {
-                    MatchType = MatchType.League, Week = week++,
-                    OpponentName = opp, OpponentTeamIndex = idx, IsHomeGame = true
-                });
-            }
-            if (a < away.Count)
-            {
-                var (opp, idx) = away[a++];
-                fixtures.Add(new ScheduledMatch
-                {
-                    MatchType = MatchType.League, Week = week++,
-                    OpponentName = opp, OpponentTeamIndex = idx, IsHomeGame = false
-                });
-            }
+                MatchType         = MatchType.League,
+                Week              = week++,
+                OpponentName      = divTeams[oi],
+                OpponentTeamIndex = divStart + oi,
+                IsHomeGame        = isHome
+            });
         }
 
         return fixtures;
