@@ -4,7 +4,7 @@ using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager.ConsoleApp.Screens;
 
-internal enum WeekAction { CheckMatch, PlayMatch, LeagueTable, Squad, Fixtures, Employees, ScoutReports, TransferMarket, ManagerProfile, Difficulty, SackMyself, Quit }
+internal enum WeekAction { CheckMatch, PlayMatch, LeagueTable, Squad, Fixtures, Employees, ScoutReports, TransferMarket, ManagerProfile, Difficulty, SaveGame, SackMyself, Quit }
 
 internal static class WeekHubScreen
 {
@@ -38,6 +38,7 @@ internal static class WeekHubScreen
         choices.Add("Transfer Market");
         choices.Add("Manager Profile");
         choices.Add("Difficulty");
+        choices.Add("Save Game");
         choices.Add("Sack Myself");
         choices.Add("Quit");
 
@@ -59,6 +60,7 @@ internal static class WeekHubScreen
             "Transfer Market"        => WeekAction.TransferMarket,
             "Manager Profile"        => WeekAction.ManagerProfile,
             "Difficulty"             => WeekAction.Difficulty,
+            "Save Game"              => WeekAction.SaveGame,
             "Sack Myself"            => WeekAction.SackMyself,
             _                        => WeekAction.Quit
         };

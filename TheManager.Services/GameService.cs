@@ -39,6 +39,24 @@ public class GameService
         _engine    = new MatchEngineService();
     }
 
+    [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
+    private GameService(GameState loadedState)
+    {
+        _gameState = loadedState;
+        _random    = new Random();
+        _engine    = new MatchEngineService();
+        Team       = loadedState.Club.Name.Trim();
+        Manager    = loadedState.Club.ManagerName;
+        Division   = loadedState.Club.Division;
+    }
+
+    /// <summary>
+    /// Creates a <see cref="GameService"/> from a previously loaded <see cref="GameState"/>.
+    /// Use this path instead of <c>new GameService() { … }</c> + <see cref="StartGame"/>
+    /// when restoring a saved game — <c>StartGame</c> must not be called on this instance.
+    /// </summary>
+    public static GameService FromSave(GameState loadedState) => new(loadedState);
+
     // ── Game startup ──────────────────────────────────────────────────────────
 
     public void StartGame()

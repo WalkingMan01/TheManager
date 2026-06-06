@@ -3,17 +3,37 @@ using TheManager.ConsoleApp;
 using TheManager.ConsoleApp.Screens;
 using TheManager.Services;
 
-TitleScreen.Show();
+ISaveService saveService = new JsonFileSaveService(JsonFileSaveService.DefaultSavesFolder);
 
-var (teamName, division, managerName) = TeamSelectionScreen.Show();
+GameService? gameService = null;
 
-var gameService = new GameService
+while (gameService == null)
 {
-    Team     = teamName,
-    Division = division,
-    Manager  = managerName
-};
-gameService.StartGame();
+    var titleChoice = TitleScreen.Show(saveService);
+
+    switch (titleChoice)
+    {
+        case TitleChoice.Quit:
+            return;
+
+        case TitleChoice.Continue:
+            var loaded = LoadGameScreen.Show(saveService);
+            if (loaded != null)
+                gameService = GameService.FromSave(loaded);
+            break;
+
+        case TitleChoice.NewGame:
+            var (teamName, division, managerName) = TeamSelectionScreen.Show();
+            gameService = new GameService
+            {
+                Team     = teamName,
+                Division = division,
+                Manager  = managerName
+            };
+            gameService.StartGame();
+            break;
+    }
+}
 
 bool running = true;
 while (running)
@@ -72,6 +92,10 @@ while (running)
 
         case WeekAction.Difficulty:
             DifficultyScreen.Show(gameService.State);
+            break;
+
+        case WeekAction.SaveGame:
+            SaveGameScreen.Show(saveService, gameService.State);
             break;
 
         case WeekAction.SackMyself:
