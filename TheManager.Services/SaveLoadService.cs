@@ -16,7 +16,7 @@ namespace TheManager.Services;
 /// </summary>
 public static class SaveLoadService
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
+    internal static readonly JsonSerializerOptions SerializerOptions = new()
     {
         WriteIndented          = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
@@ -108,7 +108,7 @@ public static class SaveLoadService
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private static GameState Deserialize(string json)
+    internal static GameState Deserialize(string json)
     {
         var state = JsonSerializer.Deserialize<GameState>(json, SerializerOptions);
         return state ?? throw new InvalidDataException("Save file contained null game state.");
