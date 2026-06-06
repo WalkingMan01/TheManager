@@ -126,6 +126,11 @@ public class GameService
             int    aScr = isHome ? theirScore           : ourScore;
             LeagueService.RecordResult(_gameState.CurrentLeague, home, hScr, away, aScr);
 
+            // Record the result for form tracking before FixturesPlayed is incremented.
+            if (_gameState.FixturesPlayed < _gameState.CurrentLeague.WeeklyResults.Length)
+                _gameState.CurrentLeague.WeeklyResults[_gameState.FixturesPlayed] =
+                    LeagueService.EncodeResultString(ourScore, theirScore);
+
             // Find the circle-method round for this specific matchup so that
             // SimulateOtherFixtures skips the correct pair. FixturesPlayed is
             // an H/A interleaved count and does not map 1-to-1 to round numbers.
@@ -251,7 +256,16 @@ public class GameService
         // Keep the existing mid-season standings but replace team names with
         // those from the new division, and record the new division.
         LeagueService.SwapDivisionTeams(_gameState.CurrentLeague, newDivision, _gameState.AllTeamNames);
-        _gameState.CurrentLeague.WeeklyResults = new string[38];
+        // Seed historical form slots with draws rather than nulls so the
+        // sacking check (CalculateFormPoints ≤ 6) cannot re-trigger immediately
+        // against a manager who just joined a new club. FixturesPlayed is
+        // preserved (season clock continues) so every slot the form window
+        // will inspect needs a non-null value; a 0-0 draw (1 pt) keeps the
+        // accumulated form above the firing threshold of 6.
+        var freshResults = new string[38];
+        for (int i = 0; i < _gameState.FixturesPlayed && i < freshResults.Length; i++)
+            freshResults[i] = LeagueService.EncodeResultString(0, 0);
+        _gameState.CurrentLeague.WeeklyResults = freshResults;
 
         _lostLastMatch = false;
 
