@@ -82,21 +82,17 @@ public static class StaffService
 
     /// <summary>
     /// Attempts to hire a youth player. The player is generated and shown;
-    /// acceptance is probabilistic (1/3 chance they turn you down).
-    /// Returns the player if hired, null if refused.
+    /// acceptance is guaranteed. Returns the hired player, or null if the
+    /// youth team is already full.
     ///
     /// BASIC lines 4133–4138:
     ///   Generate player (GOSUB 4144 → 4159).
-    ///   RA=1+RND*3; if RA=3 → player refuses; else accept.
     /// </summary>
     public static YouthPlayer? HireYouthPlayer(Club club, List<YouthPlayer> youthTeam, Random rng)
     {
         if (club.YouthPlayerCount >= 7) return null;
 
         var candidate = GenerateYouthPlayer(rng);
-
-        // 1/3 chance the prospect declines (line 4138: RA=1+RND*3; if RA=3 → refuse)
-        if (1 + rng.Next(3) == 3) return null;
 
         youthTeam.Add(candidate);
         club.YouthPlayerCount++;

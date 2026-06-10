@@ -170,7 +170,7 @@ internal static class EmployeesScreen
                 else
                 {
                     AnsiConsole.WriteLine();
-                    AnsiConsole.MarkupLine("  [yellow]The prospect turned down your offer.[/]");
+                    AnsiConsole.MarkupLine("  [yellow]Your youth team is already full.[/]");
                     Ui.Pause();
                 }
                 break;

@@ -17,7 +17,7 @@ internal static class TitleScreen
 
         var choices = new List<string>();
         if (saveService.AnySaveExists())
-            choices.Add("Continue");
+            choices.Add("Continue Save Game");
         choices.Add("New Game");
         choices.Add("Quit");
 
@@ -27,7 +27,7 @@ internal static class TitleScreen
 
         return choice switch
         {
-            "Continue" => TitleChoice.Continue,
+            "Continue Save Game" => TitleChoice.Continue,
             "Quit"     => TitleChoice.Quit,
             _          => TitleChoice.NewGame
         };

@@ -98,10 +98,6 @@ while (running)
             SaveGameScreen.Show(saveService, gameService.State);
             break;
 
-        case WeekAction.SackMyself:
-            SackMyselfScreen.Show(gameService);
-            break;
-
         case WeekAction.Quit:
             running = false;
             break;

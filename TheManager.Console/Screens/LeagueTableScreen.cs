@@ -22,9 +22,15 @@ internal static class LeagueTableScreen
             .AddColumn(new TableColumn("[bold]Pts[/]").RightAligned());
 
         string ourName = state.Club.Name.Trim();
+        int total = state.CurrentLeague.Entries.Count;
         int pos = 1;
         foreach (var entry in state.CurrentLeague.Entries)
         {
+            if (total >= 7 && (pos == 4 || pos == total - 2))
+            {
+                AddDivider(table);
+            }
+
             bool isUs = entry.TeamName.Trim() == ourName;
             int  pts  = entry.Points(state.Club.PointsPerWin);
             string nameCell = isUs ? $"[bold green]{entry.TeamName.Trim()}[/]" : entry.TeamName.Trim();
@@ -44,5 +50,11 @@ internal static class LeagueTableScreen
 
         AnsiConsole.Write(table);
         Ui.Pause();
+    }
+
+    private static void AddDivider(Table table)
+    {
+        var cells = Enumerable.Repeat("[dim]─[/]", table.Columns.Count).ToArray();
+        table.AddRow(cells);
     }
 }
