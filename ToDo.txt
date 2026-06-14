@@ -1,4 +1,3 @@
-All 3 promoted teams go up
 Stop youth players turning down team (not tested)
 Contract expiry for players ?
 
@@ -34,6 +33,7 @@ CheckMatch not working - away match shows teams back to front
 Add Results to fixtures list
 Other teams need to play as well
 Calculate League table
+All 3 promoted teams go up
 
 
 Reviewed comparing BASIC and as standalone

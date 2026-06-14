@@ -12,25 +12,26 @@ A C# (.NET 10) port of Football Director II — a football management game origi
 TheManager.slnx
 ├── TheManager.Models/       — domain models (Player, Club, GameState, etc.)
 ├── TheManager.Services/     — all game logic
-├── TheManager.WinForms/     — WinForms UI (net10.0-windows); the active UI target
+├── TheManager.Console/      — Spectre.Console terminal UI (net10.0); the active UI target
 ├── TheManager.MatchHarness/ — standalone WinForms tool for testing match simulation
-├── TheManager.Test/         — console test runner (no xUnit yet; just Program.cs)
-└── TheManager/              — SDK.Web placeholder; not the active entry point
+├── TheManager.Tests/        — xUnit test suite
+├── TheManager.Test/         — legacy console test runner (no xUnit; Program.cs only; not in slnx)
+└── TheManager/              — legacy SDK.Web placeholder; not in slnx, not the active entry point
 ```
 
-Dependency direction: `TheManager.WinForms` → `TheManager.Services` → `TheManager.Models`
+Dependency direction: `TheManager.Console` → `TheManager.Services` → `TheManager.Models`
 
-No external NuGet packages except `System.Text.Json` (in-box with .NET 10).
+No external NuGet packages except `System.Text.Json` (in-box with .NET 10) and `Spectre.Console` (used by `TheManager.Console`).
 
 ## Build & Run
 
 ```
-dotnet build TheManager.slnx          # build everything
-dotnet run --project TheManager.WinForms   # launch the WinForms UI
-dotnet run --project TheManager.Test       # run the console test harness
+dotnet build TheManager.slnx              # build everything
+dotnet run --project TheManager.Console   # launch the console UI
+dotnet test TheManager.Tests              # run the xUnit test suite
 ```
 
-`TheManager.WinForms` and `TheManager.MatchHarness` target `net10.0-windows` and require `UseWindowsForms=true` — they won't build on non-Windows CI.
+`TheManager.MatchHarness` targets `net10.0-windows` and requires `UseWindowsForms=true` — it won't build on non-Windows CI.
 
 ## Architecture
 
@@ -45,7 +46,7 @@ dotnet run --project TheManager.Test       # run the console test harness
 - `SeasonService` / `CupService` — end-of-season and cup competition logic
 - `SaveLoadService` — `System.Text.Json` serialisation of `GameState`
 
-**Presentation layer** (`TheManager.WinForms`) — WinForms on .NET 10. `MainForm` is the shell with a navigation bar hosting these `UserControl` views: `HomeView`, `SquadView`, `PlayMatchView`, `FixturesView`.
+**Presentation layer** (`TheManager.Console`) — Spectre.Console terminal UI on .NET 10. `Program.cs` drives a screen loop; each screen lives in `TheManager.Console/Screens/` (e.g. `TitleScreen`, `WeekHubScreen`, `SquadScreen`, `PlayMatchScreen`, `FixturesScreen`, `LeagueTableScreen`).
 
 ## Key Conventions
 
@@ -90,4 +91,4 @@ Players are stored as `Player?[29]`, mirroring BASIC's 1-based array:
 When implementing or verifying logic, cross-reference `Original Code/FOOT.BAS`. The file is ~2,000 lines of AmigaBASIC. Line numbers in comments refer to that file.
 
 ## Tests
-`TheManager.Test` has a `Program.cs` entry point but no test framework. When adding tests, prefer xUnit and integration-style tests over heavy mocking — mock only at system boundaries (e.g., file I/O).
+`TheManager.Tests` is the xUnit suite — run it with `dotnet test TheManager.Tests`. The legacy `TheManager.Test` project has a `Program.cs` entry point but no test framework and is not part of the solution. Prefer xUnit and integration-style tests over heavy mocking — mock only at system boundaries (e.g., file I/O).
