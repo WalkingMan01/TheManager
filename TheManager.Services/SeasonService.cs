@@ -156,43 +156,58 @@ public static class SeasonService
     }
 
     /// <summary>
-    /// Ensures the player's club name sits in the <paramref name="allTeamNames"/>
-    /// index range for <paramref name="newDivision"/>.
+    /// Moves the actual top 3 and bottom 3 teams of <paramref name="table"/>
+    /// (the player's division, sorted by final standings) into the adjacent
+    /// divisions, swapping each with a placeholder slot in that division.
     ///
-    /// <see cref="SwapPromotedRelegatedTeams"/> only moves three AI teams at fixed
-    /// boundary slots. When the player's club was promoted or relegated, their name
-    /// may still be in the old division's range. This method swaps it with the last
-    /// slot of the new range so that <see cref="LeagueService.InitialiseTable"/> and
-    /// <see cref="FixtureSchedulerService.GenerateSeasonFixtures"/> find it correctly.
+    /// This applies promotion/relegation based on the real, simulated league
+    /// table rather than fixed array slots, so all 3 promoted and all 3
+    /// relegated teams — including the player's club, if applicable — move
+    /// together. Extends BASIC subroutines 2421–2428 to the division actually
+    /// being played.
     /// </summary>
-    public static void PlaceTeamInNewDivision(string[] allTeamNames, string clubName, Division newDivision)
+    public static void PromoteAndRelegateActualTeams(string[] allTeamNames, LeagueTable table)
     {
-        string ourTrimmed = clubName.Trim();
-        int newStart = (int)newDivision * 20 - 19;
-        int newEnd   = (int)newDivision * 20;
+        int divisionNumber = (int)table.Division;
 
-        // Already in the right range — nothing to do.
-        for (int i = newStart; i <= newEnd; i++)
-            if (allTeamNames[i].Trim().Equals(ourTrimmed, StringComparison.OrdinalIgnoreCase))
-                return;
-
-        // Find the club anywhere in the array.
-        int playerIdx = -1;
-        for (int i = 1; i < allTeamNames.Length; i++)
+        // Promotion: top 3 move up, swapping with the bottom 3 slots of the
+        // division above.
+        if (divisionNumber > 1)
         {
-            if (allTeamNames[i].Trim().Equals(ourTrimmed, StringComparison.OrdinalIgnoreCase))
-            {
-                playerIdx = i;
-                break;
-            }
+            int aboveBottomSlot = (divisionNumber - 1) * 20;
+            for (int i = 0; i < 3; i++)
+                SwapTeamIntoSlot(allTeamNames, table.Entries[i].TeamName, aboveBottomSlot - i);
         }
 
-        if (playerIdx < 0) return;
+        // Relegation: bottom 3 move down, swapping with the top 3 slots of the
+        // division below.
+        if (divisionNumber < 4)
+        {
+            int belowTopSlot = divisionNumber * 20 + 1;
+            for (int i = 0; i < 3; i++)
+                SwapTeamIntoSlot(allTeamNames, table.Entries[table.Entries.Count - 1 - i].TeamName, belowTopSlot + i);
+        }
+    }
 
-        // Swap the player into the last slot of the new division range,
-        // sending the incumbent AI team to the player's old slot.
-        (allTeamNames[playerIdx], allTeamNames[newEnd]) =
-            (allTeamNames[newEnd], allTeamNames[playerIdx]);
+    /// <summary>
+    /// Locates <paramref name="teamName"/> anywhere in <paramref name="allTeamNames"/>
+    /// and swaps it into <paramref name="targetIndex"/>, displacing whatever
+    /// currently occupies that slot. No-op if the team is already there.
+    /// </summary>
+    private static void SwapTeamIntoSlot(string[] allTeamNames, string teamName, int targetIndex)
+    {
+        string trimmed = teamName.Trim();
+
+        for (int i = 1; i < allTeamNames.Length; i++)
+        {
+            if (i == targetIndex) continue;
+
+            if (allTeamNames[i].Trim().Equals(trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                (allTeamNames[i], allTeamNames[targetIndex]) = (allTeamNames[targetIndex], allTeamNames[i]);
+                return;
+            }
+        }
     }
 
     // ── Youth player aging (subroutine 2441, lines 1782–1786) ────────────────
@@ -334,15 +349,17 @@ public static class SeasonService
         Division newDivision = DetermineNewDivision(club.LeaguePosition, club.Division);
         club.Division        = newDivision;
 
-        // 6. Swap AI teams between divisions (Div1/2 and Div3/4 boundaries)
-        SwapPromotedRelegatedTeams(gameState.AllTeamNames, upperDivisionNumber: 1);
-        SwapPromotedRelegatedTeams(gameState.AllTeamNames, upperDivisionNumber: 3);
+        // 6. Move the actual top 3 / bottom 3 of the division just played
+        // (including the player's club, if applicable) into the adjacent
+        // divisions.
+        PromoteAndRelegateActualTeams(gameState.AllTeamNames, gameState.CurrentLeague);
 
-        // 6b. The AI swaps only move three teams at fixed boundary slots.
-        // If the player was promoted/relegated, their club name may still sit in
-        // the old division's range. Move it into the new range so that
-        // InitialiseTable and GenerateSeasonFixtures can find it.
-        PlaceTeamInNewDivision(gameState.AllTeamNames, club.Name, newDivision);
+        // 6b. Shuffle AI teams across whichever Div1/2 or Div3/4 boundary the
+        // player's division did not touch — step 6 already handled the other.
+        if (completedRecord.Division == Division.One || completedRecord.Division == Division.Two)
+            SwapPromotedRelegatedTeams(gameState.AllTeamNames, upperDivisionNumber: 3);
+        else
+            SwapPromotedRelegatedTeams(gameState.AllTeamNames, upperDivisionNumber: 1);
 
         // 7. Age youth players
         int youthCount = club.YouthPlayerCount;
