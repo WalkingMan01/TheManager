@@ -28,7 +28,7 @@ public static class MarketService
         if (player.Age < 0) player.Age = -player.Age;
     }
 
-    public static bool IsListed(Player player) => player.Age < 0;
+    public static bool IsListed(Player player) => player.IsTransferListed;
 
     // ── Weekly incoming interest (BASIC lines 355–369) ────────────────────────
 

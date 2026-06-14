@@ -71,10 +71,10 @@ public class RandomEventServiceTests
     public void EvaluateWeeklyEvents_OlderPlayer_MayAnnounceRetirement()
     {
         var squad = new Player?[29];
-        squad[1]  = new Player { Name = "Old", Skill = 5.0, Age = 32, Position = PlayerPosition.Defender };
+        squad[1]  = new Player { Name = "Old", Skill = 5.0, Age = 42, Position = PlayerPosition.Defender };
 
-        // With no star, rng sequence is: Next(35) consumed, then Next(10) for retirement check.
-        // Find seed where Next(35) (any) then Next(10)==0.
+        // With no star, rng sequence is: Next(35) consumed, then Next(100) for retirement check.
+        // Age 42 is capped at a 10% chance, so find a seed where Next(35) (any) then Next(100)<10.
         int seed = FindSeedForRetirementAnnouncement();
 
         var events = RandomEventService.EvaluateWeeklyEvents(squad, "OurClub", TeamNames, new Random(seed));
@@ -274,7 +274,7 @@ public class RandomEventServiceTests
         {
             var rng = new Random(seed);
             rng.Next(35);              // consume starEventRoll
-            if (rng.Next(10) == 0) return seed;
+            if (rng.Next(100) < 10) return seed;
         }
         throw new InvalidOperationException("No seed found for retirement announcement");
     }

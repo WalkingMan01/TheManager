@@ -7,11 +7,11 @@ namespace TheManager.ConsoleApp.Screens;
 internal static class SquadScreen
 {
     private const int TargetWidth  = 100;
-    private const int TargetHeight = 36;
+    private const int TargetHeight = 50;
 
     public static void Show(GameState state)
     {
-        ResizeConsole();
+        Ui.ResizeConsole(TargetWidth, TargetHeight);
         string? error = null;
 
         while (true)
@@ -26,11 +26,32 @@ internal static class SquadScreen
                 error = null;
             }
 
-            AnsiConsole.MarkupLine("  [dim]Enter two slot numbers to swap (e.g. [bold white]3 9[/]), or press Enter to go back:[/]");
+            AnsiConsole.MarkupLine("  [dim]Enter two slot numbers to swap (e.g. [bold white]3 9[/]), [bold white]T<number>[/] to transfer-list a player (e.g. [bold white]T9[/]), or press Enter to go back:[/]");
             var input = AnsiConsole.Prompt(new TextPrompt<string>("> ").AllowEmpty());
 
             if (string.IsNullOrWhiteSpace(input))
                 break;
+
+            if (TryParseTransferListToggle(input, out int slot))
+            {
+                if (slot < 1 || slot > 20)
+                {
+                    error = "Enter a player number between 1 and 20, e.g. \"T9\"";
+                    continue;
+                }
+
+                var player = state.Squad[slot];
+                if (player is null)
+                {
+                    error = $"There is no player in slot {slot}";
+                    continue;
+                }
+
+                if (!PlayerService.ToggleTransferListed(player))
+                    error = $"{player.Name} cannot be transfer-listed";
+
+                continue;
+            }
 
             if (!TryParseSwap(input, out int a, out int b))
             {
@@ -40,6 +61,16 @@ internal static class SquadScreen
 
             (state.Squad[a], state.Squad[b]) = (state.Squad[b], state.Squad[a]);
         }
+    }
+
+    private static bool TryParseTransferListToggle(string input, out int slot)
+    {
+        slot = 0;
+        var trimmed = input.Trim();
+        if (trimmed.Length < 2 || (trimmed[0] != 'T' && trimmed[0] != 't'))
+            return false;
+
+        return int.TryParse(trimmed[1..].Trim(), out slot);
     }
 
     private static bool TryParseSwap(string input, out int a, out int b)
@@ -82,7 +113,7 @@ internal static class SquadScreen
             .AddColumn(new TableColumn("[dim]Wage[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Ctr[/]").RightAligned());
 
-        AddSection(table, "FIRST TEAM", 1,  11, squad);
+        AddSection(table, null,        1,  11, squad);
         AddSection(table, "SUBSTITUTE", 12, 12, squad);
         AddSection(table, "RESERVES",   13, 20, squad);
         return table;
@@ -114,23 +145,31 @@ internal static class SquadScreen
         _    => $"[red]{rating}[/]"
     };
 
-    private static void AddSection(Table table, string title, int from, int to, Player?[] squad)
+    private static void AddSection(Table table, string? title, int from, int to, Player?[] squad)
     {
-        // Section header goes in the Name column to keep the Pos column narrow.
-        table.AddRow(
-            new Markup(""),
-            new Markup(""),
-            new Markup($"[bold dim] {title}[/]"),
-            new Markup(""), new Markup(""), new Markup(""), new Markup(""),
-            new Markup(""), new Markup(""));
+        if (title is not null)
+        {
+            // Section header goes in the Name column to keep the Pos column narrow.
+            table.AddRow(
+                new Markup(""),
+                new Markup(""),
+                new Markup($"[bold dim] {title}[/]"),
+                new Markup(""), new Markup(""), new Markup(""), new Markup(""),
+                new Markup(""), new Markup(""));
+        }
 
         for (int slot = from; slot <= to; slot++)
         {
             var    player = squad[slot];
             string pos    = Ui.PlayerPositionLabel(player);
-            string name   = player is null ? "[dim]—[/]"
-                          : player.IsStar  ? $"[yellow]{player.Name}[/]"
+            string name   = player is null              ? "[dim]—[/]"
+                          : player.IsTransferListed      ? $"[red]{player.Name}[/]"
+                          : player.IsStar                ? $"[yellow]{player.Name}[/]"
                           : player.Name;
+
+            string age      = player is null    ? "[dim]—[/]"
+                            : player.IsRetiring  ? "[red]RET[/]"
+                            : player.DisplayAge.ToString();
 
             string wage     = player is null ? "[dim]—[/]" : $"£{(int)player.WeeklyWage}";
             string contract = player is null ? "[dim]—[/]"
@@ -141,8 +180,8 @@ internal static class SquadScreen
                 $"[dim]{slot}[/]",
                 pos,
                 name,
-                player?.DisplaySkill.ToString() ?? "[dim]—[/]",
-                player?.DisplayAge.ToString()   ?? "[dim]—[/]",
+                SkillCell(player),
+                age,
                 player?.Temper.ToString()        ?? "[dim]—[/]",
                 player?.GamesPlayed.ToString()   ?? "[dim]—[/]",
                 wage,
@@ -150,18 +189,22 @@ internal static class SquadScreen
         }
     }
 
-    private static void ResizeConsole()
+    /// <summary>
+    /// Formats a player's displayed skill, appending an indicator when the
+    /// player is close to a skill-level change: "+" if the fractional part
+    /// of <see cref="Player.Skill"/> is 0.8 or higher (close to leveling up), or
+    /// "-" if it is 0.2 or lower (close to dropping a level).
+    /// </summary>
+    private static string SkillCell(Player? player)
     {
-        if (!OperatingSystem.IsWindows()) return;
-        try
-        {
-            // Buffer must be at least as large as the window on Windows.
-            if (Console.BufferWidth  < TargetWidth)  Console.BufferWidth  = TargetWidth;
-            if (Console.BufferHeight < TargetHeight) Console.BufferHeight = TargetHeight;
-            Console.SetWindowSize(
-                Math.Min(TargetWidth,  Console.LargestWindowWidth),
-                Math.Min(TargetHeight, Console.LargestWindowHeight));
-        }
-        catch { /* Ignore terminals that don't support resize */ }
+        if (player is null) return "[dim]—[/]";
+
+        double fraction = player.Skill - player.DisplaySkill;
+        string indicator = fraction >= 0.8 ? "+"
+                          : fraction <= 0.2 ? "-"
+                          : "";
+
+        return $"{player.DisplaySkill}{indicator}";
     }
+
 }

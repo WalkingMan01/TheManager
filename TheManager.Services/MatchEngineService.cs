@@ -195,9 +195,7 @@ public class MatchEngineService
         var scorer = squad[scorerSlot.Value];
         if (scorer == null) return null;
 
-        // Negative SeasonGoals signals a retirement-track state; the counter
-        // moves further negative rather than crossing back through zero.
-        scorer.SeasonGoals += scorer.SeasonGoals >= 0 ? 1 : -1;
+        scorer.SeasonGoals++;
         scorer.Appearances++;
         scorer.Skill += SkillBoostPerGoal;
         PlayerService.RecalculateStatus(scorer);
@@ -213,8 +211,7 @@ public class MatchEngineService
         var gk = squad[GoalkeeperSlot];
         if (gk == null) return;
 
-        // Negative SeasonGoals signals a retirement-track state (same as outfield).
-        gk.SeasonGoals += gk.SeasonGoals >= 0 ? 1 : -1;
+        gk.SeasonGoals++;
         gk.Appearances++;
     }
 

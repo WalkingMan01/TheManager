@@ -49,6 +49,9 @@ public class Player
     /// <summary>Absolute age for display purposes.</summary>
     public int DisplayAge => Math.Abs(Age);
 
+    /// <summary>True if the player is transfer-listed. Corresponds to G(I)&lt;0.</summary>
+    public bool IsTransferListed => Age < 0;
+
     // ── Performance statistics ────────────────────────────────────────────────
 
     /// <summary>Temper rating 0–9. Low = calm, high = volatile. Corresponds to E(3,I).</summary>
@@ -56,10 +59,12 @@ public class Player
 
     /// <summary>
     /// Goals scored this season (outfield) or goals conceded (GK).
-    /// Negative values indicate a special retirement-track state (see BASIC 4503).
     /// Corresponds to E(1,I).
     /// </summary>
     public int SeasonGoals { get; set; }
+
+    /// <summary>True if the player has announced retirement and will be removed at the end of the season.</summary>
+    public bool IsRetiring { get; set; }
 
     /// <summary>Appearances this season. Corresponds to E(2,I).</summary>
     public int Appearances { get; set; }

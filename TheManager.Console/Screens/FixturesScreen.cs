@@ -6,10 +6,31 @@ namespace TheManager.ConsoleApp.Screens;
 
 internal static class FixturesScreen
 {
+    private const int TargetWidth  = 120;
+    private const int TargetHeight = 30;
+
     public static void Show(GameState state)
     {
+        Ui.ResizeConsole(TargetWidth, TargetHeight);
         Ui.Header($"FIXTURES  ·  {state.Club.Name.Trim()}");
 
+        int half = (state.Fixtures.Count + 1) / 2;
+        var leftTable  = BuildFixtureTable(state, state.Fixtures.Take(half));
+        var rightTable = BuildFixtureTable(state, state.Fixtures.Skip(half));
+
+        var wrapper = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("left").Padding(0, 0, 1, 0))
+            .AddColumn(new TableColumn("right").Padding(0, 0, 0, 0));
+
+        wrapper.AddRow(leftTable, rightTable);
+        AnsiConsole.Write(wrapper);
+        Ui.Pause();
+    }
+
+    private static Table BuildFixtureTable(GameState state, IEnumerable<ScheduledMatch> fixtures)
+    {
         var table = new Table()
             .Border(TableBorder.Rounded)
             .AddColumn(new TableColumn("[dim]Wk[/]").RightAligned())
@@ -18,7 +39,7 @@ internal static class FixturesScreen
             .AddColumn(new TableColumn("[dim]Type[/]"))
             .AddColumn(new TableColumn("[dim]Result[/]").Centered());
 
-        foreach (var fixture in state.Fixtures)
+        foreach (var fixture in fixtures)
         {
             bool isCurrent = fixture.Week == state.CurrentWeek;
             bool isPast    = fixture.Week <  state.CurrentWeek;
@@ -37,8 +58,7 @@ internal static class FixturesScreen
             table.AddRow(week, opp, venue, MatchTypeLabel(fixture.MatchType), result);
         }
 
-        AnsiConsole.Write(table);
-        Ui.Pause();
+        return table;
     }
 
     private static string BuildResultCell(ScheduledMatch fixture)

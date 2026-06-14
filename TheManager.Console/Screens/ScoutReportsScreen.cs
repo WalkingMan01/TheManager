@@ -249,7 +249,7 @@ internal static class ScoutReportsScreen
         }
 
         // Step 6: commit the deal
-        TransferService.CommitDeal(player, state.Finances, askingPrice, signingFee);
+        TransferService.CommitDeal(player, state.Finances, askingPrice, signingFee, wage, contractWeeks);
         state.Squad[freeSlot] = player;
         state.Squad[finding.SquadSlot] = null;   // clear the scout market slot
 

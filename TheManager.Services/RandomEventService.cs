@@ -197,10 +197,17 @@ public static class RandomEventService
         for (int slot = 1; slot <= 20; slot++)
         {
             var player = squad[slot];
-            if (player == null || player.DisplayAge <= 29) continue;
+            if (player == null || player.DisplayAge <= 32 || player.IsRetiring) continue;
 
-            // line 2564: random check — not every over-29 player announces every week
-            if (rng.Next(10) != 0) continue;
+            // 1% chance per year over 32, capped at 10% (e.g. age 36 = 4%, age 42+ = 10%)
+            int retirementChancePercent = Math.Min(player.DisplayAge - 32, 10);
+            if (rng.Next(100) >= retirementChancePercent) continue;
+
+            // Mark the player for removal at the end of the season (BASIC: J(K)=82)
+            player.IsRetiring = true;
+
+            // Un-transfer-list the player (BASIC: G(K)=ABS(G(K)))
+            MarketService.UnlistFromTransfer(player);
 
             return new RandomEvent
             {

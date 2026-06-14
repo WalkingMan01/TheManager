@@ -12,6 +12,25 @@ internal static class Ui
         AnsiConsole.WriteLine();
     }
 
+    /// <summary>
+    /// Resizes the console window/buffer (Windows only) to fit content that needs
+    /// more than the default terminal size.
+    /// </summary>
+    public static void ResizeConsole(int targetWidth, int targetHeight)
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            // Buffer must be at least as large as the window on Windows.
+            if (Console.BufferWidth  < targetWidth)  Console.BufferWidth  = targetWidth;
+            if (Console.BufferHeight < targetHeight) Console.BufferHeight = targetHeight;
+            Console.SetWindowSize(
+                Math.Min(targetWidth,  Console.LargestWindowWidth),
+                Math.Min(targetHeight, Console.LargestWindowHeight));
+        }
+        catch { /* Ignore terminals that don't support resize */ }
+    }
+
     public static void Pause(string prompt = "Press any key to continue...")
     {
         AnsiConsole.MarkupLine($"\n[dim]{prompt}[/]");

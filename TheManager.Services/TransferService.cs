@@ -138,8 +138,9 @@ public static class TransferService
     // ── Apply completed deal (lines 2616–2619) ────────────────────────────────
 
     /// <summary>
-    /// Commits a successful transfer: deducts fees from bank balance and updates
-    /// the record signing fee if applicable.
+    /// Commits a successful transfer: deducts fees from bank balance, updates
+    /// the record signing fee if applicable, and applies the agreed wage and
+    /// contract length to the signed player.
     ///
     /// Caller is responsible for physically moving the player into the correct
     /// squad slot by swapping the relevant <see cref="TheManager.Models.GameState.Squad"/> entries.
@@ -148,9 +149,13 @@ public static class TransferService
         Player   player,
         Finances finances,
         double   transferFee,
-        double   signingFee)
+        double   signingFee,
+        double   wage,
+        int      contractWeeks)
     {
-        player.GamesPlayed = 0;   // x(IB)=0 when NT=0 (line 2136)
+        player.GamesPlayed   = 0;   // x(IB)=0 when NT=0 (line 2136)
+        player.WeeklyWage    = wage;
+        player.ContractWeeks = contractWeeks;
 
         double totalCost = transferFee + signingFee;
         finances.BankBalance -= (int)totalCost;

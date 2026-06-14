@@ -31,6 +31,27 @@ public static class PlayerService
         }
     }
 
+    // ── Transfer listing (line 1928) ─────────────────────────────────────────
+
+    /// <summary>
+    /// Toggles a player's transfer-listed flag by flipping the sign of their age.
+    /// Corresponds to BASIC line 1928: G(I) = -G(I).
+    /// </summary>
+    /// <returns>False if the player is retiring and cannot be listed; true if the
+    /// toggle was applied.</returns>
+    public static bool ToggleTransferListed(Player player)
+    {
+        if (player.IsRetiring)
+            return false;
+
+        if (player.IsTransferListed)
+            MarketService.UnlistFromTransfer(player);
+        else
+            MarketService.ListForTransfer(player);
+
+        return true;
+    }
+
     // ── Team ratings (subroutine 332, lines 371–387) ─────────────────────────
 
     /// <summary>
@@ -148,6 +169,12 @@ public static class PlayerService
         {
             var player = squad[squadSlot];
             if (player == null) continue;
+
+            if (player.IsRetiring)
+            {
+                squad[squadSlot] = null;
+                continue;
+            }
 
             if (player.Position == PlayerPosition.None) continue;
 
