@@ -142,7 +142,7 @@ public static class PlayerService
     ///   Clamp and recalculate status (subroutine 525)
     ///   Players with J=42 (OnLoan) or J=76 (LoanUnavailable) are skipped.
     /// </summary>
-    public static void ApplyWeeklySkillDrift(Player?[] squad, Random rng)
+    public static void ApplyEndOfSeasonSkillUpdate(Player?[] squad, Random rng)
     {
         for (int squadSlot = 1; squadSlot <= 20; squadSlot++)
         {
@@ -151,7 +151,7 @@ public static class PlayerService
 
             if (player.Position == PlayerPosition.None) continue;
 
-            double randomDrift = (rng.Next(25) / 10.0) - 1.4;   // range –1.4 to +1.0
+            double randomDrift = ((rng.Next(25) / 10.0) - 1.4) / 2;   // range –0.7 to +0.5
             player.Skill += randomDrift;
 
             RecalculateStatus(player);

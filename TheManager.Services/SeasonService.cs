@@ -350,7 +350,7 @@ public static class SeasonService
         club.YouthPlayerCount = youthCount;
 
         // 8. Apply weekly skill drift for end-of-season conditioning
-        PlayerService.ApplyWeeklySkillDrift(gameState.Squad, rng);
+        PlayerService.ApplyEndOfSeasonSkillUpdate(gameState.Squad, rng);
 
         // 9. Reset match state for new season
         ResetMatchState(gameState.LeagueCup, gameState.FACup, gameState.European, newDivision);
