@@ -26,7 +26,6 @@ internal static class SquadScreen
                 error = null;
             }
 
-            AnsiConsole.MarkupLine("  [dim]Enter two slot numbers to swap (e.g. [bold white]3 9[/]), [bold white]T<number>[/] to transfer-list a player (e.g. [bold white]T9[/]), or press Enter to go back:[/]");
             var input = AnsiConsole.Prompt(new TextPrompt<string>("> ").AllowEmpty());
 
             if (string.IsNullOrWhiteSpace(input))
@@ -50,6 +49,37 @@ internal static class SquadScreen
                 if (!PlayerService.ToggleTransferListed(player))
                     error = $"{player.Name} cannot be transfer-listed";
 
+                continue;
+            }
+
+            if (TryParseRenegotiate(input, out int rSlot))
+            {
+                if (rSlot < 1 || rSlot > 20)
+                {
+                    error = "Enter a player number between 1 and 20, e.g. \"R7\"";
+                    continue;
+                }
+
+                var rPlayer = state.Squad[rSlot];
+                if (rPlayer is null)
+                {
+                    error = $"There is no player in slot {rSlot}";
+                    continue;
+                }
+
+                if (rPlayer.IsRetiring)
+                {
+                    error = $"{rPlayer.Name.Trim()} is retiring and cannot be offered a contract";
+                    continue;
+                }
+
+                if (rPlayer.ContractWeeks > 10)
+                {
+                    error = $"{rPlayer.Name.Trim()}'s contract does not expire for {rPlayer.ContractWeeks} weeks";
+                    continue;
+                }
+
+                error = RunNegotiation(state, rSlot);
                 continue;
             }
 
@@ -83,19 +113,106 @@ internal static class SquadScreen
         return true;
     }
 
+    private static bool TryParseRenegotiate(string input, out int slot)
+    {
+        slot = 0;
+        var trimmed = input.Trim();
+        if (trimmed.Length < 2 || (trimmed[0] != 'R' && trimmed[0] != 'r'))
+            return false;
+        return int.TryParse(trimmed[1..].Trim(), out slot);
+    }
+
+    /// <summary>
+    /// Runs an inline contract negotiation for the player in the given squad slot.
+    /// Returns a non-null error string if the negotiation ended without signing,
+    /// or null on success (player signed).
+    /// </summary>
+    private static string? RunNegotiation(GameState state, int slot)
+    {
+        var player = state.Squad[slot]!;
+        var rng    = new Random();
+        var demand = ContractService.GetPlayerDemands(player, state.Club.Division, rng);
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine(
+            $"  [bold]{Markup.Escape(player.Name.Trim())}[/]  " +
+            $"{Ui.PlayerPositionLabel(player)}  Skill {player.DisplaySkill}  Age {player.DisplayAge}");
+        string remaining = player.ContractWeeks == 0
+            ? "[red]Contract expired[/]"
+            : $"Contract expiring in [red]{player.ContractWeeks}[/] week{(player.ContractWeeks == 1 ? "" : "s")}";
+        AnsiConsole.MarkupLine($"  {remaining}");
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("  He is asking for:");
+        AnsiConsole.MarkupLine($"    Weekly wage     [cyan]£{demand.StatedWeeklyWage}[/]");
+        AnsiConsole.MarkupLine($"    Signing-on fee  [cyan]£{demand.StatedSigningFee}[/]");
+        AnsiConsole.MarkupLine($"    Contract        [cyan]{demand.StatedContractWeeks} weeks[/]");
+        AnsiConsole.WriteLine();
+
+        var choice = AnsiConsole.Prompt(
+            new TextPrompt<string>("  [dim]Accept his terms ([bold white]A[/]), make a counter-offer ([bold white]C[/]), or press Enter to cancel:[/] > ")
+                .AllowEmpty());
+
+        if (string.IsNullOrWhiteSpace(choice))
+            return null;
+
+        int offeredWage, offeredFee, offeredWeeks;
+
+        if (choice.Trim().Equals("A", StringComparison.OrdinalIgnoreCase))
+        {
+            offeredWage  = demand.StatedWeeklyWage;
+            offeredFee   = demand.StatedSigningFee;
+            offeredWeeks = demand.StatedContractWeeks;
+        }
+        else if (choice.Trim().Equals("C", StringComparison.OrdinalIgnoreCase))
+        {
+            offeredWage = AnsiConsole.Prompt(
+                new TextPrompt<int>($"  Weekly wage (£, max {demand.StatedContractWeeks}w contract): > "));
+            offeredFee = AnsiConsole.Prompt(
+                new TextPrompt<int>("  Signing-on fee (£): > "));
+            offeredWeeks = AnsiConsole.Prompt(
+                new TextPrompt<int>($"  Contract length in weeks (max {demand.StatedContractWeeks}): > "));
+
+            if (offeredFee > state.Finances.BankBalance)
+                return $"You cannot afford a signing-on fee of £{offeredFee}";
+
+            if (!ContractService.EvaluateOffer(demand, offeredWage, offeredFee, offeredWeeks))
+                return $"{player.Name.Trim()} rejects your offer";
+        }
+        else
+        {
+            return null;
+        }
+
+        player.WeeklyWage    = offeredWage;
+        player.ContractWeeks = offeredWeeks;
+        ContractService.ApplyRenewal(state.Finances, offeredFee);
+
+        AnsiConsole.MarkupLine($"  [green]{Markup.Escape(player.Name.Trim())} agrees to sign[/]");
+        Ui.Pause();
+        return null;
+    }
+
     private static void DrawLayout(GameState state)
     {
-        var squadTable   = BuildSquadTable(state.Squad);
-        var ratingsTable = BuildRatingsTable(state.Squad);
+        var squadTable    = BuildSquadTable(state.Squad);
+        var ratingsTable  = BuildRatingsTable(state.Squad);
+        var commandsTable = BuildCommandsTable();
 
-        // Borderless wrapper places ratings to the right of the squad list.
+        // Stack ratings + commands vertically in the right column.
+        var rightColumn = new Table()
+            .NoBorder()
+            .HideHeaders()
+            .AddColumn(new TableColumn("content").Padding(0, 0, 0, 0));
+        rightColumn.AddRow(ratingsTable);
+        rightColumn.AddRow(commandsTable);
+
         var wrapper = new Table()
             .NoBorder()
             .HideHeaders()
             .AddColumn(new TableColumn("squad").Padding(0, 0, 1, 0))
-            .AddColumn(new TableColumn("ratings").Padding(0, 0, 0, 0));
+            .AddColumn(new TableColumn("right").Padding(0, 0, 0, 0));
 
-        wrapper.AddRow(squadTable, ratingsTable);
+        wrapper.AddRow(squadTable, rightColumn);
         AnsiConsole.Write(wrapper);
     }
 
@@ -137,6 +254,21 @@ internal static class SquadScreen
         return table;
     }
 
+    private static Table BuildCommandsTable()
+    {
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .HideHeaders()
+            .AddColumn(new TableColumn("cmd").Padding(0, 0, 1, 0))
+            .AddColumn(new TableColumn("desc"));
+
+        table.AddRow("[bold white]3 9[/]",   "[dim]Swap players[/]");
+        table.AddRow("[bold white]T9[/]",    "[dim]Transfer-list[/]");
+        table.AddRow("[bold white]R7[/]",    "[dim]Renegotiate[/]");
+        table.AddRow("[bold white]Enter[/]", "[dim]Go back[/]");
+        return table;
+    }
+
     private static string RatingCell(int rating) => rating switch
     {
         >= 8 => $"[bold green]{rating}[/]",
@@ -172,8 +304,9 @@ internal static class SquadScreen
                             : player.DisplayAge.ToString();
 
             string wage     = player is null ? "[dim]—[/]" : $"£{(int)player.WeeklyWage}";
-            string contract = player is null ? "[dim]—[/]"
-                            : player.ContractWeeks == 0 ? "[red]exp[/]"
+            string contract = player is null              ? "[dim]—[/]"
+                            : player.ContractWeeks == 0  ? "[red bold]exp[/]"
+                            : player.ContractWeeks <= 10 ? $"[red]{player.ContractWeeks}w[/]"
                             : $"{player.ContractWeeks}w";
 
             table.AddRow(

@@ -208,6 +208,7 @@ public class GameService
             Goals           = matchGoals,
             OtherFixtures   = otherFixtures,
             ScoutFindings   = tick.ScoutFindings,
+            DepartedPlayers = tick.DepartedPlayers,
             ManagerSacked   = managerSacked,
             SackingReason   = sackingReason,
             NewClubName     = newClubName,

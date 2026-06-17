@@ -27,9 +27,20 @@ public static class WeeklyTickService
 
         gameState.Club.ManagerContractWeeks = Math.Max(0, gameState.Club.ManagerContractWeeks - 1);
 
-        // Decrement each player's contract (line 188: V(2,I)=V(2,I)+(V(2,I)>0) which subtracts 1)
-        foreach (var player in gameState.Squad.Skip(1).Take(20).OfType<Player>())
-            if (player.ContractWeeks > 0) player.ContractWeeks--;
+        // Decrement each player's contract (BASIC line 188: V(2,I)=V(2,I)+(V(2,I)>0)).
+        // Players whose contract reaches 0 leave the club immediately.
+        var departed = new List<string>();
+        for (int i = 1; i <= 20; i++)
+        {
+            var p = gameState.Squad[i];
+            if (p is null) continue;
+            if (p.ContractWeeks > 0) p.ContractWeeks--;
+            if (p.ContractWeeks == 0)
+            {
+                departed.Add(p.Name.Trim());
+                gameState.Squad[i] = null;
+            }
+        }
 
         // Recalculate wage bill from actual squad wages
         gameState.Finances.PlayerWageBill =
@@ -82,7 +93,7 @@ public static class WeeklyTickService
         gameState.TransferMarket.PlayersBeingSought =
             MarketService.GenerateIncomingInterest(gameState.Squad, gameState.Club.Division, gameState.Club.Name, gameState.AllTeamNames, rng);
 
-        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney, scoutResult.Findings);
+        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney, scoutResult.Findings, departed);
     }
 
     // ── Youth coaching (BASIC lines 5408–5411) ────────────────────────────────
@@ -137,4 +148,5 @@ public record WeeklyTickResult(
     string?            Resignation,
     double             Attendance,
     double             GateMoney,
-    List<ScoutFinding> ScoutFindings);
+    List<ScoutFinding> ScoutFindings,
+    List<string>       DepartedPlayers);

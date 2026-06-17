@@ -5,6 +5,7 @@
   <Folder Name="/Solution Items/Docs/" />
   <Folder Name="/Solution Items/Docs/Specs/">
     <File Path="docs/specs/manager-sacking.md" />
+    <File Path="docs/specs/player-contract-renegotiation.md" />
     <File Path="docs/specs/sqlite-save.md" />
   </Folder>
   <Project Path="TheManager.Console/TheManager.Console.csproj" />

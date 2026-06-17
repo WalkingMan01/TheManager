@@ -112,6 +112,14 @@ internal static class PlayMatchScreen
             }
         }
 
+        if (result.DepartedPlayers.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("  [bold dim]CONTRACT EXPIRIES[/]");
+            foreach (var name in result.DepartedPlayers)
+                AnsiConsole.MarkupLine($"  [red]{Markup.Escape(name)}[/] has left the club — contract expired");
+        }
+
         Ui.Pause();
     }
 

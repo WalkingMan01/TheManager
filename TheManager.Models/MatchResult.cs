@@ -24,6 +24,9 @@ public class MatchResult
     /// <summary>Players discovered by scouts during this week's report pass.</summary>
     public List<ScoutFinding> ScoutFindings { get; set; } = new();
 
+    /// <summary>Players who left the club this week due to expired contracts.</summary>
+    public List<string> DepartedPlayers { get; set; } = new();
+
     // ── Sacking ───────────────────────────────────────────────────────────────
 
     /// <summary>True when the manager was sacked this week due to poor form.</summary>

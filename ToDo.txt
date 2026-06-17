@@ -1,5 +1,5 @@
-Stop youth players turning down team (not tested)
-Contract expiry for players ?
+Save game should show available slots and allow overwriting or deleting
+Maybes have some news at the top of the main menu
 
 Managerial Profile to be added - record
 Sacking manager needs to be updated - or maybes just end the game

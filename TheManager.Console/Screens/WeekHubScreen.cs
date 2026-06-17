@@ -25,6 +25,8 @@ internal static class WeekHubScreen
         AnsiConsole.MarkupLine($"  Balance: [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]   Morale: [yellow]{state.Club.TeamMorale}[/]");
         AnsiConsole.WriteLine();
 
+        DrawNewsSection(state);
+
         bool isEndOfSeason = match.MatchType == MatchType.EndOfSeason;
 
         var choices = new List<string>();
@@ -63,6 +65,31 @@ internal static class WeekHubScreen
             "Save Game"              => WeekAction.SaveGame,
             _                        => WeekAction.Quit
         };
+    }
+
+    private static void DrawNewsSection(GameState state)
+    {
+        var items = new List<string>();
+
+        for (int i = 1; i <= 20; i++)
+        {
+            var p = state.Squad[i];
+            if (p is null || p.IsRetiring) continue;
+            if (p.ContractWeeks > 10) continue;
+
+            string weeks = p.ContractWeeks == 0
+                ? "[red bold]expired[/]"
+                : $"[red]{p.ContractWeeks}[/] week{(p.ContractWeeks == 1 ? "" : "s")} remaining";
+            items.Add($"[bold]{Markup.Escape(p.Name.Trim())}[/] — contract {weeks}");
+        }
+
+        if (items.Count == 0)
+            return;
+
+        AnsiConsole.MarkupLine("  [bold yellow]NEWS[/]");
+        foreach (var item in items)
+            AnsiConsole.MarkupLine($"  · {item}");
+        AnsiConsole.WriteLine();
     }
 
     private static string MatchTypeLabel(MatchType type) => type switch

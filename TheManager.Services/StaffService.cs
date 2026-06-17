@@ -153,14 +153,16 @@ public static class StaffService
 
         var player = new Player
         {
-            Name        = youth.Name,
-            Position    = youth.Position,
-            Skill       = skill,
-            Age         = youth.Age,
-            Temper      = youth.Temper,
-            GamesPlayed = 0,
-            SeasonGoals = 0,
-            Appearances = 0
+            Name          = youth.Name,
+            Position      = youth.Position,
+            Skill         = skill,
+            Age           = youth.Age,
+            Temper        = youth.Temper,
+            GamesPlayed   = 0,
+            SeasonGoals   = 0,
+            Appearances   = 0,
+            ContractWeeks = 50,
+            WeeklyWage    = 50,
         };
         PlayerService.RecalculateStatus(player);
 
