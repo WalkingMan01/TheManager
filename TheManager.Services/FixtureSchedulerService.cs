@@ -70,10 +70,11 @@ public static class FixtureSchedulerService
     /// <summary>
     /// Generates the full 38-fixture season schedule using the circle-method
     /// round-robin algorithm, then reorders the fixtures to alternate home and
-    /// away games as evenly as possible (H/A/H/A/…).
+    /// away games as evenly as possible (H/A/H/A/…), starting at home.
     ///
     /// The circle-method guarantees each opponent is faced exactly once home
-    /// and once away. The reordering only changes the week each match is played,
+    /// and once away (19 of each), so a perfect H/A/H/A/… alternation is always
+    /// achievable. The reordering only changes the week each match is played,
     /// not who plays who or the H/A assignment per opponent.
     /// </summary>
     public static List<ScheduledMatch> GenerateSeasonFixtures(Division division, string clubName, string[] allTeamNames)
@@ -90,14 +91,10 @@ public static class FixtureSchedulerService
                 playerIdx = i;
         }
 
-        // Schedule fixtures in circle-method round order (rounds 0–37).
-        // Each opponent appears exactly once in rounds 0–18 and once in 19–37,
-        // so no two consecutive fixtures are against the same team.
-        // Splitting into home/away lists and interleaving is avoided: for the
-        // pivot team (index 19) that approach produces identical H and A lists,
-        // causing every opponent to be played home+away in back-to-back weeks.
-        var fixtures = new List<ScheduledMatch>(Constants.WeeksInSeason);
-        int week = 1;
+        // Build fixtures in circle-method round order (rounds 0–37) first —
+        // this fixes who plays who and the H/A assignment per opponent, and
+        // guarantees no two same-round-half fixtures share an opponent.
+        var roundOrder = new List<ScheduledMatch>(Constants.WeeksInSeason);
 
         for (int round = 0; round < Constants.WeeksInSeason; round++)
         {
@@ -106,17 +103,59 @@ public static class FixtureSchedulerService
             bool isHome = pair.homeIdx == playerIdx;
             int  oi     = isHome ? pair.awayIdx : pair.homeIdx;
 
-            fixtures.Add(new ScheduledMatch
+            roundOrder.Add(new ScheduledMatch
             {
                 MatchType         = MatchType.League,
-                Week              = week++,
                 OpponentName      = divTeams[oi],
                 OpponentTeamIndex = divStart + oi,
                 IsHomeGame        = isHome
             });
         }
 
-        return fixtures;
+        return InterleaveHomeAndAway(roundOrder);
+    }
+
+    /// <summary>
+    /// Reorders a set of fixtures (already fixed as to who plays who and where)
+    /// into a week-by-week sequence that alternates home and away as strictly
+    /// as possible, starting at home.
+    ///
+    /// Naively zipping the separate home and away lists (home[i] then away[i])
+    /// can place an opponent's two fixtures back-to-back: the pivot team's home
+    /// list and away list come out in identical opponent order (see
+    /// <see cref="GetRoundPairings"/>), so a plain zip would play every opponent
+    /// home then away in consecutive weeks. Instead, home fixtures keep their
+    /// original relative order, and each opponent's away fixture is offset by
+    /// a fixed shift (half the list, rounded) relative to that same opponent's
+    /// home position. For any opponent with home position h and away position
+    /// a = (h + shift) mod 19, the two fixtures are adjacent only if shift is 0
+    /// or 18 (mod 19) — true regardless of how the two lists relate to each
+    /// other, so a mid-range shift guarantees no opponent ever repeats on
+    /// consecutive weeks.
+    /// </summary>
+    private static List<ScheduledMatch> InterleaveHomeAndAway(List<ScheduledMatch> fixtures)
+    {
+        var home = fixtures.Where(f => f.IsHomeGame).ToList();
+        var awayByOpponent = fixtures.Where(f => !f.IsHomeGame)
+            .ToDictionary(f => f.OpponentName);
+
+        int shift  = home.Count / 2;
+        var result = new ScheduledMatch[fixtures.Count];
+
+        for (int h = 0; h < home.Count; h++)
+        {
+            var homeMatch = home[h];
+            var awayMatch = awayByOpponent[homeMatch.OpponentName];
+            int a = (h + shift) % home.Count;
+
+            homeMatch.Week = 2 * h + 1;
+            awayMatch.Week = 2 * a + 2;
+
+            result[homeMatch.Week - 1] = homeMatch;
+            result[awayMatch.Week - 1] = awayMatch;
+        }
+
+        return result.ToList();
     }
 
     /// <summary>

@@ -176,6 +176,8 @@ public static class PlayerService
                 continue;
             }
 
+            player.YellowCardsThisSeason = 0;
+
             if (player.Position == PlayerPosition.None) continue;
 
             double randomDrift = ((rng.Next(25) / 10.0) - 1.4) / 2;   // range –0.7 to +0.5

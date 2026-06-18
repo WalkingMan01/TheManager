@@ -49,6 +49,19 @@ internal static class PlayMatchScreen
                         }
                     }
 
+                    foreach (var inc in result.Incidents.Where(i => i.Minute == min))
+                    {
+                        string text = inc.Type switch
+                        {
+                            IncidentType.Injury     => $"{inc.PlayerName.Trim()} INJURED ({inc.WeeksOut} wk)",
+                            IncidentType.RedCard    => $"{inc.PlayerName.Trim()} SENT OFF",
+                            IncidentType.YellowCard => $"{inc.PlayerName.Trim()} booked",
+                            _                       => ""
+                        };
+                        string color = inc.Type == IncidentType.YellowCard ? "yellow" : "red";
+                        events.Add((minuteStr, Markup.Escape(text), color));
+                    }
+
                     ctx.UpdateTarget(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, minuteStr, events));
                     ctx.Refresh();
                 }
@@ -118,6 +131,21 @@ internal static class PlayMatchScreen
             AnsiConsole.MarkupLine("  [bold dim]CONTRACT EXPIRIES[/]");
             foreach (var name in result.DepartedPlayers)
                 AnsiConsole.MarkupLine($"  [red]{Markup.Escape(name)}[/] has left the club — contract expired");
+        }
+
+        if (result.NewSuspensions.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("  [bold dim]SUSPENSIONS[/]");
+            foreach (var s in result.NewSuspensions)
+            {
+                string reason = s.Reason == SuspensionReason.RedCard
+                    ? "sent off"
+                    : "five yellow cards";
+                AnsiConsole.MarkupLine(
+                    $"  [red]{Markup.Escape(s.PlayerName.Trim())}[/] suspended for " +
+                    $"{s.MatchesOut} match{(s.MatchesOut == 1 ? "" : "es")} ({reason})");
+            }
         }
 
         Ui.Pause();

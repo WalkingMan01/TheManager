@@ -27,6 +27,12 @@ public class MatchResult
     /// <summary>Players who left the club this week due to expired contracts.</summary>
     public List<string> DepartedPlayers { get; set; } = new();
 
+    /// <summary>Cards and injuries that occurred during the match, in chronological order.</summary>
+    public List<MatchIncident> Incidents { get; set; } = new();
+
+    /// <summary>Suspensions newly imposed this match (red card or 5th yellow card).</summary>
+    public List<SuspensionNotice> NewSuspensions { get; set; } = new();
+
     // ── Sacking ───────────────────────────────────────────────────────────────
 
     /// <summary>True when the manager was sacked this week due to poor form.</summary>

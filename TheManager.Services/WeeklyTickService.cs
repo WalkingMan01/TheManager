@@ -35,6 +35,8 @@ public static class WeeklyTickService
             var p = gameState.Squad[i];
             if (p is null) continue;
             if (p.ContractWeeks > 0) p.ContractWeeks--;
+            if (p.WeeksInjured > 0)               p.WeeksInjured--;
+            if (p.SuspensionMatchesRemaining > 0)  p.SuspensionMatchesRemaining--;
             if (p.ContractWeeks == 0)
             {
                 departed.Add(p.Name.Trim());

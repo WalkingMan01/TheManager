@@ -100,6 +100,77 @@ public class GameService
 
         var sim = _engine.SetupMatch(matchInput);
 
+        // ── Injuries / red cards / yellow cards ─────────────────────────────────
+        bool substitutionUsed = false;
+        var  matchIncidents   = new List<MatchIncident>();
+        var  newSuspensions   = new List<SuspensionNotice>();
+
+        if (sim.IncidentMinute > 0)
+        {
+            var incident = _engine.ResolveIncident(
+                _gameState.Squad, sim.IncidentMinute < 81, ref substitutionUsed,
+                physioSkillPercent: _gameState.Physio?.SkillPercent ?? 0);
+
+            if (incident != null)
+            {
+                matchIncidents.Add(new MatchIncident
+                {
+                    Minute     = sim.IncidentMinute,
+                    PlayerName = incident.PlayerName,
+                    Type       = incident.Type,
+                    WeeksOut   = incident.WeeksOut
+                });
+
+                if (incident.Type == IncidentType.RedCard)
+                    newSuspensions.Add(new SuspensionNotice
+                    {
+                        PlayerName = incident.PlayerName,
+                        MatchesOut = 3,
+                        Reason     = SuspensionReason.RedCard
+                    });
+
+                // Drop any pre-rolled goals that hadn't "happened" yet at the
+                // incident minute — they're superseded by the re-roll below.
+                int removedOurGoals      = sim.GoalEvents.RemoveAll(g => g.Minute >= sim.IncidentMinute && g.IsOurGoal);
+                int removedOpponentGoals = sim.GoalEvents.RemoveAll(g => g.Minute >= sim.IncidentMinute && !g.IsOurGoal);
+
+                var updatedRatings = PlayerService.CalculateTeamRatings(_gameState.Squad);
+                var updatedInput   = matchInput with
+                {
+                    OurGoalkeeperSkill = updatedRatings.GoalkeeperRating,
+                    OurDefence         = updatedRatings.DefenceRating,
+                    OurMid             = updatedRatings.MidRating,
+                    OurAttack          = updatedRatings.AttackRating,
+                };
+
+                var (extraGoals, _, _) =
+                    _engine.ContinueMatchAfterIncident(updatedInput, sim.IncidentMinute, sim.MatchLength);
+
+                sim.GoalEvents.AddRange(extraGoals);
+                sim.OurGoalCount      += extraGoals.Count(g => g.IsOurGoal)  - removedOurGoals;
+                sim.OpponentGoalCount += extraGoals.Count(g => !g.IsOurGoal) - removedOpponentGoals;
+            }
+        }
+
+        foreach (var ev in sim.YellowCardEvents)
+        {
+            var outcome = _engine.ApplyYellowCard(_gameState.Squad, ev.Slot);
+            if (outcome == null) continue;   // player no longer in the lineup — skip silently
+
+            matchIncidents.Add(new MatchIncident
+            {
+                Minute = ev.Minute, PlayerName = outcome.PlayerName, Type = IncidentType.YellowCard
+            });
+
+            if (outcome.SuspensionImposed)
+                newSuspensions.Add(new SuspensionNotice
+                {
+                    PlayerName = outcome.PlayerName,
+                    MatchesOut = 1,
+                    Reason     = SuspensionReason.AccumulatedYellowCards
+                });
+        }
+
         // ── Goal events ───────────────────────────────────────────────────────
         int ourScore   = 0;
         int theirScore = 0;
@@ -209,6 +280,8 @@ public class GameService
             OtherFixtures   = otherFixtures,
             ScoutFindings   = tick.ScoutFindings,
             DepartedPlayers = tick.DepartedPlayers,
+            Incidents       = matchIncidents,
+            NewSuspensions  = newSuspensions,
             ManagerSacked   = managerSacked,
             SackingReason   = sackingReason,
             NewClubName     = newClubName,

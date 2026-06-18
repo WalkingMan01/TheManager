@@ -301,8 +301,9 @@ internal sealed class MatchHarnessForm : Form
     private void ShowIncident(MatchEngineService engine, MatchSetupInput input, int minute, int physioSkill)
     {
         var squad = BuildDummySquad();
+        bool substitutionUsed = false;
         var inc   = engine.ResolveIncident(
-            squad, incidentBeforeMinute81: minute < 81, physioSkillPercent: physioSkill);
+            squad, incidentBeforeMinute81: minute < 81, ref substitutionUsed, physioSkillPercent: physioSkill);
 
         if (inc == null) return;
 

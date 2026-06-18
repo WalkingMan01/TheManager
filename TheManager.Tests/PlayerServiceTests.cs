@@ -42,4 +42,28 @@ public class PlayerServiceTests
         Assert.Equal(25, player.Age);
         Assert.False(player.IsTransferListed);
     }
+
+    // ── ApplyEndOfSeasonSkillUpdate ───────────────────────────────────────────
+
+    [Fact]
+    public void ApplyEndOfSeasonSkillUpdate_PlayerWithYellowCards_ResetsTallyToZero()
+    {
+        var squad = new Player?[29];
+        squad[1] = new Player { Position = PlayerPosition.Defender, Skill = 5.0, YellowCardsThisSeason = 3 };
+
+        PlayerService.ApplyEndOfSeasonSkillUpdate(squad, new Random(0));
+
+        Assert.Equal(0, squad[1]!.YellowCardsThisSeason);
+    }
+
+    [Fact]
+    public void ApplyEndOfSeasonSkillUpdate_PlayerWithNoYellowCards_StaysAtZero()
+    {
+        var squad = new Player?[29];
+        squad[1] = new Player { Position = PlayerPosition.Defender, Skill = 5.0, YellowCardsThisSeason = 0 };
+
+        PlayerService.ApplyEndOfSeasonSkillUpdate(squad, new Random(0));
+
+        Assert.Equal(0, squad[1]!.YellowCardsThisSeason);
+    }
 }

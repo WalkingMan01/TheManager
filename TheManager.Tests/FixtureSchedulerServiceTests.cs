@@ -262,17 +262,33 @@ public class FixtureSchedulerServiceTests
     }
 
     [Fact]
-    public void GenerateSeasonFixtures_EachOpponentFacedExactlyOncePerHalfSeason()
+    public void GenerateSeasonFixtures_AllDivisionOnePositions_NoConsecutiveSameOpponent()
     {
-        var (names, clubName) = MakeTeamNamesWithClub(Division.One, clubIndex: 5);
-        var fixtures = FixtureSchedulerService.GenerateSeasonFixtures(Division.One, clubName, names);
+        for (int clubIndex = 0; clubIndex < 20; clubIndex++)
+        {
+            var (names, clubName) = MakeTeamNamesWithClub(Division.One, clubIndex);
+            var fixtures = FixtureSchedulerService.GenerateSeasonFixtures(Division.One, clubName, names);
 
-        var firstHalf  = fixtures.Where(f => f.Week <= 19).Select(f => f.OpponentName).ToList();
-        var secondHalf = fixtures.Where(f => f.Week >  19).Select(f => f.OpponentName).ToList();
+            for (int i = 0; i < fixtures.Count - 1; i++)
+                Assert.True(
+                    fixtures[i].OpponentName != fixtures[i + 1].OpponentName,
+                    $"Same opponent '{fixtures[i].OpponentName}' in consecutive weeks {i + 1} and {i + 2} (clubIndex={clubIndex})");
+        }
+    }
 
-        Assert.Equal(19, firstHalf.Distinct().Count());
-        Assert.Equal(19, secondHalf.Distinct().Count());
-        Assert.Equal(firstHalf.OrderBy(x => x), secondHalf.OrderBy(x => x));
+    [Theory]
+    [InlineData(0)]   // first slot
+    [InlineData(9)]   // mid division
+    [InlineData(18)]  // second-to-last slot
+    [InlineData(19)]  // pivot slot — would be all-home-then-all-away before reordering
+    public void GenerateSeasonFixtures_AlternatesHomeAndAwayStartingAtHome(int clubIndex)
+    {
+        var (names, clubName) = MakeTeamNamesWithClub(Division.One, clubIndex);
+        var fixtures = FixtureSchedulerService.GenerateSeasonFixtures(Division.One, clubName, names)
+            .OrderBy(f => f.Week).ToList();
+
+        for (int i = 0; i < fixtures.Count; i++)
+            Assert.Equal(i % 2 == 0, fixtures[i].IsHomeGame);
     }
 
     [Fact]

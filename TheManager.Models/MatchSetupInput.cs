@@ -4,7 +4,7 @@ namespace TheManager.Models;
 /// All inputs the match engine needs to set up a fixture.
 /// Caller assembles this from <see cref="TeamRatings"/> and <see cref="Club"/> state.
 /// </summary>
-public class MatchSetupInput
+public record MatchSetupInput
 {
     // Our team ratings (from TeamRatings / subroutine 332)
     public int OurGoalkeeperSkill      { get; set; }   // BA

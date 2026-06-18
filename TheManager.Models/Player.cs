@@ -77,6 +77,20 @@ public class Player
     /// <summary>Contract weeks remaining (counts down each week). Corresponds to V(2,I) in FOOT.BAS.</summary>
     public int ContractWeeks { get; set; }
 
+    // ── Discipline / availability ────────────────────────────────────────────
+
+    /// <summary>Weeks remaining before an injured player is available again. Corresponds to u(I) in FOOT.BAS.</summary>
+    public int WeeksInjured { get; set; }
+
+    /// <summary>Matches remaining of a suspension (red card or accumulated yellow cards).</summary>
+    public int SuspensionMatchesRemaining { get; set; }
+
+    /// <summary>Yellow cards picked up this season. Resets to 0 at season start and whenever it reaches 5 (triggering a suspension).</summary>
+    public int YellowCardsThisSeason { get; set; }
+
+    /// <summary>True if the player is fit and not serving a suspension.</summary>
+    public bool IsAvailable => WeeksInjured == 0 && SuspensionMatchesRemaining == 0;
+
     // ── Misc ──────────────────────────────────────────────────────────────────
 
     /// <summary>

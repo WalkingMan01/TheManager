@@ -8,6 +8,7 @@ internal static class SquadScreen
 {
     private const int TargetWidth  = 100;
     private const int TargetHeight = 50;
+    private const int TeamSlotMax  = 12;   // slots 1-11 starting XI, 12 substitute
 
     public static void Show(GameState state)
     {
@@ -89,8 +90,28 @@ internal static class SquadScreen
                 continue;
             }
 
+            // Slots 1-12 are the team (starting XI + substitute) — an unavailable
+            // player (injured or suspended) cannot be swapped into one of them.
+            var swapBlocked = false;
+            foreach (var (destinationSlot, incoming) in new[] { (a, state.Squad[b]), (b, state.Squad[a]) })
+            {
+                if (destinationSlot > TeamSlotMax || incoming is not { IsAvailable: false }) continue;
+                error = UnavailableReason(incoming);
+                swapBlocked = true;
+                break;
+            }
+            if (swapBlocked) continue;
+
             (state.Squad[a], state.Squad[b]) = (state.Squad[b], state.Squad[a]);
         }
+    }
+
+    private static string UnavailableReason(Player player)
+    {
+        string name = player.Name.Trim();
+        return player.WeeksInjured > 0
+            ? $"{name} is injured ({player.WeeksInjured}w) and cannot be added to the team"
+            : $"{name} is suspended ({player.SuspensionMatchesRemaining}) and cannot be added to the team";
     }
 
     private static bool TryParseTransferListToggle(string input, out int slot)
@@ -227,6 +248,7 @@ internal static class SquadScreen
             .AddColumn(new TableColumn("[dim]Age[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Temper[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Games[/]").RightAligned())
+            .AddColumn(new TableColumn("[dim]YC[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Wage[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Ctr[/]").RightAligned());
 
@@ -287,16 +309,18 @@ internal static class SquadScreen
                 new Markup(""),
                 new Markup($"[bold dim] {title}[/]"),
                 new Markup(""), new Markup(""), new Markup(""), new Markup(""),
-                new Markup(""), new Markup(""));
+                new Markup(""), new Markup(""), new Markup(""));
         }
 
         for (int slot = from; slot <= to; slot++)
         {
             var    player = squad[slot];
             string pos    = Ui.PlayerPositionLabel(player);
-            string name   = player is null              ? "[dim]—[/]"
-                          : player.IsTransferListed      ? $"[red]{player.Name}[/]"
-                          : player.IsStar                ? $"[yellow]{player.Name}[/]"
+            string name   = player is null                              ? "[dim]—[/]"
+                          : player.WeeksInjured > 0                      ? $"[red]{player.Name} (inj {player.WeeksInjured}w)[/]"
+                          : player.SuspensionMatchesRemaining > 0        ? $"[red]{player.Name} (susp {player.SuspensionMatchesRemaining})[/]"
+                          : player.IsTransferListed                      ? $"[red]{player.Name}[/]"
+                          : player.IsStar                                ? $"[yellow]{player.Name}[/]"
                           : player.Name;
 
             string age      = player is null    ? "[dim]—[/]"
@@ -317,9 +341,18 @@ internal static class SquadScreen
                 age,
                 player?.Temper.ToString()        ?? "[dim]—[/]",
                 player?.GamesPlayed.ToString()   ?? "[dim]—[/]",
+                YellowCardCell(player),
                 wage,
                 contract);
         }
+    }
+
+    private static string YellowCardCell(Player? player)
+    {
+        if (player is null) return "[dim]—[/]";
+        return player.YellowCardsThisSeason >= 4
+            ? $"[red]{player.YellowCardsThisSeason}[/]"   // one booking away from suspension
+            : player.YellowCardsThisSeason.ToString();
     }
 
     /// <summary>
