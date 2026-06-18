@@ -85,55 +85,14 @@ public static class TransferService
         return askingPrice - sweetenerReduction;
     }
 
-    // ── Offer evaluation (lines 2611–2615) ───────────────────────────────────
+    // ── Late refusal (line 2638) ──────────────────────────────────────────────
 
     /// <summary>
-    /// Tests whether the player accepts the contract offer.
-    /// Returns the reason for refusal, or <see cref="RefusalReason.None"/> if agreed.
-    ///
-    /// BASIC lines 2611–2615:
-    ///   Wage too low (OX=1):         offeredWage ≤ minimumAcceptableWage
-    ///   Signing fee too low (OX=2):  offeredSigningFee ≤ minimumAcceptableSigningFee
-    ///   Contract too long (OX=3):    maxAcceptableContractWeeks ≤ offeredContractWeeks
+    /// A 1-in-20 chance the player walks away even after agreeing terms.
+    /// BASIC line 2638: a random late refusal applied even when all contract
+    /// conditions are met.
     /// </summary>
-    public static RefusalReason EvaluateContractOffer(
-        Player player,
-        double offeredWeeklyWage,
-        double offeredSigningFee,
-        int    offeredContractWeeks,
-        int    buyingDivision,
-        Random rng)
-    {
-        // Minimum acceptable weekly wage — HU (lines 2610–2115)
-        double minimumAcceptableWage =
-            (1 + rng.Next(20) + 50) * (int)player.Skill
-            + (player.Skill > 9.6 ? 1_000 : 0);
-        int ageDivisor               = Math.Max(1, player.DisplayAge - 27);
-        minimumAcceptableWage        = minimumAcceptableWage / ageDivisor;
-        minimumAcceptableWage        = Math.Max(50, minimumAcceptableWage);
-
-        if (offeredWeeklyWage <= minimumAcceptableWage)
-            return RefusalReason.WageTooLow;
-
-        // Minimum acceptable signing fee — HV (lines 2612–2613)
-        double minimumAcceptableSigningFee = (int)(1_000.0 * (int)player.Skill / buyingDivision);
-        if (offeredSigningFee <= minimumAcceptableSigningFee)
-            return RefusalReason.SigningFeeTooLow;
-
-        // Maximum acceptable contract length — IA (lines 2614–2615)
-        int maxAcceptableContractWeeks = Math.Max(1, player.DisplayAge - 23);
-        maxAcceptableContractWeeks    += rng.Next(2) == 1 ? 1 : 0;
-        maxAcceptableContractWeeks    *= 53;
-
-        if (maxAcceptableContractWeeks <= offeredContractWeeks)
-            return RefusalReason.ContractTooLong;
-
-        // Random late refusal — 1/20 chance even when all terms are met (line 2638)
-        if (rng.Next(20) == 0)
-            return RefusalReason.JustRefused;
-
-        return RefusalReason.None;
-    }
+    public static bool PlayerWalksAwayDespiteAgreedTerms(Random rng) => rng.Next(20) == 0;
 
     // ── Apply completed deal (lines 2616–2619) ────────────────────────────────
 
@@ -222,13 +181,4 @@ public static class TransferService
     /// </summary>
     public static double CalculateGateMoney(double attendance, double ticketPriceInPounds)
         => (int)(attendance * ticketPriceInPounds);
-}
-
-public enum RefusalReason
-{
-    None,
-    WageTooLow,
-    SigningFeeTooLow,
-    ContractTooLong,
-    JustRefused      // random late refusal even when all terms are met
 }

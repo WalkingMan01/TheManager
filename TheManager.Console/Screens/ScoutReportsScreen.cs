@@ -194,18 +194,7 @@ internal static class ScoutReportsScreen
         var finding = findings[idx];
         var player  = finding.Player;
 
-        // Step 2: show details + asking price
-        double askingPrice = TransferService.CalculateAskingPrice(player, rng);
-
-        AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"  [bold]{Markup.Escape(player.Name.Trim())}[/]  " +
-                               $"{PositionAbbr(player.Position)}  " +
-                               $"skill [bold]{player.Skill:F1}[/]  age {player.DisplayAge}  temper {player.Temper}");
-        AnsiConsole.MarkupLine($"  Asking price: [cyan]{Ui.FormatMoney(askingPrice)}[/]");
-        AnsiConsole.MarkupLine($"  Your balance: [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]");
-        AnsiConsole.WriteLine();
-
-        // Step 3: check we have a free reserve slot first
+        // Step 2: check we have a free reserve slot first
         int freeSlot = FindFreeReserveSlot(state.Squad);
         if (freeSlot < 0)
         {
@@ -214,49 +203,92 @@ internal static class ScoutReportsScreen
             return;
         }
 
-        // Step 4: offer terms
-        AnsiConsole.MarkupLine("  [dim]Enter your offer terms (0 to cancel each):[/]");
-        AnsiConsole.WriteLine();
-
-        int wage = PromptInt("  Weekly wage (£): ", 0, 99_999);
-        if (wage == 0) return;
-
-        int signingFee = PromptInt("  Signing fee (£): ", 0, 9_999_999);
-        if (signingFee == 0) return;
-
-        int contractWeeks = PromptInt("  Contract (weeks, 1–260): ", 0, 260);
-        if (contractWeeks == 0) return;
-
-        // Step 5: evaluate
-        var refusal = TransferService.EvaluateContractOffer(
-            player, wage, signingFee, contractWeeks,
-            (int)state.Club.Division, rng);
+        // Step 3: show the transfer fee and the player's own stated terms
+        double askingPrice = TransferService.CalculateAskingPrice(player, rng);
+        var    demand       = ContractService.GetPlayerDemands(player, state.Club.Division, rng);
 
         AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"  [bold]{Markup.Escape(player.Name.Trim())}[/]  " +
+                               $"{PositionAbbr(player.Position)}  " +
+                               $"skill [bold]{player.Skill:F1}[/]  age {player.DisplayAge}  temper {player.Temper}");
+        AnsiConsole.MarkupLine($"  Transfer fee (to {Markup.Escape(finding.SourceClubName)}): [cyan]{Ui.FormatMoney(askingPrice)}[/]");
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("  He is asking for:");
+        AnsiConsole.MarkupLine($"    Weekly wage     [cyan]£{demand.StatedWeeklyWage}[/]");
+        AnsiConsole.MarkupLine($"    Signing-on fee  [cyan]£{demand.StatedSigningFee}[/]");
+        AnsiConsole.MarkupLine($"    Contract        [cyan]{demand.StatedContractWeeks} weeks[/]");
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"  Your balance: [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]");
+        AnsiConsole.WriteLine();
 
-        if (refusal != RefusalReason.None)
+        // Step 4: accept his terms, or make a counter-offer
+        var choice = AnsiConsole.Prompt(
+            new TextPrompt<string>("  [dim]Accept his terms ([bold white]A[/]), make a counter-offer ([bold white]C[/]), or press Enter to cancel:[/] > ")
+                .AllowEmpty());
+
+        if (string.IsNullOrWhiteSpace(choice)) return;
+
+        int offeredWage, offeredFee, offeredWeeks;
+        string trimmedChoice = choice.Trim();
+
+        if (trimmedChoice.Equals("A", StringComparison.OrdinalIgnoreCase))
         {
-            string reason = refusal switch
-            {
-                RefusalReason.WageTooLow      => "the wage offer is too low",
-                RefusalReason.SigningFeeTooLow => "the signing fee is too low",
-                RefusalReason.ContractTooLong  => "the contract length is too long",
-                _                              => "he's decided to stay put"
-            };
-            AnsiConsole.MarkupLine($"  [red]Deal rejected[/] — {reason}.");
+            offeredWage  = demand.StatedWeeklyWage;
+            offeredFee   = demand.StatedSigningFee;
+            offeredWeeks = demand.StatedContractWeeks;
+        }
+        else if (trimmedChoice.Equals("C", StringComparison.OrdinalIgnoreCase))
+        {
+            AnsiConsole.MarkupLine("  [dim]Enter your offer terms (0 to cancel each):[/]");
+            offeredWage = PromptInt("  Weekly wage (£): ", 0, 99_999);
+            if (offeredWage == 0) return;
+
+            offeredFee = PromptInt("  Signing-on fee (£): ", 0, 9_999_999);
+            if (offeredFee == 0) return;
+
+            offeredWeeks = PromptInt($"  Contract length in weeks (max {demand.StatedContractWeeks}): ", 0, demand.StatedContractWeeks);
+            if (offeredWeeks == 0) return;
+        }
+        else
+        {
+            return;
+        }
+
+        AnsiConsole.WriteLine();
+
+        // Step 5: affordability, then evaluate
+        double totalCost = askingPrice + offeredFee;
+        if (totalCost > state.Finances.BankBalance)
+        {
+            AnsiConsole.MarkupLine($"  [red]You cannot afford this deal[/] — total cost would be {Ui.FormatMoney(totalCost)}.");
+            Ui.Pause();
+            return;
+        }
+
+        if (!ContractService.EvaluateOffer(demand, offeredWage, offeredFee, offeredWeeks))
+        {
+            AnsiConsole.MarkupLine($"  [red]{Markup.Escape(player.Name.Trim())} rejects your offer.[/]");
+            Ui.Pause();
+            return;
+        }
+
+        // A small chance he walks away even when terms are met (BASIC line 2638).
+        if (TransferService.PlayerWalksAwayDespiteAgreedTerms(rng))
+        {
+            AnsiConsole.MarkupLine($"  [red]{Markup.Escape(player.Name.Trim())} has decided to stay put.[/]");
             Ui.Pause();
             return;
         }
 
         // Step 6: commit the deal
-        TransferService.CommitDeal(player, state.Finances, askingPrice, signingFee, wage, contractWeeks);
+        TransferService.CommitDeal(player, state.Finances, askingPrice, offeredFee, offeredWage, offeredWeeks);
         state.Squad[freeSlot] = player;
         state.Squad[finding.SquadSlot] = null;   // clear the scout market slot
 
         AnsiConsole.MarkupLine(
             $"  [green]Deal done![/] {Markup.Escape(player.Name.Trim())} joins the reserves (slot {freeSlot}).");
         AnsiConsole.MarkupLine(
-            $"  Total cost: [cyan]{Ui.FormatMoney(askingPrice + signingFee)}[/]   " +
+            $"  Total cost: [cyan]{Ui.FormatMoney(totalCost)}[/]   " +
             $"Balance: [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]");
         Ui.Pause();
     }
