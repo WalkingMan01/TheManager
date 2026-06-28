@@ -279,7 +279,7 @@ public class GameService
             Goals           = matchGoals,
             OtherFixtures   = otherFixtures,
             ScoutFindings   = tick.ScoutFindings,
-            DepartedPlayers = tick.DepartedPlayers,
+            ExpiringPlayers = managerSacked ? [] : tick.ExpiringPlayers,
             Incidents       = matchIncidents,
             NewSuspensions  = newSuspensions,
             ManagerSacked   = managerSacked,

@@ -53,7 +53,7 @@ while (running)
                 running = EndOfSeasonScreen.Show(gameService.State);
             else
             {
-                PlayMatchScreen.ShowResult(result, gameService.State);
+                PlayMatchScreen.ShowResult(result, gameService.State, gameService.Random);
                 if (result.ManagerSacked)
                     SackingScreen.Show(
                         result.SackingReason ?? "You have been sacked.",

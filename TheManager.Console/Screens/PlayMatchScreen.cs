@@ -1,12 +1,13 @@
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using TheManager.Models;
+using TheManager.Services;
 
 namespace TheManager.ConsoleApp.Screens;
 
 internal static class PlayMatchScreen
 {
-    public static void ShowResult(MatchResult result, GameState state)
+    public static void ShowResult(MatchResult result, GameState state, Random rng)
     {
         Ui.Header("MATCH RESULT");
 
@@ -125,12 +126,12 @@ internal static class PlayMatchScreen
             }
         }
 
-        if (result.DepartedPlayers.Count > 0)
+        if (result.ExpiringPlayers.Count > 0)
         {
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("  [bold dim]CONTRACT EXPIRIES[/]");
-            foreach (var name in result.DepartedPlayers)
-                AnsiConsole.MarkupLine($"  [red]{Markup.Escape(name)}[/] has left the club — contract expired");
+            AnsiConsole.MarkupLine("  [bold dim]EXPIRING CONTRACTS — LAST CHANCE[/]");
+            foreach (var (slot, player) in result.ExpiringPlayers)
+                ShowLastChanceNegotiation(player, slot, state, rng);
         }
 
         if (result.NewSuspensions.Count > 0)
@@ -149,6 +150,62 @@ internal static class PlayMatchScreen
         }
 
         Ui.Pause();
+    }
+
+    private static void ShowLastChanceNegotiation(Player player, int slot, GameState state, Random rng)
+    {
+        AnsiConsole.WriteLine();
+
+        string name   = player.Name.Trim();
+        var    demand = ContractService.GetPlayerDemands(player, state.Club.Division, rng);
+
+        AnsiConsole.MarkupLine(
+            $"  [bold]{Markup.Escape(name)}[/]  " +
+            $"{Ui.PlayerPositionLabel(player)}  Skill {player.DisplaySkill}  Age {player.DisplayAge}");
+        AnsiConsole.MarkupLine("  Contract expired — last chance to keep him.");
+        AnsiConsole.MarkupLine("  He is asking for:");
+        AnsiConsole.MarkupLine($"    Weekly wage     [cyan]£{demand.StatedWeeklyWage}[/]");
+        AnsiConsole.MarkupLine($"    Signing-on fee  [cyan]£{demand.StatedSigningFee}[/]");
+        AnsiConsole.MarkupLine($"    Contract        [cyan]{demand.StatedContractWeeks} weeks[/]");
+        AnsiConsole.WriteLine();
+
+        string trimmedChoice = AnsiConsole.Prompt(
+            new TextPrompt<string>("  [dim]Accept ([bold white]A[/]), counter-offer ([bold white]C[/]), or let him go (Enter):[/] > ")
+                .AllowEmpty()).Trim();
+
+        if (trimmedChoice.Equals("A", StringComparison.OrdinalIgnoreCase))
+        {
+            Apply(player, slot, state, demand.StatedWeeklyWage, demand.StatedSigningFee, demand.StatedContractWeeks, name);
+            return;
+        }
+
+        if (trimmedChoice.Equals("C", StringComparison.OrdinalIgnoreCase))
+        {
+            int w  = AnsiConsole.Prompt(new TextPrompt<int>("  Weekly wage (£): > "));
+            int f  = AnsiConsole.Prompt(new TextPrompt<int>("  Signing-on fee (£): > "));
+            int wk = AnsiConsole.Prompt(new TextPrompt<int>($"  Contract weeks (max {demand.StatedContractWeeks}): > "));
+
+            if (f > state.Finances.BankBalance)
+                AnsiConsole.MarkupLine("  [red]You cannot afford that signing-on fee[/]");
+            else if (ContractService.EvaluateOffer(demand, w, f, wk))
+            {
+                Apply(player, slot, state, w, f, wk, name);
+                return;
+            }
+            else
+                AnsiConsole.MarkupLine($"  [red]{Markup.Escape(name)} rejects your offer[/]");
+        }
+
+        ContractService.ReleasePlayer(state.Squad, slot);
+        AnsiConsole.MarkupLine($"  [red]{Markup.Escape(name)} has left the club[/]");
+    }
+
+    private static void Apply(Player player, int slot, GameState state, int wage, int fee, int weeks, string name)
+    {
+        player.WeeklyWage    = wage;
+        player.ContractWeeks = weeks;
+        ContractService.ApplyRenewal(state.Finances, fee);
+        AnsiConsole.MarkupLine($"  [green]{Markup.Escape(name)} agrees to sign[/]");
     }
 
     private static IRenderable MatchDisplay(

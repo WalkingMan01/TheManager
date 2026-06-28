@@ -24,8 +24,11 @@ public class MatchResult
     /// <summary>Players discovered by scouts during this week's report pass.</summary>
     public List<ScoutFinding> ScoutFindings { get; set; } = new();
 
-    /// <summary>Players who left the club this week due to expired contracts.</summary>
-    public List<string> DepartedPlayers { get; set; } = new();
+    /// <summary>
+    /// Players whose contracts expired this week, held for a last-chance renewal offer.
+    /// The UI removes non-signers from the squad; this list is empty when ManagerSacked is true.
+    /// </summary>
+    public List<(int Slot, Player Player)> ExpiringPlayers { get; set; } = new();
 
     /// <summary>Cards and injuries that occurred during the match, in chronological order.</summary>
     public List<MatchIncident> Incidents { get; set; } = new();

@@ -28,8 +28,9 @@ public static class WeeklyTickService
         gameState.Club.ManagerContractWeeks = Math.Max(0, gameState.Club.ManagerContractWeeks - 1);
 
         // Decrement each player's contract (BASIC line 188: V(2,I)=V(2,I)+(V(2,I)>0)).
-        // Players whose contract reaches 0 leave the club immediately.
-        var departed = new List<string>();
+        // Retiring players are released immediately. Non-retiring players whose contract reaches
+        // 0 are held for a last-chance renewal offer; the caller removes any non-signers.
+        var expiring = new List<(int Slot, Player Player)>();
         for (int i = 1; i <= 20; i++)
         {
             var p = gameState.Squad[i];
@@ -39,15 +40,17 @@ public static class WeeklyTickService
             if (p.SuspensionMatchesRemaining > 0)  p.SuspensionMatchesRemaining--;
             if (p.ContractWeeks == 0)
             {
-                departed.Add(p.Name.Trim());
-                gameState.Squad[i] = null;
+                if (p.IsRetiring)
+                    gameState.Squad[i] = null;
+                else
+                    expiring.Add((i, p));
             }
         }
 
-        // Recalculate wage bill from actual squad wages
+        // Recalculate wage bill; exclude expiring players whose contracts just ended.
         gameState.Finances.PlayerWageBill =
             gameState.Squad.Skip(1).Take(20)
-                .Where(p => p is not null)
+                .Where(p => p is not null && p.ContractWeeks > 0)
                 .Sum(p => p!.WeeklyWage);
 
         double attendance = CalculateGateAttendance(gameState, ctx, rng);
@@ -95,7 +98,7 @@ public static class WeeklyTickService
         gameState.TransferMarket.PlayersBeingSought =
             MarketService.GenerateIncomingInterest(gameState.Squad, gameState.Club.Division, gameState.Club.Name, gameState.AllTeamNames, rng);
 
-        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney, scoutResult.Findings, departed);
+        return new WeeklyTickResult(report, crisis, events, resign, attendance, gateMoney, scoutResult.Findings, expiring);
     }
 
     // ── Youth coaching (BASIC lines 5408–5411) ────────────────────────────────
@@ -144,11 +147,11 @@ public static class WeeklyTickService
 
 /// <summary>Summary of everything that happened during the weekly tick.</summary>
 public record WeeklyTickResult(
-    WeeklyReport       FinanceReport,
-    CrisisResult       Crisis,
-    List<RandomEvent>  Events,
-    string?            Resignation,
-    double             Attendance,
-    double             GateMoney,
-    List<ScoutFinding> ScoutFindings,
-    List<string>       DepartedPlayers);
+    WeeklyReport                    FinanceReport,
+    CrisisResult                    Crisis,
+    List<RandomEvent>               Events,
+    string?                         Resignation,
+    double                          Attendance,
+    double                          GateMoney,
+    List<ScoutFinding>              ScoutFindings,
+    List<(int Slot, Player Player)> ExpiringPlayers);

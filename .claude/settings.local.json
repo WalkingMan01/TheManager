@@ -1,10 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet build *)",
-      "Bash(Select-String -Pattern \"error|warning|succeeded|failed\")",
-      "Bash(Select-Object -Last 5)",
-      "Bash(dotnet new *)"
+      "Bash(dotnet *)",
+      "Bash(git *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(Select-String *)",
+      "Bash(Select-Object *)",
+      "Bash(Get-Content *)",
+      "Bash(jq *)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep"
     ]
   }
 }
