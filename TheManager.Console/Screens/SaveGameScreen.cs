@@ -18,7 +18,7 @@ internal static class SaveGameScreen
         {
             AnsiConsole.MarkupLine("  [dim]Existing saves:[/]");
             foreach (var s in slots)
-                AnsiConsole.MarkupLine($"    {Markup.Escape(s.SlotName)}  [dim]({Markup.Escape(s.ClubName)}, Div {s.Division}, Season {s.Season}, Week {s.Week})[/]");
+                AnsiConsole.MarkupLine($"    {Markup.Escape(s.SlotName)}  [dim]({Markup.Escape(s.ClubName)}, {Ui.DivisionName((Division)s.Division)}, Season {s.Season}, Week {s.Week})[/]");
             AnsiConsole.WriteLine();
         }
 

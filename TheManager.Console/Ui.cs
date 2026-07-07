@@ -58,4 +58,22 @@ internal static class Ui
         PlayerPosition.Attacker   => "ATK",
         _                         => "—"
     };
+
+    public static string DivisionName(Division division) => division switch
+    {
+        Division.One   => "Premier League",
+        Division.Two   => "Championship",
+        Division.Three => "League One",
+        Division.Four  => "League Two",
+        _              => "Unknown"
+    };
+
+    public static string DivisionShort(Division division) => division switch
+    {
+        Division.One   => "PL",
+        Division.Two   => "Champ",
+        Division.Three => "L1",
+        Division.Four  => "L2",
+        _              => "?"
+    };
 }

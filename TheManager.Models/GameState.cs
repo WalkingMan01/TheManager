@@ -66,13 +66,11 @@ public class GameState
     // ── League ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// All 96 team names across 4 divisions + 6 cup-only slots + reserve pool,
-    /// plus Y$(97–106) for surname suffixes used in name generation.
-    /// Corresponds to Y$(1–106).
-    /// Div 1 = [1–20], Div 2 = [21–40], Div 3 = [41–60], Div 4 = [61–80],
-    /// Neutral/cup [81–96], Suffixes [97–106 via E$(N)].
+    /// All team names across 4 divisions + cup-only slots.
+    /// Div 1 = [1–20] (20 teams), Div 2 = [21–44], Div 3 = [45–68], Div 4 = [69–92] (24 teams each),
+    /// Cup-only = [93–108]. Corresponds to Y$(1–108) in FOOT.BAS (extended for larger divisions).
     /// </summary>
-    public string[] AllTeamNames { get; set; } = new string[107];
+    public string[] AllTeamNames { get; set; } = new string[120];
 
     /// <summary>Current division league table for the managed club.</summary>
     public LeagueTable CurrentLeague { get; set; } = new();

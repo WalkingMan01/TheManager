@@ -80,7 +80,7 @@ public class GameService
 
         bool   isHome       = scheduled.IsHomeGame;
         string opponentName = scheduled.OpponentName;
-        bool   isCupWeek    = scheduled.MatchType is MatchType.LeagueCup or MatchType.FACup;
+        bool   isCupWeek    = scheduled.MatchType != MatchType.League;
 
         // ── Ratings ───────────────────────────────────────────────────────────
         var ourRatings = PlayerService.CalculateTeamRatings(_gameState.Squad);
@@ -223,13 +223,14 @@ public class GameService
             // Find the circle-method round for this specific matchup so that
             // SimulateOtherFixtures skips the correct pair. FixturesPlayed is
             // an H/A interleaved count and does not map 1-to-1 to round numbers.
-            int divStart       = (int)_gameState.Club.Division * 20 - 19;
-            int playerDivIdx   = Array.FindIndex(_gameState.AllTeamNames, divStart, 20,
+            var (divStart, _) = Constants.DivisionRange(_gameState.Club.Division);
+            int teamCount      = Constants.TeamCount(_gameState.Club.Division);
+            int playerDivIdx   = Array.FindIndex(_gameState.AllTeamNames, divStart, teamCount,
                                      t => t.Trim().Equals(_gameState.Club.Name.Trim(), StringComparison.OrdinalIgnoreCase))
                                  - divStart;
             int opponentDivIdx = scheduled.OpponentTeamIndex - divStart;
             int leagueRound    = FixtureSchedulerService.FindLeagueRound(
-                                     Math.Max(0, playerDivIdx), Math.Max(0, opponentDivIdx));
+                                     Math.Max(0, playerDivIdx), Math.Max(0, opponentDivIdx), teamCount);
 
             otherFixtures = LeagueService.SimulateOtherFixtures(
                 _gameState.CurrentLeague,
@@ -254,7 +255,8 @@ public class GameService
 
         _lostLastMatch = weLost;
 
-        var week = FixtureSchedulerService.AdvanceWeek(_gameState.CurrentWeek, _gameState.FixturesPlayed);
+        var week = FixtureSchedulerService.AdvanceWeek(_gameState.CurrentWeek, _gameState.FixturesPlayed,
+                       Constants.FixturesInSeason(_gameState.Club.Division));
         _gameState.CurrentWeek               = week.CurrentWeek;
         _gameState.FixturesPlayed            = week.FixturesPlayed;
         _gameState.MatchesRemainingThisSeason = week.MatchesRemainingThisSeason;
@@ -310,18 +312,19 @@ public class GameService
         var newDivision   = (Division)newDivNum;
 
         // Pick a random club from that division, excluding the current club.
-        int    divStart  = newDivNum * 20 - 19;
-        string ourName   = _gameState.Club.Name.Trim();
+        var (divStart, _) = Constants.DivisionRange(newDivision);
+        int teamCount     = Constants.TeamCount(newDivision);
+        string ourName    = _gameState.Club.Name.Trim();
         string newClub;
-        int    attempt   = 0;
+        int    attempt    = 0;
         do
         {
-            newClub = _gameState.AllTeamNames[divStart + _random.Next(20)];
+            newClub = _gameState.AllTeamNames[divStart + _random.Next(teamCount)];
             attempt++;
         }
-        while (newClub.Trim() == ourName && attempt < 20);
+        while (newClub.Trim() == ourName && attempt < teamCount);
 
-        int newPosition = 1 + _random.Next(20);
+        int newPosition = 1 + _random.Next(teamCount);
 
         InitializationService.JoinNewClubMidSeason(
             _gameState, newClub, newDivision, newPosition, _random);
@@ -354,7 +357,7 @@ public class GameService
         // preserved (season clock continues) so every slot the form window
         // will inspect needs a non-null value; a 0-0 draw (1 pt) keeps the
         // accumulated form above the firing threshold of 6.
-        var freshResults = new string[38];
+        var freshResults = new string[Constants.FixturesInSeason(newDivision)];
         for (int i = 0; i < _gameState.FixturesPlayed && i < freshResults.Length; i++)
             freshResults[i] = LeagueService.EncodeResultString(0, 0);
         _gameState.CurrentLeague.WeeklyResults = freshResults;
@@ -387,7 +390,7 @@ public class GameService
         for (int slot = 21; slot <= 23; slot++) _gameState.Squad[slot] = null;
         _gameState.TransferMarket.PlayersBeingSought.Clear();
 
-        _gameState.MatchesRemainingThisSeason = 38;
+        _gameState.MatchesRemainingThisSeason = Constants.FixturesInSeason(_gameState.Club.Division);
 
         // Draw the new season's cup brackets.
         var lcBracket = CupService.SetupInitialBracket(_gameState.AllTeamNames, _random);

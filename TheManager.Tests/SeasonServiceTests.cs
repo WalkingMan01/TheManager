@@ -30,7 +30,8 @@ public class SeasonServiceTests
     [Fact]
     public void DetermineNewDivision_NoRelegationFromDivision4()
     {
-        Assert.Equal(Division.Four, SeasonService.DetermineNewDivision(20, Division.Four));
+        // Position 24 (bottom of 24-team Div4) still can't relegate further
+        Assert.Equal(Division.Four, SeasonService.DetermineNewDivision(24, Division.Four));
     }
 
     [Fact]
@@ -168,7 +169,7 @@ public class SeasonServiceTests
     [Fact]
     public void DetermineNewDivision_Position17_NoChange()
     {
-        // Position 17 is just inside the safe zone (> 17 relegates)
+        // Div 2 has 24 teams; relegation threshold is position > 21. Position 17 is safe.
         Assert.Equal(Division.Two, SeasonService.DetermineNewDivision(17, Division.Two));
     }
 
@@ -212,8 +213,8 @@ public class SeasonServiceTests
     public void SwapPromotedRelegatedTeams_SwapsBottomOfUpperWithTopOfLower()
     {
         // upperDivisionNumber=1: bottom3 of div1 = indices 18,19,20; top3 of div2 = 21,22,23
-        var names = new string[81];
-        for (int i = 1; i <= 80; i++) names[i] = $"Orig{i:D2}";
+        var names = new string[120];
+        for (int i = 1; i <= 92; i++) names[i] = $"Orig{i:D2}";
 
         SeasonService.SwapPromotedRelegatedTeams(names, upperDivisionNumber: 1);
 
@@ -228,8 +229,8 @@ public class SeasonServiceTests
     [Fact]
     public void SwapPromotedRelegatedTeams_LeavesOtherIndicesUnchanged()
     {
-        var names = new string[81];
-        for (int i = 1; i <= 80; i++) names[i] = $"Orig{i:D2}";
+        var names = new string[120];
+        for (int i = 1; i <= 92; i++) names[i] = $"Orig{i:D2}";
 
         SeasonService.SwapPromotedRelegatedTeams(names, upperDivisionNumber: 1);
 
@@ -243,8 +244,8 @@ public class SeasonServiceTests
 
     private static string[] MakeAllTeamNames()
     {
-        var names = new string[81];
-        for (int i = 1; i <= 80; i++) names[i] = $"Orig{i:D2}";
+        var names = new string[120];
+        for (int i = 1; i <= 92; i++) names[i] = $"Orig{i:D2}";
         return names;
     }
 
@@ -261,11 +262,11 @@ public class SeasonServiceTests
     {
         var names = MakeAllTeamNames();
 
-        // Division 2 occupies indices 21-40. Top 3 = Orig30, Orig25, Orig22
+        // Division 2 occupies indices 21-44 (24 teams). Top 3 = Orig30, Orig25, Orig22
         // (out of order to prove standings, not array position, drive the swap).
         // Bottom 3 = Orig35, Orig21, Orig40.
         var entries = new List<string> { "Orig30", "Orig25", "Orig22" };
-        entries.AddRange(Enumerable.Range(1, 14).Select(_ => "Filler"));
+        entries.AddRange(Enumerable.Range(1, 18).Select(_ => "Filler"));
         entries.Add("Orig35");
         entries.Add("Orig21");
         entries.Add("Orig40");
@@ -279,10 +280,10 @@ public class SeasonServiceTests
         Assert.Contains("Orig25", new[] { names[18], names[19], names[20] });
         Assert.Contains("Orig22", new[] { names[18], names[19], names[20] });
 
-        // Bottom 3 of division 2 now sit in the top 3 slots of division 3 (41-43).
-        Assert.Contains("Orig35", new[] { names[41], names[42], names[43] });
-        Assert.Contains("Orig21", new[] { names[41], names[42], names[43] });
-        Assert.Contains("Orig40", new[] { names[41], names[42], names[43] });
+        // Bottom 3 of division 2 now sit in the top 3 slots of division 3 (45-47).
+        Assert.Contains("Orig35", new[] { names[45], names[46], names[47] });
+        Assert.Contains("Orig21", new[] { names[45], names[46], names[47] });
+        Assert.Contains("Orig40", new[] { names[45], names[46], names[47] });
     }
 
     [Fact]
@@ -311,17 +312,18 @@ public class SeasonServiceTests
     {
         var names = MakeAllTeamNames();
 
+        // Division 4 occupies indices 69-92 (24 teams). Use arbitrary labels for top 3.
         var entries = new List<string> { "Orig61", "Orig62", "Orig63" };
-        entries.AddRange(Enumerable.Range(1, 17).Select(_ => "Filler"));
+        entries.AddRange(Enumerable.Range(1, 21).Select(_ => "Filler"));
 
         var table = MakeTable(Division.Four, entries.ToArray());
 
         SeasonService.PromoteAndRelegateActualTeams(names, table);
 
-        // Top 3 of division 4 now sit in the bottom 3 slots of division 3 (58-60).
-        Assert.Contains("Orig61", new[] { names[58], names[59], names[60] });
-        Assert.Contains("Orig62", new[] { names[58], names[59], names[60] });
-        Assert.Contains("Orig63", new[] { names[58], names[59], names[60] });
+        // Top 3 of division 4 now sit in the bottom 3 slots of division 3 (66-68).
+        Assert.Contains("Orig61", new[] { names[66], names[67], names[68] });
+        Assert.Contains("Orig62", new[] { names[66], names[67], names[68] });
+        Assert.Contains("Orig63", new[] { names[66], names[67], names[68] });
     }
 
     // ── AgeYouthPlayers ───────────────────────────────────────────────────────

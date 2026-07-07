@@ -20,7 +20,7 @@ internal static class ManagerProfileScreen
 
         // ── This season ───────────────────────────────────────────────────────
         AnsiConsole.MarkupLine("  [bold]This Season[/]");
-        AnsiConsole.MarkupLine($"    Club      : [bold]{Markup.Escape(club.Name.Trim())}[/]  (Division {(int)club.Division})");
+        AnsiConsole.MarkupLine($"    Club      : [bold]{Markup.Escape(club.Name.Trim())}[/]  ({Ui.DivisionName(club.Division)})");
 
         int livePosition = Math.Max(1,
             state.CurrentLeague.Entries
@@ -86,7 +86,7 @@ internal static class ManagerProfileScreen
             var table = new Table()
                 .Border(TableBorder.Rounded)
                 .AddColumn(new TableColumn("[dim]Season[/]").RightAligned())
-                .AddColumn(new TableColumn("[dim]Div[/]").RightAligned())
+                .AddColumn(new TableColumn("[dim]League[/]").RightAligned())
                 .AddColumn(new TableColumn("[dim]Pos[/]").RightAligned())
                 .AddColumn(new TableColumn("[dim]Lg Cup[/]"))
                 .AddColumn(new TableColumn("[dim]FA Cup[/]"))
@@ -104,7 +104,7 @@ internal static class ManagerProfileScreen
 
                 table.AddRow(
                     record.SeasonNumber.ToString(),
-                    ((int)record.Division).ToString(),
+                    Ui.DivisionShort(record.Division),
                     Ordinal(record.FinalLeaguePosition),
                     record.LeagueCupRoundReached > 0 ? $"Rd {record.LeagueCupRoundReached}" : "[dim]—[/]",
                     record.FACupRoundReached > 0     ? $"Rd {record.FACupRoundReached}" : "[dim]—[/]",

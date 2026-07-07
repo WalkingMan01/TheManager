@@ -20,7 +20,7 @@ internal static class PlayMatchScreen
         var events      = new List<(string Minute, string Text, string Color)>();
 
         // Animate the match clock, revealing goals as they happen
-        AnsiConsole.Live(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, "0'", events))
+        AnsiConsole.Live(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, "0'", events, result.IsHomeGame))
             .AutoClear(false)
             .Overflow(VerticalOverflow.Ellipsis)
             .Start(ctx =>
@@ -63,7 +63,7 @@ internal static class PlayMatchScreen
                         events.Add((minuteStr, Markup.Escape(text), color));
                     }
 
-                    ctx.UpdateTarget(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, minuteStr, events));
+                    ctx.UpdateTarget(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, minuteStr, events, result.IsHomeGame));
                     ctx.Refresh();
                 }
             });
@@ -84,9 +84,9 @@ internal static class PlayMatchScreen
             var otherTable = new Table()
                 .Border(TableBorder.None)
                 .HideHeaders()
-                .AddColumn(new TableColumn("").RightAligned().Width(12))
+                .AddColumn(new TableColumn("").RightAligned())
                 .AddColumn(new TableColumn("").Centered().Width(7))
-                .AddColumn(new TableColumn("").Width(12));
+                .AddColumn(new TableColumn(""));
 
             foreach (var f in result.OtherFixtures)
                 otherTable.AddRow(
@@ -212,14 +212,18 @@ internal static class PlayMatchScreen
         string homeTeam, string awayTeam,
         int homeScore, int awayScore,
         string minute,
-        IReadOnlyList<(string Minute, string Text, string Color)> events)
+        IReadOnlyList<(string Minute, string Text, string Color)> events,
+        bool isHomeGame)
     {
         string homeEsc = Markup.Escape(homeTeam);
         string awayEsc = Markup.Escape(awayTeam);
 
+        string homeStyle = isHomeGame ? "bold green" : "bold";
+        string awayStyle = isHomeGame ? "bold"       : "bold green";
+
         var rows = new List<IRenderable>
         {
-            new Markup($"  [bold green]{homeEsc}[/]   [bold white]{homeScore} – {awayScore}[/]   [bold]{awayEsc}[/]"),
+            new Markup($"  [{homeStyle}]{homeEsc}[/]   [bold white]{homeScore} – {awayScore}[/]   [{awayStyle}]{awayEsc}[/]"),
             new Markup($"  [dim]{minute}[/]"),
         };
 

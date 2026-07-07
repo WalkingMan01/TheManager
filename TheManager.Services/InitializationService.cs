@@ -160,7 +160,7 @@ public static class InitializationService
         string    managerName,        
         Random    rng)
     {
-        gameState.Club.Name           = clubName.PadRight(9)[..9];
+        gameState.Club.Name           = clubName;
         gameState.Club.Division       = division;
         gameState.Club.ManagerName    = managerName;
         gameState.Club.PointsPerWin   = 3;
@@ -201,7 +201,7 @@ public static class InitializationService
         // Reset counters
         gameState.CurrentWeek              = 1;
         gameState.FixturesPlayed           = 0;
-        gameState.MatchesRemainingThisSeason = 38;
+        gameState.MatchesRemainingThisSeason = Constants.FixturesInSeason(gameState.Club.Division);
         gameState.SeasonsPlayed            = 0;
         gameState.SeasonSlot               = 1;
         gameState.Club.ManagerContractWeeks = 52;   // initial 1-season contract
@@ -234,7 +234,7 @@ public static class InitializationService
         Random    rng)
     {
         // Swap club identity (line 5544–5545)
-        gameState.Club.Name     = newClubName.PadRight(9)[..9];
+        gameState.Club.Name     = newClubName;
         gameState.Club.Division = newDivision;
         gameState.Club.LeaguePosition = startingLeaguePosition;
 
@@ -313,7 +313,7 @@ public static class InitializationService
         string oldClubName = gameState.Club.Name;
 
         // Swap club identity
-        gameState.Club.Name          = newClubName.PadRight(9)[..9];
+        gameState.Club.Name          = newClubName;
         gameState.Club.Division      = newDivision;
         gameState.Club.LeaguePosition = startingLeaguePosition;
 

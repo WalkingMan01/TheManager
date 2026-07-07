@@ -10,7 +10,7 @@ internal static class WeekHubScreen
 {
     public static WeekAction Show(GameState state, ScheduledMatch match)
     {
-        Ui.Header($"WEEK {state.CurrentWeek}  ·  {state.Club.Name.Trim()}  ·  DIV {(int)state.Club.Division}");
+        Ui.Header($"WEEK {state.CurrentWeek}  ·  {state.Club.Name.Trim()}  ·  {Ui.DivisionName(state.Club.Division)}");
 
         if (match.MatchType == MatchType.EndOfSeason)
         {

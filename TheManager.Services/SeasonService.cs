@@ -98,18 +98,22 @@ public static class SeasonService
     /// <summary>
     /// Determines the player's new division based on final league position.
     ///
-    /// BASIC line 2416:
-    ///   If leaguePos > 17 and division &lt; 4: relegated (division + 1)
-    ///   If leaguePos &lt; 4 and division > 1:  promoted (division - 1)
+    /// BASIC line 2416 (adapted for variable division sizes):
+    ///   Bottom 3 (position > teamCount−3) and division &lt; 4: relegated (division + 1)
+    ///   Top 3 (position &lt; 4) and division > 1:              promoted (division - 1)
     ///   Otherwise: no change
+    ///
+    /// Division One has 20 teams: relegation threshold = position > 17.
+    /// Divisions Two–Four have 24 teams: relegation threshold = position > 21.
     /// </summary>
     public static Division DetermineNewDivision(
         int      finalLeaguePosition,
         Division currentDivision)
     {
         int divisionNumber = (int)currentDivision;
+        int teamCount      = Constants.TeamCount(currentDivision);
 
-        if (finalLeaguePosition > 17 && divisionNumber < 4)
+        if (finalLeaguePosition > teamCount - 3 && divisionNumber < 4)
             return (Division)(divisionNumber + 1);
 
         if (finalLeaguePosition < 4 && divisionNumber > 1)
@@ -126,23 +130,26 @@ public static class SeasonService
     /// BASIC subroutines 2421–2428 process divisions 2 and 4 (i.e. the boundary
     /// between Div1/Div2 and Div3/Div4).
     ///
-    /// Team indices: Div N occupies Y$(((N-1)*20)+1) to Y$(N*20).
-    ///   Bottom 3 of upper div = indices (N*20)-2, (N*20)-1, (N*20)
-    ///   Top 3 of lower div    = indices ((N)*20)+1, ((N)*20)+2, ((N)*20)+3
+    /// Team indices: upper division ends at its range End; lower division starts at its range Start.
+    ///   Bottom 3 of upper div = (upperEnd-2, upperEnd-1, upperEnd)
+    ///   Top 3 of lower div    = (lowerStart, lowerStart+1, lowerStart+2)
     /// </summary>
     public static void SwapPromotedRelegatedTeams(
         string[] allTeamNames,
         int      upperDivisionNumber)
     {
+        var (_, upperEnd)   = Constants.DivisionRange((Division)upperDivisionNumber);
+        var (lowerStart, _) = Constants.DivisionRange((Division)(upperDivisionNumber + 1));
+
         // Bottom of upper division (last 3 entries)
-        int upperBottom1 = upperDivisionNumber * 20 - 2;
-        int upperBottom2 = upperDivisionNumber * 20 - 1;
-        int upperBottom3 = upperDivisionNumber * 20;
+        int upperBottom1 = upperEnd - 2;
+        int upperBottom2 = upperEnd - 1;
+        int upperBottom3 = upperEnd;
 
         // Top of lower division (first 3 entries)
-        int lowerTop1 = upperDivisionNumber * 20 + 1;
-        int lowerTop2 = upperDivisionNumber * 20 + 2;
-        int lowerTop3 = upperDivisionNumber * 20 + 3;
+        int lowerTop1 = lowerStart;
+        int lowerTop2 = lowerStart + 1;
+        int lowerTop3 = lowerStart + 2;
 
         // Swap (line 2428)
         (allTeamNames[upperBottom1], allTeamNames[lowerTop1]) =
@@ -174,18 +181,18 @@ public static class SeasonService
         // division above.
         if (divisionNumber > 1)
         {
-            int aboveBottomSlot = (divisionNumber - 1) * 20;
+            var (_, aboveEnd) = Constants.DivisionRange((Division)(divisionNumber - 1));
             for (int i = 0; i < 3; i++)
-                SwapTeamIntoSlot(allTeamNames, table.Entries[i].TeamName, aboveBottomSlot - i);
+                SwapTeamIntoSlot(allTeamNames, table.Entries[i].TeamName, aboveEnd - i);
         }
 
         // Relegation: bottom 3 move down, swapping with the top 3 slots of the
         // division below.
         if (divisionNumber < 4)
         {
-            int belowTopSlot = divisionNumber * 20 + 1;
+            var (belowStart, _) = Constants.DivisionRange((Division)(divisionNumber + 1));
             for (int i = 0; i < 3; i++)
-                SwapTeamIntoSlot(allTeamNames, table.Entries[table.Entries.Count - 1 - i].TeamName, belowTopSlot + i);
+                SwapTeamIntoSlot(allTeamNames, table.Entries[table.Entries.Count - 1 - i].TeamName, belowStart + i);
         }
     }
 

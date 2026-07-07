@@ -3,14 +3,11 @@ using TheManager.Models;
 namespace TheManager.Models;
 
 /// <summary>
-/// Hardcoded 1988-era English football team names, mirroring the data.fd
-/// file read by FOOT.BAS into Y$(1..106).
+/// English football team names.
 ///
-/// Divisions 1–4 occupy indices 1–80 (20 teams each).
-/// Cup-only entrants occupy indices 81–96.
-/// Indices 97–106 are unused (name suffixes are hardcoded in NameGenerationService).
-/// All names are padded to exactly 9 characters to match the BASIC's
-///   Y$(I) = Y$(I) + SPACE$(9 - LEN(Y$(I)))
+/// Premier League occupies indices 1–20 (20 teams).
+/// Championship, League One, League Two occupy indices 21–44, 45–68, 69–92 (24 teams each).
+/// Cup-only entrants occupy indices 93–108.
 /// </summary>
 public static class TeamData
 {
@@ -18,47 +15,51 @@ public static class TeamData
     [
         "",              // 0 — unused (BASIC is 1-based)
 
-        // ── Division 1 (1–20) ──────────────────────────────────────────────────
-        "ARSENAL  ", "CHARLTON ", "CHELSEA  ", "COVENTRY ", "DERBY    ",
-        "EVERTON  ", "LIVERPOOL", "LUTON    ", "MAN UTD  ", "MAN CITY ",
-        "NEWCASTLE", "NORWICH  ", "NOTTM FOR", "OXFORD   ", "PORTSMPTH",
-        "QPR      ", "SHEFF WED", "SOUTHMPTN", "WATFORD  ", "WEST HAM ",
+        // ── Premier League (1–20) ──────────────────────────────────────────────
+        "AFC Bournemouth", "Arsenal", "Aston Villa", "Brentford", "Brighton & Hove Albion",
+        "Chelsea", "Coventry City", "Crystal Palace", "Everton", "Fulham",
+        "Hull City", "Ipswich Town", "Leeds United", "Liverpool", "Manchester City",
+        "Manchester United", "Newcastle United", "Nottingham Forest", "Sunderland", "Tottenham Hotspur",
 
-        // ── Division 2 (21–40) ─────────────────────────────────────────────────
-        "ASTON VIL", "BARNSLEY ", "BIRMINGHA", "BLACKBURN", "BRADFORD ",
-        "CRYSTAL P", "HUDDERSFD", "HULL     ", "IPSWICH  ", "LEEDS    ",
-        "LEICESTER", "MIDDLESBR", "MILLWALL ", "OLDHAM   ", "PLYMOUTH ",
-        "SHEFF UTD", "SHREWSBY ", "STOKE    ", "SUNDERLD ", "SWINDON  ",
+        // ── Championship (21–44) ──────────────────────────────────────────────
+        "Birmingham City", "Blackburn Rovers", "Bolton Wanderers", "Bristol City", "Burnley",
+        "Cardiff City", "Charlton Athletic", "Derby County", "Lincoln City", "Middlesbrough",
+        "Millwall", "Norwich City", "Portsmouth", "Preston North End", "Queens Park Rangers",
+        "Sheffield United", "Southampton", "Stoke City", "Swansea City", "Watford",
+        "West Bromwich Albion", "West Ham United", "Wolverhampton Wanderers", "Wrexham",
 
-        // ── Division 3 (41–60) ─────────────────────────────────────────────────
-        "BOLTON   ", "BRENTFORD", "BRISTOL C", "BRISTOL R", "BURY     ",
-        "CARLISLE ", "CHESTER  ", "CHESTFD  ", "DONCASTER", "FULHAM   ",
-        "GILLNGHAM", "NEWPORT  ", "NORTHMPTN", "NOTTS CO ", "PORT VALE",
-        "ROTHERHAM", "SWANSEA  ", "WALSALL  ", "WIGAN    ", "YORK     ",
+        // ── League One (45–68) ────────────────────────────────────────────────
+        "AFC Wimbledon", "Barnsley", "Blackpool", "Bradford City", "Bromley",
+        "Burton Albion", "Cambridge United", "Doncaster Rovers", "Huddersfield Town", "Leicester City",
+        "Leyton Orient", "Luton Town", "Mansfield Town", "MK Dons", "Notts County",
+        "Oxford United", "Peterborough United", "Plymouth Argyle", "Reading", "Sheffield Wednesday",
+        "Stevenage", "Stockport County", "Wigan Athletic", "Wycombe Wanderers",
 
-        // ── Division 4 (61–80) ─────────────────────────────────────────────────
-        "ALDERSHOT", "BURNLEY  ", "CAMBRIDGE", "CARDIFF  ", "COLCHESTR",
-        "CREWE    ", "DARLINGTN", "EXETER   ", "HARTLEPL ", "HEREFORD ",
-        "LEYTON O ", "LINCOLN  ", "MANSFIELD", "PETERBRGH", "ROCHDALE ",
-        "SCUNTHRPE", "SOUTHEND ", "STOCKPORT", "TORQUAY  ", "WREXHAM  ",
+        // ── League Two (69–92) ────────────────────────────────────────────────
+        "Accrington Stanley", "Barnet", "Bristol Rovers", "Cheltenham Town", "Chesterfield",
+        "Colchester United", "Crawley Town", "Crewe Alexandra", "Exeter City", "Fleetwood Town",
+        "Gillingham", "Grimsby Town", "Newport County", "Northampton Town", "Oldham Athletic",
+        "Port Vale", "Rochdale", "Rotherham United", "Salford City", "Shrewsbury Town",
+        "Swindon Town", "Tranmere Rovers", "Walsall", "York City",
 
-        // ── Cup-only entrants (81–96) ──────────────────────────────────────────
-        "BATH CITY", "BLYTH SPR", "BOSTON U ", "CHELTNHAM", "ENFIELD  ",
-        "FARNBRGH ", "KIDDERMIN", "MAIDSTONE", "MORECAMBE", "NORTHWICH",
-        "STAFFORD ", "TELFORD  ", "WEALDSTNE", "WELLING U", "WMBLDON R",
-        "YEOVIL   ",
+        // ── Cup-only entrants (93–108) ────────────────────────────────────────
+        "Bath City", "Blyth Spartans", "Boston United", "Cheltenham Town", "Enfield",
+        "Farnborough Town", "Kidderminster Harriers", "Maidstone United", "Morecambe", "Northwich Victoria",
+        "Stafford Rangers", "Telford United", "Wealdstone", "Welling United", "Wimbledon Reserves",
+        "Yeovil Town",
     ];
 
     /// <summary>Returns the trimmed team names for the given division (1–4), in order.</summary>
     public static IReadOnlyList<string> GetDivisionTeams(Division division)
     {
-        int start = (int)division * 20 - 19;
-        return Enumerable.Range(start, 20).Select(i => Names[i].Trim()).ToList();
+        var (start, _) = Constants.DivisionRange(division);
+        int count      = Constants.TeamCount(division);
+        return Enumerable.Range(start, count).Select(i => Names[i].Trim()).ToList();
     }
 
     /// <summary>
     /// Seeds <see cref="GameState.AllTeamNames"/> with the built-in team list.
-    /// All 107 slots are set to at least an empty string so downstream code
+    /// All slots are set to at least an empty string so downstream code
     /// that calls .Trim() without a null check is safe.
     /// </summary>
     public static void Seed(GameState state)

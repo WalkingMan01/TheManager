@@ -115,10 +115,10 @@ public class FixtureSchedulerServiceTests
     // ── GetDivisionStartIndex ─────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(Division.One,   1)]
-    [InlineData(Division.Two,  21)]
-    [InlineData(Division.Three,41)]
-    [InlineData(Division.Four, 61)]
+    [InlineData(Division.One,    1)]
+    [InlineData(Division.Two,   21)]
+    [InlineData(Division.Three, 45)]
+    [InlineData(Division.Four,  69)]
     public void GetDivisionStartIndex_ReturnsFirstSlotForDivision(Division division, int expected)
     {
         Assert.Equal(expected, FixtureSchedulerService.GetDivisionStartIndex(division));
@@ -239,8 +239,8 @@ public class FixtureSchedulerServiceTests
         var (names, clubName) = MakeTeamNamesWithClub(Division.Two, clubIndex: 5);
         var fixtures = FixtureSchedulerService.GenerateSeasonFixtures(Division.Two, clubName, names);
 
-        // Division 2 occupies AllTeamNames indices 21–40
-        Assert.All(fixtures, f => Assert.InRange(f.OpponentTeamIndex, 21, 40));
+        // Division 2 occupies AllTeamNames indices 21–44 (24 teams)
+        Assert.All(fixtures, f => Assert.InRange(f.OpponentTeamIndex, 21, 44));
     }
 
     [Theory]
@@ -300,19 +300,29 @@ public class FixtureSchedulerServiceTests
         Assert.All(fixtures, f => Assert.Equal(names[f.OpponentTeamIndex], f.OpponentName));
     }
 
-    [Theory]
-    [InlineData(Division.One)]
-    [InlineData(Division.Two)]
-    [InlineData(Division.Three)]
-    [InlineData(Division.Four)]
-    public void GenerateSeasonFixtures_AllDivisions_ProducesCorrectCount(Division division)
+    [Fact]
+    public void GenerateSeasonFixtures_DivisionOne_Produces38Fixtures()
     {
-        var (names, clubName) = MakeTeamNamesWithClub(division, clubIndex: 5);
-        var fixtures = FixtureSchedulerService.GenerateSeasonFixtures(division, clubName, names);
+        var (names, clubName) = MakeTeamNamesWithClub(Division.One, clubIndex: 5);
+        var fixtures = FixtureSchedulerService.GenerateSeasonFixtures(Division.One, clubName, names);
 
         Assert.Equal(38, fixtures.Count);
         Assert.Equal(19, fixtures.Count(f => f.IsHomeGame));
         Assert.Equal(19, fixtures.Count(f => !f.IsHomeGame));
+    }
+
+    [Theory]
+    [InlineData(Division.Two)]
+    [InlineData(Division.Three)]
+    [InlineData(Division.Four)]
+    public void GenerateSeasonFixtures_LargeDivisions_Produce46Fixtures(Division division)
+    {
+        var (names, clubName) = MakeTeamNamesWithClub(division, clubIndex: 5);
+        var fixtures = FixtureSchedulerService.GenerateSeasonFixtures(division, clubName, names);
+
+        Assert.Equal(46, fixtures.Count);
+        Assert.Equal(23, fixtures.Count(f => f.IsHomeGame));
+        Assert.Equal(23, fixtures.Count(f => !f.IsHomeGame));
     }
 
     // ── FindLeagueRound ───────────────────────────────────────────────────────
@@ -374,9 +384,9 @@ public class FixtureSchedulerServiceTests
     private static (string[] names, string clubName) MakeTeamNamesWithClub(
         Division division, int clubIndex)
     {
-        var names = new string[81];
-        for (int i = 1; i <= 80; i++) names[i] = $"Team{i:D2}";
-        int divStart = (int)division * 20 - 19;
+        var names = new string[120];
+        for (int i = 1; i <= 92; i++) names[i] = $"Team{i:D3}";
+        int divStart    = Constants.DivisionRange(division).Start;
         string clubName = names[divStart + clubIndex];
         return (names, clubName);
     }

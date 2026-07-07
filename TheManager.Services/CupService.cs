@@ -300,14 +300,16 @@ public static class CupService
 
     /// <summary>
     /// Maps a team's Y$ index to the division it belongs to.
-    /// Div1=1–20, Div2=21–40, Div3=41–60, Div4=61–80, Cup-only=81+.
-    /// Corresponds to INT((teamIndex+19)/20) used throughout FOOT.BAS.
+    /// Div1=[1–20], Div2=[21–44], Div3=[45–68], Div4=[69–92], Cup-only=93+.
     /// </summary>
     public static int GetDivisionForTeamIndex(int teamIndex)
     {
         if (teamIndex < 1)  return 0;
-        if (teamIndex > 80) return 5;   // cup-only teams treated as division 5
-        return (teamIndex + 19) / 20;
+        if (teamIndex <= 20) return 1;
+        if (teamIndex <= 44) return 2;
+        if (teamIndex <= 68) return 3;
+        if (teamIndex <= 92) return 4;
+        return 5;   // cup-only teams treated as division 5
     }
 
     private static int FindFreeBracketSlot(int[] bracket, Random rng)

@@ -7,10 +7,10 @@ internal static class TeamSelectionScreen
 {
     private static readonly (string Label, Division Value)[] Divisions =
     [
-        ("Division 1 — Top flight", Division.One),
-        ("Division 2",              Division.Two),
-        ("Division 3",              Division.Three),
-        ("Division 4",              Division.Four),
+        ("Premier League", Division.One),
+        ("Championship",   Division.Two),
+        ("League One",     Division.Three),
+        ("League Two",     Division.Four),
     ];
 
     public static (string TeamName, Division Division, string ManagerName) Show()

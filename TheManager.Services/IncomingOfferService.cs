@@ -148,12 +148,16 @@ public static class IncomingOfferService
         // The job goes to a different candidate — re-advertise in a nearby division
         // (BASIC lines 5519–5523: find a new club in a nearby division)
         int newDivisionNumber = Math.Max(1, Math.Min(4, (int)offer.OfferingDivision + rng.Next(3) - 1));
-        int newPosition       = 1 + rng.Next(20);
+        var newOfferDiv       = (Division)newDivisionNumber;
+        int newPosition       = 1 + rng.Next(Constants.TeamCount(newOfferDiv));
+
+        var (offerDivStart, _) = Constants.DivisionRange(newOfferDiv);
+        int midTeamIndex       = offerDivStart + Constants.TeamCount(newOfferDiv) / 2 - 1;
 
         var newOffer = new IncomingOffer
         {
             Slot               = offerSlot,
-            BuyingClub        = gameState.AllTeamNames[newDivisionNumber * 20 - 10],
+            BuyingClub        = gameState.AllTeamNames[midTeamIndex],
             BuyingClubDivision = (Division)newDivisionNumber,
             BuyingClubPosition = newPosition
         };
