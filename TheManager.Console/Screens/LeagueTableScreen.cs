@@ -7,7 +7,7 @@ internal static class LeagueTableScreen
 {
     public static void Show(GameState state)
     {
-        Ui.Header($"LEAGUE TABLE  ·  Division {(int)state.Club.Division}");
+        Ui.Header($"LEAGUE TABLE  ·  {Ui.DivisionName(state.Club.Division)}");
 
         var table = new Table()
             .Border(TableBorder.Rounded)

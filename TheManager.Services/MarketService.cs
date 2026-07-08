@@ -65,14 +65,15 @@ public static class MarketService
 
             // Pick a rival club from a nearby division
             int targetDiv = Math.Clamp((int)ourDivision + rng.Next(3) - 1, 1, 4);
-            int teamIndex = (targetDiv - 1) * 20 + 1 + rng.Next(20);
+            var (divStart, _) = Constants.DivisionRange((Division)targetDiv);
+            int teamIndex     = divStart + rng.Next(Constants.TeamCount((Division)targetDiv));
 
             if (teamIndex < 1 || teamIndex >= allTeamNames.Length) continue;
             string clubName = allTeamNames[teamIndex];
             if (string.IsNullOrWhiteSpace(clubName)) continue;
             if (clubName.Trim() == ourClubName.Trim()) continue;
 
-            int rivalDiv = Math.Clamp((teamIndex - 1) / 20 + 1, 1, 4);
+            int rivalDiv = targetDiv;
             interest.Add(new TransferListing
             {
                 SquadSlot       = slot,

@@ -95,7 +95,7 @@ internal static class TransferMarketScreen
         var table = new Table()
             .Border(TableBorder.Rounded)
             .AddColumn("[dim]Club[/]")
-            .AddColumn("[dim]Div[/]")
+            .AddColumn("[dim]League[/]")
             .AddColumn("[bold]Player[/]")
             .AddColumn("[dim]Pos[/]")
             .AddColumn(new TableColumn("[dim]Skill[/]").RightAligned())
@@ -105,7 +105,7 @@ internal static class TransferMarketScreen
         {
             table.AddRow(
                 Markup.Escape(offer.OwningClubName.Trim()),
-                $"D{RivalDivision(offer.OwningClubIndex)}",
+                Ui.DivisionShort(RivalDivision(offer.OwningClubIndex)),
                 Markup.Escape(offer.Player.Name.Trim()),
                 PositionAbbr(offer.Player.Position),
                 $"{offer.Player.Skill:F1}",
@@ -203,7 +203,7 @@ internal static class TransferMarketScreen
         // Show details
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(
-            $"  [bold]{Markup.Escape(offer.OwningClubName.Trim())}[/] (D{RivalDivision(offer.OwningClubIndex)}) " +
+            $"  [bold]{Markup.Escape(offer.OwningClubName.Trim())}[/] ({Ui.DivisionShort(RivalDivision(offer.OwningClubIndex))}) " +
             $"want to buy [bold]{Markup.Escape(offer.Player.Name.Trim())}[/]  " +
             $"{PositionAbbr(offer.Player.Position)}  skill {offer.Player.Skill:F1}  age {offer.Player.DisplayAge}");
         AnsiConsole.MarkupLine(
@@ -244,8 +244,13 @@ internal static class TransferMarketScreen
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static int RivalDivision(int teamIndex)
-        => Math.Clamp((teamIndex - 1) / 20 + 1, 1, 4);
+    private static Division RivalDivision(int teamIndex)
+    {
+        if (teamIndex <= 20) return Division.One;
+        if (teamIndex <= 44) return Division.Two;
+        if (teamIndex <= 68) return Division.Three;
+        return Division.Four;
+    }
 
     private static string PositionAbbr(PlayerPosition pos) => pos switch
     {

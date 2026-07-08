@@ -53,8 +53,9 @@ public static class ScoutReportService
             if (rng.Next(100) >= successThreshold) continue;
 
             // Pick a team from the division that matches the target skill tier
-            int targetDiv = SkillTierToDivision(scout.LookingForForm);
-            int teamIndex = (targetDiv - 1) * 20 + 1 + rng.Next(20);
+            int targetDiv         = SkillTierToDivision(scout.LookingForForm);
+            var (scoutDivStart, _) = Constants.DivisionRange((Division)targetDiv);
+            int teamIndex         = scoutDivStart + rng.Next(Constants.TeamCount((Division)targetDiv));
             if (teamIndex < 1 || teamIndex >= allTeamNames.Length) continue;
             string sourceClub = allTeamNames[teamIndex];
             if (string.IsNullOrWhiteSpace(sourceClub)) continue;

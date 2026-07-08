@@ -155,20 +155,21 @@ public static class LeagueService
         int         pointsPerWin,
         Random      rng)
     {
-        int    divStart   = (int)division * 20 - 19;
+        var (divStart, _) = Constants.DivisionRange(division);
+        int teamCount     = Constants.TeamCount(division);
         string ourTrimmed = ourClub.Trim();
 
-        var divTeams = new string[20];
+        var divTeams = new string[teamCount];
         int playerIdx = 0;
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < teamCount; i++)
         {
             divTeams[i] = allTeamNames[divStart + i];
             if (divTeams[i].Trim() == ourTrimmed)
                 playerIdx = i;
         }
 
-        var pairs   = FixtureSchedulerService.GetRoundPairings(leagueRound);
-        var results = new List<OtherFixtureResult>(9);
+        var pairs   = FixtureSchedulerService.GetRoundPairings(leagueRound, teamCount);
+        var results = new List<OtherFixtureResult>(teamCount / 2 - 1);
 
         foreach (var (homeIdx, awayIdx) in pairs)
         {
@@ -219,10 +220,11 @@ public static class LeagueService
     /// </summary>
     public static void SwapDivisionTeams(LeagueTable table, Division newDivision, string[] allTeamNames)
     {
-        int divStart = (int)newDivision * 20 - 19;
-        table.Division = newDivision;
+        var (divStart, _) = Constants.DivisionRange(newDivision);
+        int teamCount     = Constants.TeamCount(newDivision);
+        table.Division    = newDivision;
 
-        for (int i = 0; i < table.Entries.Count && i < 20; i++)
+        for (int i = 0; i < table.Entries.Count && i < teamCount; i++)
             table.Entries[i].TeamName = allTeamNames[divStart + i];
     }
 
@@ -230,15 +232,17 @@ public static class LeagueService
 
     /// <summary>
     /// Creates and returns a fresh league table for the given division,
-    /// populated with the 20 team names from <paramref name="allTeamNames"/>.
+    /// populated with the team names from <paramref name="allTeamNames"/>
+    /// (20 entries for Div 1, 24 for Divs 2–4).
     ///
     /// Called at new-game setup and at the start of each new season.
     /// </summary>
     public static LeagueTable InitialiseTable(Division division, string[] allTeamNames)
     {
-        int divStart = (int)division * 20 - 19;
-        var table    = new LeagueTable { Division = division };
-        for (int i = 0; i < 20; i++)
+        var (divStart, _) = Constants.DivisionRange(division);
+        int teamCount     = Constants.TeamCount(division);
+        var table         = new LeagueTable { Division = division };
+        for (int i = 0; i < teamCount; i++)
             table.Entries.Add(new LeagueEntry { TeamName = allTeamNames[divStart + i] });
         return table;
     }

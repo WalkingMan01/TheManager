@@ -23,7 +23,7 @@ internal static class LoadGameScreen
         }
 
         var labels = slots
-            .Select(s => $"{s.SlotName,-24} {s.ClubName,-20} Div {s.Division}  Season {s.Season}  Week {s.Week}  (saved {s.SavedAt:yyyy-MM-dd HH:mm})")
+            .Select(s => $"{s.SlotName,-24} {s.ClubName,-20} {Ui.DivisionName((Division)s.Division),-16}  Season {s.Season}  Week {s.Week}  (saved {s.SavedAt:yyyy-MM-dd HH:mm})")
             .ToList();
         labels.Add(BackOption);
 

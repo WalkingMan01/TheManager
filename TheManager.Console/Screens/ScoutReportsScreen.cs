@@ -150,10 +150,10 @@ internal static class ScoutReportsScreen
             new SelectionPrompt<string>()
                 .Title("[bold]What skill level?[/]")
                 .AddChoices(
-                    "2  — developing (Div 4)",
-                    "4  — average    (Div 3)",
-                    "6  — good       (Div 2)",
-                    "8  — elite      (Div 1)",
+                    "2  — developing (League Two)",
+                    "4  — average    (League One)",
+                    "6  — good       (Championship)",
+                    "8  — elite      (Premier League)",
                     "Cancel"));
 
         if (tierPick == "Cancel") return;

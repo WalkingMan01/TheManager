@@ -14,7 +14,7 @@ internal static class EndOfSeasonScreen
         {
             AnsiConsole.MarkupLine($"  Season:           [bold]{history.SeasonNumber}[/]");
             AnsiConsole.MarkupLine($"  Final position:   [bold]{history.FinalLeaguePosition}[/]");
-            AnsiConsole.MarkupLine($"  Division:         [bold]{(int)history.Division}[/]");
+            AnsiConsole.MarkupLine($"  Division:         [bold]{Ui.DivisionName(history.Division)}[/]");
             AnsiConsole.MarkupLine($"  Manager rating:   [bold]{state.Club.ManagerRating}%[/]");
             AnsiConsole.MarkupLine($"  Bank balance:     [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]");
             AnsiConsole.WriteLine();
@@ -40,7 +40,7 @@ internal static class EndOfSeasonScreen
             AnsiConsole.WriteLine();
         }
 
-        AnsiConsole.MarkupLine($"  New season begins — Division [bold]{(int)state.Club.Division}[/]");
+        AnsiConsole.MarkupLine($"  New season begins — [bold]{Ui.DivisionName(state.Club.Division)}[/]");
         AnsiConsole.WriteLine();
 
         var choice = AnsiConsole.Prompt(

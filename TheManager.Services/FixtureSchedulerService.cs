@@ -5,7 +5,10 @@ namespace TheManager.Services;
 
 /// <summary>
 /// Manages the week-by-week fixture cycle, determining match type, opponent,
-/// and home/away status for each of the 38 league weeks plus cup weeks.
+/// and home/away status for each league week plus cup weeks.
+///
+/// Division One has 20 teams and plays 38 league fixtures per season.
+/// Divisions Two–Four each have 24 teams and play 46 fixtures per season.
 ///
 /// The BASIC cycle runs from CI=1 to CI=59:
 ///   CI = 12, 19, 26, 33, 40, 47, 54 → League Cup fixture weeks
@@ -30,6 +33,8 @@ public static class FixtureSchedulerService
 
     /// <summary>
     /// Returns the type, opponent, and home/away flag for the current week.
+    /// If no fixture is scheduled for <paramref name="currentWeek"/> the result
+    /// has <see cref="MatchType.EndOfSeason"/>.
     ///
     /// BASIC lines 422–430 and 1701–1724:
     ///   Cup weeks are detected by CI value.
@@ -38,9 +43,6 @@ public static class FixtureSchedulerService
     /// </summary>
     public static ScheduledMatch GetCurrentMatch(int currentWeek, IReadOnlyList<ScheduledMatch> fixtures)
     {
-        if (currentWeek > Constants.WeeksInSeason)
-            return new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = currentWeek };
-
         return fixtures.FirstOrDefault(m => m.Week == currentWeek)
             ?? new ScheduledMatch { MatchType = MatchType.EndOfSeason, Week = currentWeek };
     }
@@ -49,13 +51,16 @@ public static class FixtureSchedulerService
     /// Advances CI by one week and decrements the matches-remaining counter.
     /// Call this after a match result has been processed.
     ///
+    /// <paramref name="maxFixtures"/> is the total fixtures in the season for the
+    /// current division (38 for Div 1, 46 for Divs 2–4). Defaults to 38.
+    ///
     /// BASIC lines 422–424:
     ///   CI=CI+1; if NC=0 then skip to weekly news; else GOTO 1701.
     /// </summary>
-    public static WeekAdvanceResult AdvanceWeek(int currentWeek, int fixturesPlayed)
+    public static WeekAdvanceResult AdvanceWeek(int currentWeek, int fixturesPlayed, int maxFixtures = 38)
     {
-        int newFixturesPlayed = Math.Min(38, fixturesPlayed + 1);
-        return new WeekAdvanceResult(currentWeek + 1, newFixturesPlayed, 38 - newFixturesPlayed);
+        int newFixturesPlayed = Math.Min(maxFixtures, fixturesPlayed + 1);
+        return new WeekAdvanceResult(currentWeek + 1, newFixturesPlayed, maxFixtures - newFixturesPlayed);
     }
 
     /// <summary>
@@ -65,40 +70,45 @@ public static class FixtureSchedulerService
     /// BASIC subroutine 23000 (line 4676): V=cM.
     /// </summary>
     public static int GetDivisionStartIndex(Division division)
-        => DivisionRange(division).Start;
+        => Constants.DivisionRange(division).Start;
 
     /// <summary>
-    /// Generates the full 38-fixture season schedule using the circle-method
-    /// round-robin algorithm, then reorders the fixtures to alternate home and
-    /// away games as evenly as possible (H/A/H/A/…), starting at home.
+    /// Generates the full season schedule using the circle-method round-robin
+    /// algorithm, then reorders the fixtures to alternate home and away games
+    /// as evenly as possible (H/A/H/A/…), starting at home.
+    ///
+    /// Division One produces 38 fixtures (20 teams).
+    /// Divisions Two–Four produce 46 fixtures each (24 teams).
     ///
     /// The circle-method guarantees each opponent is faced exactly once home
-    /// and once away (19 of each), so a perfect H/A/H/A/… alternation is always
-    /// achievable. The reordering only changes the week each match is played,
-    /// not who plays who or the H/A assignment per opponent.
+    /// and once away, so a perfect H/A alternation is always achievable.
+    /// The reordering only changes the week each match is played, not who
+    /// plays who or the H/A assignment per opponent.
     /// </summary>
     public static List<ScheduledMatch> GenerateSeasonFixtures(Division division, string clubName, string[] allTeamNames)
     {
-        var (divStart, _) = DivisionRange(division);
-        string ourTrimmed = clubName.Trim();
+        var (divStart, _) = Constants.DivisionRange(division);
+        int teamCount      = Constants.TeamCount(division);
+        int fixturesInSeason = Constants.FixturesInSeason(division);
+        string ourTrimmed  = clubName.Trim();
 
-        var divTeams = new string[20];
+        var divTeams = new string[teamCount];
         int playerIdx = 0;
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < teamCount; i++)
         {
             divTeams[i] = allTeamNames[divStart + i];
             if (divTeams[i].Trim().Equals(ourTrimmed, StringComparison.OrdinalIgnoreCase))
                 playerIdx = i;
         }
 
-        // Build fixtures in circle-method round order (rounds 0–37) first —
-        // this fixes who plays who and the H/A assignment per opponent, and
-        // guarantees no two same-round-half fixtures share an opponent.
-        var roundOrder = new List<ScheduledMatch>(Constants.WeeksInSeason);
+        // Build fixtures in circle-method round order — this fixes who plays who
+        // and the H/A assignment per opponent, and guarantees no two same-round-half
+        // fixtures share an opponent.
+        var roundOrder = new List<ScheduledMatch>(fixturesInSeason);
 
-        for (int round = 0; round < Constants.WeeksInSeason; round++)
+        for (int round = 0; round < fixturesInSeason; round++)
         {
-            var  pairs  = GetRoundPairings(round);
+            var  pairs  = GetRoundPairings(round, teamCount);
             var  pair   = Array.Find(pairs, p => p.homeIdx == playerIdx || p.awayIdx == playerIdx);
             bool isHome = pair.homeIdx == playerIdx;
             int  oi     = isHome ? pair.awayIdx : pair.homeIdx;
@@ -120,18 +130,9 @@ public static class FixtureSchedulerService
     /// into a week-by-week sequence that alternates home and away as strictly
     /// as possible, starting at home.
     ///
-    /// Naively zipping the separate home and away lists (home[i] then away[i])
-    /// can place an opponent's two fixtures back-to-back: the pivot team's home
-    /// list and away list come out in identical opponent order (see
-    /// <see cref="GetRoundPairings"/>), so a plain zip would play every opponent
-    /// home then away in consecutive weeks. Instead, home fixtures keep their
-    /// original relative order, and each opponent's away fixture is offset by
-    /// a fixed shift (half the list, rounded) relative to that same opponent's
-    /// home position. For any opponent with home position h and away position
-    /// a = (h + shift) mod 19, the two fixtures are adjacent only if shift is 0
-    /// or 18 (mod 19) — true regardless of how the two lists relate to each
-    /// other, so a mid-range shift guarantees no opponent ever repeats on
-    /// consecutive weeks.
+    /// Each opponent's away fixture is offset by a fixed shift (half the list,
+    /// rounded) relative to that opponent's home position. This guarantees no
+    /// opponent ever appears on consecutive weeks.
     /// </summary>
     private static List<ScheduledMatch> InterleaveHomeAndAway(List<ScheduledMatch> fixtures)
     {
@@ -159,18 +160,22 @@ public static class FixtureSchedulerService
     }
 
     /// <summary>
-    /// Returns the circle-method round (0–37) in which <paramref name="playerIdx"/>
+    /// Returns the circle-method round in which <paramref name="playerIdx"/>
     /// is paired against <paramref name="opponentIdx"/>.
+    ///
+    /// <paramref name="teamCount"/> must match the division size (20 or 24).
+    /// Defaults to 20 (Division One) for backward compatibility.
     ///
     /// Used to pass the correct round to <see cref="LeagueService.SimulateOtherFixtures"/>
     /// so its skip logic aligns with the match actually played rather than the
     /// interleaved fixture-count index.
     /// </summary>
-    public static int FindLeagueRound(int playerIdx, int opponentIdx)
+    public static int FindLeagueRound(int playerIdx, int opponentIdx, int teamCount = 20)
     {
-        for (int round = 0; round < Constants.WeeksInSeason; round++)
+        int fixturesInSeason = (teamCount - 1) * 2;
+        for (int round = 0; round < fixturesInSeason; round++)
         {
-            foreach (var (h, a) in GetRoundPairings(round))
+            foreach (var (h, a) in GetRoundPairings(round, teamCount))
                 if ((h == playerIdx && a == opponentIdx) || (h == opponentIdx && a == playerIdx))
                     return round;
         }
@@ -178,52 +183,37 @@ public static class FixtureSchedulerService
     }
 
     /// <summary>
-    /// Returns the 10 home/away pairings (as division-relative indices 0..19)
+    /// Returns the home/away pairings (as division-relative indices 0..teamCount-1)
     /// for a given league round using the circle-method round-robin algorithm.
     ///
-    /// Team at index 19 is the fixed pivot. For rounds 0–18 (first half) it is
-    /// home; for rounds 19–37 (second half) home/away is reversed so every team
-    /// gets each opponent once at home and once away over 38 rounds.
+    /// <paramref name="teamCount"/> must be even (20 for Div 1, 24 for Divs 2–4).
+    /// Defaults to 20 for backward compatibility.
+    ///
+    /// The team at index <c>teamCount-1</c> is the fixed pivot. For the first
+    /// half of rounds it is home; for the second half home/away is reversed so
+    /// every team gets each opponent once at home and once away.
     /// </summary>
-    public static (int homeIdx, int awayIdx)[] GetRoundPairings(int leagueRound)
+    public static (int homeIdx, int awayIdx)[] GetRoundPairings(int leagueRound, int teamCount = 20)
     {
-        int  r          = leagueRound % 19;
-        bool secondHalf = leagueRound >= 19;
+        int  pivot      = teamCount - 1;
+        int  halfCount  = teamCount / 2;
+        int  r          = leagueRound % pivot;
+        bool secondHalf = leagueRound >= pivot;
 
-        var pairs = new (int homeIdx, int awayIdx)[10];
+        var pairs = new (int homeIdx, int awayIdx)[halfCount];
 
-        // Fixed team (index 19) is home in the first half, away in the second
-        pairs[0] = secondHalf ? (r, 19) : (19, r);
+        // Fixed team (pivot) is home in the first half, away in the second
+        pairs[0] = secondHalf ? (r, pivot) : (pivot, r);
 
-        for (int k = 1; k <= 9; k++)
+        for (int k = 1; k < halfCount; k++)
         {
-            int a = ((r - k) % 19 + 19) % 19;
-            int b = (r + k) % 19;
+            int a = ((r - k) % pivot + pivot) % pivot;
+            int b = (r + k) % pivot;
             pairs[k] = secondHalf ? (b, a) : (a, b);
         }
 
         return pairs;
     }
-
-    /// <summary>
-    /// Returns true when the current week is a cup week that the player's club
-    /// has a fixture in (i.e. they have not been eliminated).
-    ///
-    /// BASIC lines 1701–1708: checks CI against cup week ranges and tests
-    /// whether CT (LC) or CR (FA) is non-zero.
-    /// </summary>
-    //public static bool HasCupFixtureThisWeek(GameState gameState)
-    //{
-    //    int week = gameState.CurrentWeek;
-
-    //    if (LeagueCupWeeks.Contains(week))
-    //        return gameState.LeagueCup.CurrentRound != CupRound.NotEntered;
-
-    //    if (FACupWeeks.Contains(week))
-    //        return gameState.FACup.CurrentRound != CupRound.NotEntered;
-
-    //    return false;
-    //}
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
@@ -236,7 +226,7 @@ public static class FixtureSchedulerService
     /// </summary>
     private static string AdvanceOpponentPointer(GameState gameState)
     {
-        var (start, end) = DivisionRange(gameState.Club.Division);
+        var (start, end) = Constants.DivisionRange(gameState.Club.Division);
 
         if (gameState.CurrentOpponentIndex > end)
             gameState.CurrentOpponentIndex = start;
@@ -249,20 +239,6 @@ public static class FixtureSchedulerService
         }
 
         return gameState.AllTeamNames[gameState.CurrentOpponentIndex];
-    }
-
-    /// <summary>
-    /// Home when matches remaining is even (38, 36, 34 …).
-    /// BASIC lines 1711–1712: FOR I=38 TO 2 STEP -2; IF cJ=I THEN BK%=1.
-    /// </summary>
-    //private static bool DetermineHomeAway(int matchesRemaining)
-    //    => matchesRemaining % 2 == 0;
-
-    /// <summary>Returns the inclusive [Start, End] team-index range for <paramref name="division"/>.</summary>
-    private static (int Start, int End) DivisionRange(Division division)
-    {
-        int end = (int)division * 20;
-        return (end - 19, end);
     }
 }
 

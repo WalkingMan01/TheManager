@@ -17,7 +17,7 @@ internal static class SackingScreen
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(
             $"  You have been appointed manager of [bold cyan]{Markup.Escape(newClubName)}[/]" +
-            $" in Division [bold]{(int)newDivision}[/].");
+            $" in the [bold]{Ui.DivisionName(newDivision)}[/].");
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("  [dim]A new squad and staff are in place. The season continues.[/]");
 
