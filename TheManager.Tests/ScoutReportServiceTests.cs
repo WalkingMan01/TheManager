@@ -107,6 +107,21 @@ public class ScoutReportServiceTests
     }
 
     [Fact]
+    public void RunWeeklyReports_DiscoveredPlayerHasQuotedAskingPrice()
+    {
+        var scouts = new List<Scout>
+        {
+            new() { SkillPercent = 99, LookingForForm = 5, LookingForPosition = PlayerPosition.Attacker }
+        };
+        var slots = new Player?[] { null, null, null };
+
+        var findResult = FindResultWithFindings(scouts, slots);
+
+        Assert.NotNull(findResult);
+        Assert.True(findResult.Findings[0].Player.AskingPrice > 0);
+    }
+
+    [Fact]
     public void RunWeeklyReports_SecondScoutSlot_IsProcessed()
     {
         // Two scouts: first has no criteria (clears slot 21), second also has no criteria (clears slot 22)

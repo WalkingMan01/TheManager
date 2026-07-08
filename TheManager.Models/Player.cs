@@ -123,6 +123,14 @@ public class Player
     /// </summary>
     public int GamesPlayed { get; set; }
 
+    /// <summary>
+    /// Quoted transfer fee while the player sits in a transfer-market slot (21–23).
+    /// Rolled once when the player is scouted so the fee shown in reports matches
+    /// the fee paid; cleared when a deal is committed. 0 = not quoted.
+    /// No FOOT.BAS equivalent (the original rolled the price at purchase time).
+    /// </summary>
+    public double AskingPrice { get; set; }
+
     // ── Derived helpers ───────────────────────────────────────────────────────
 
     public bool IsStar => Skill > 9.7;

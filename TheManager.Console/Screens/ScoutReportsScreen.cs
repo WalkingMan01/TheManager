@@ -14,6 +14,13 @@ internal static class ScoutReportsScreen
             AnsiConsole.Write(BuildAssignmentsTable(state));
 
             var findings = CurrentFindings(state);
+
+            // Legacy saves: pending finds from before fees were quoted at
+            // discovery — quote them once now so the table and the deal agree.
+            foreach (var f in findings)
+                if (f.Player.AskingPrice <= 0)
+                    f.Player.AskingPrice = TransferService.CalculateAskingPrice(f.Player, rng);
+
             if (findings.Count > 0)
             {
                 AnsiConsole.WriteLine();
@@ -87,7 +94,8 @@ internal static class ScoutReportsScreen
             .AddColumn(new TableColumn("[dim]Skill[/]").RightAligned())
             .AddColumn(new TableColumn("[dim]Age[/]").RightAligned())
             .AddColumn("[dim]Temper[/]")
-            .AddColumn("[dim]From[/]");
+            .AddColumn("[dim]From[/]")
+            .AddColumn(new TableColumn("[dim]Fee[/]").RightAligned());
 
         foreach (var f in findings)
         {
@@ -98,7 +106,8 @@ internal static class ScoutReportsScreen
                 $"{f.Player.Skill:F1}",
                 f.Player.DisplayAge.ToString(),
                 f.Player.Temper.ToString(),
-                Markup.Escape(f.SourceClubName));
+                Markup.Escape(f.SourceClubName),
+                $"[cyan]{Ui.FormatMoney(f.Player.AskingPrice)}[/]");
         }
 
         return table;
@@ -180,7 +189,8 @@ internal static class ScoutReportsScreen
                 $"{i + 1}. {f.Player.Name.Trim()}  " +
                 $"{PositionAbbr(f.Player.Position)}  " +
                 $"skill:{f.Player.Skill:F1}  age:{f.Player.DisplayAge}  " +
-                $"from:{f.SourceClubName}")
+                $"from:{f.SourceClubName}  " +
+                $"fee:{Ui.FormatMoney(f.Player.AskingPrice)}")
             .Append("Cancel")
             .ToList();
 
@@ -203,9 +213,10 @@ internal static class ScoutReportsScreen
             return;
         }
 
-        // Step 3: show the transfer fee and the player's own stated terms
-        double askingPrice = TransferService.CalculateAskingPrice(player, rng);
-        var    demand       = ContractService.GetPlayerDemands(player, state.Club.Division, rng);
+        // Step 3: show the transfer fee (quoted when the player was scouted)
+        // and the player's own stated terms
+        double askingPrice = player.AskingPrice;
+        var    demand      = ContractService.GetPlayerDemands(player, state.Club.Division, rng);
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"  [bold]{Markup.Escape(player.Name.Trim())}[/]  " +

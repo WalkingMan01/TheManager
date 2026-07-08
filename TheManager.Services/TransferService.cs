@@ -115,6 +115,7 @@ public static class TransferService
         player.GamesPlayed   = 0;   // x(IB)=0 when NT=0 (line 2136)
         player.WeeklyWage    = wage;
         player.ContractWeeks = contractWeeks;
+        player.AskingPrice   = 0;   // quoted market price is consumed by the deal
 
         double totalCost = transferFee + signingFee;
         finances.BankBalance -= (int)totalCost;
