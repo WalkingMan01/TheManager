@@ -19,23 +19,14 @@ internal static class EndOfSeasonScreen
             AnsiConsole.MarkupLine($"  Bank balance:     [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]");
             AnsiConsole.WriteLine();
 
-            // Promotion / relegation banner
-            if (state.SeasonHistory.Count >= 2)
-            {
-                var prev = state.SeasonHistory[^2];
-                if (state.Club.Division < prev.Division)
-                    AnsiConsole.MarkupLine("  [bold green]*** PROMOTED! ***[/]");
-                else if (state.Club.Division > prev.Division)
-                    AnsiConsole.MarkupLine("  [bold red]*** RELEGATED! ***[/]");
-            }
-            else
-            {
-                // First season — infer from position
-                if (history.FinalLeaguePosition <= 2 && history.Division != Division.One)
-                    AnsiConsole.MarkupLine("  [bold green]*** PROMOTED! ***[/]");
-                else if (history.FinalLeaguePosition >= 19 && history.Division != Division.Four)
-                    AnsiConsole.MarkupLine("  [bold red]*** RELEGATED! ***[/]");
-            }
+            // Promotion / relegation banner. The history entry records the
+            // division as played (written before promotion/relegation is
+            // applied), so comparing it with the club's current division
+            // shows exactly what happened this season.
+            if (state.Club.Division < history.Division)
+                AnsiConsole.MarkupLine("  [bold green]*** PROMOTED! ***[/]");
+            else if (state.Club.Division > history.Division)
+                AnsiConsole.MarkupLine("  [bold red]*** RELEGATED! ***[/]");
 
             AnsiConsole.WriteLine();
         }
