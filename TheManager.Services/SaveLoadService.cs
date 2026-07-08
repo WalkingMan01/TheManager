@@ -55,18 +55,18 @@ public static class SaveLoadService
     /// Corresponds to loadold in FOOT.BAS (lines 4909–4963).
     /// Throws <see cref="InvalidDataException"/> if the file cannot be parsed.
     /// </summary>
-    public static GameState Load(string filePath)
+    public static GameState Load(string filePath, Random? rng = null)
     {
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"Save file not found: {filePath}");
 
         string json = File.ReadAllText(filePath);
-        return Deserialize(json);
+        return Deserialize(json, rng);
     }
 
     /// <summary>Async variant of <see cref="Load"/>.</summary>
     public static async Task<GameState> LoadAsync(string filePath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, Random? rng = null)
     {
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"Save file not found: {filePath}");
@@ -75,7 +75,11 @@ public static class SaveLoadService
         var state = await JsonSerializer.DeserializeAsync<GameState>(
             stream, SerializerOptions, cancellationToken);
 
-        return state ?? throw new InvalidDataException("Save file contained null game state.");
+        if (state == null)
+            throw new InvalidDataException("Save file contained null game state.");
+
+        MigrateLegacyPotentials(state, rng ?? new Random());
+        return state;
     }
 
     // ── Check for existing save ───────────────────────────────────────────────
@@ -108,9 +112,29 @@ public static class SaveLoadService
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    internal static GameState Deserialize(string json)
+    internal static GameState Deserialize(string json, Random? rng = null)
     {
         var state = JsonSerializer.Deserialize<GameState>(json, SerializerOptions);
-        return state ?? throw new InvalidDataException("Save file contained null game state.");
+        if (state == null)
+            throw new InvalidDataException("Save file contained null game state.");
+
+        MigrateLegacyPotentials(state, rng ?? new Random());
+        return state;
+    }
+
+    /// <summary>
+    /// One-time migration for saves created before the hidden-potential
+    /// mechanic: players with PeakAge 0 (never assigned) get a PeakAge and
+    /// PotentialSkill rolled via <see cref="PlayerService.AssignPotential"/>.
+    /// AssignPotential always sets the ceiling above current skill, so no
+    /// loaded player loses ability.
+    /// </summary>
+    private static void MigrateLegacyPotentials(GameState state, Random rng)
+    {
+        foreach (var player in state.Squad)
+        {
+            if (player is { PeakAge: 0 })
+                PlayerService.AssignPotential(player, rng);
+        }
     }
 }

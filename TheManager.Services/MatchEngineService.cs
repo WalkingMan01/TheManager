@@ -268,7 +268,9 @@ public class MatchEngineService
         MatchSetupInput input, int windowStartMinute, int windowEndMinute)
     {
         // ── Our shot count ────────────────────────────────────────────────────
-        int ourMoraleRoll = 1 + _random.Next(3);   // 1–3
+        // Deviation from BASIC (RND*3): widened to 1–5 so the high-morale shot
+        // bonus fires 1 in 5, matching the opponent's roll.
+        int ourMoraleRoll = 1 + _random.Next(5);   // 1–5
 
         int ourShotCount = Math.Max(0,
             Math.Min(input.OurAttack, input.OurMid)

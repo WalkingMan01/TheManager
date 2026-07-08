@@ -180,6 +180,51 @@ public class StaffServiceTests
         Assert.Empty(youth);
     }
 
+    [Fact]
+    public void PromoteYouthPlayer_PotentialSkillExceedsPromotedSkill()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var squad = new Player?[29];
+            var youth = new List<YouthPlayer> { EligibleYouthPlayer() };
+            var club  = new Club { Division = Division.Two };
+
+            var result = StaffService.PromoteYouthPlayer(squad, youth, club, youthIndex: 0, new Random(seed));
+
+            Assert.NotNull(result);
+            Assert.True(result.Value.player.PotentialSkill > result.Value.player.Skill,
+                $"Seed {seed}: potential {result.Value.player.PotentialSkill} not above skill {result.Value.player.Skill}");
+        }
+    }
+
+    [Fact]
+    public void PromoteYouthPlayer_HighYouthPotential_CarriesOverToSeniorCeiling()
+    {
+        var squad = new Player?[29];
+        var youthPlayer = EligibleYouthPlayer();
+        youthPlayer.PotentialSkillPercent = 97;
+        var youth = new List<YouthPlayer> { youthPlayer };
+        var club  = new Club { Division = Division.Two };
+
+        var result = StaffService.PromoteYouthPlayer(squad, youth, club, youthIndex: 0, new Random(0));
+
+        Assert.NotNull(result);
+        Assert.Equal(9.7, result.Value.player.PotentialSkill);
+    }
+
+    [Fact]
+    public void PromoteYouthPlayer_PeakAgeBetween26And30()
+    {
+        var squad = new Player?[29];
+        var youth = new List<YouthPlayer> { EligibleYouthPlayer() };
+        var club  = new Club { Division = Division.Two };
+
+        var result = StaffService.PromoteYouthPlayer(squad, youth, club, youthIndex: 0, new Random(0));
+
+        Assert.NotNull(result);
+        Assert.InRange(result.Value.player.PeakAge, 26, 30);
+    }
+
     // ── TotalStaffWageBill ────────────────────────────────────────────────────
 
     [Fact]

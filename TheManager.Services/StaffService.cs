@@ -164,6 +164,13 @@ public static class StaffService
             ContractWeeks = 50,
             WeeklyWage    = 50,
         };
+
+        // Hidden ceiling: reuse the youth's rolled potential (Y(3,I), percent
+        // scale ÷ 10), but always leave headroom above the promoted skill.
+        player.PeakAge        = 26 + rng.Next(5);
+        player.PotentialSkill = Math.Max(skill + 0.3 + rng.Next(3) / 10.0,
+                                         youth.PotentialSkillPercent / 10.0);
+
         PlayerService.RecalculateStatus(player);
 
         squad[freeSlot] = player;

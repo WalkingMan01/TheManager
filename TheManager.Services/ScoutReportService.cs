@@ -73,6 +73,7 @@ public static class ScoutReportService
                 GamesPlayed = teamIndex,    // source-club index stored here per BASIC convention
                 Temper      = Math.Max(0, Math.Min(9, -3 + rng.Next(17)))
             };
+            PlayerService.AssignPotential(discoveredPlayer, rng);
             PlayerService.RecalculateStatus(discoveredPlayer);
 
             slotUpdates[scoutSquadSlot] = discoveredPlayer;

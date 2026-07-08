@@ -109,6 +109,28 @@ public class InitializationServiceTests
         Assert.True(player.WeeklyWage >= 50);
     }
 
+    [Fact]
+    public void GeneratePlayer_PotentialSkillExceedsStartingSkill()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var player = InitializationService.GeneratePlayer(slot: 5, divNum: 1, new Random(seed));
+
+            Assert.True(player.PotentialSkill > player.Skill,
+                $"Seed {seed}: potential {player.PotentialSkill} not above skill {player.Skill}");
+        }
+    }
+
+    [Fact]
+    public void GeneratePlayer_PeakAgeBetween26And30()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var player = InitializationService.GeneratePlayer(slot: 5, divNum: 2, new Random(seed));
+            Assert.InRange(player.PeakAge, 26, 30);
+        }
+    }
+
     // ── GenerateStartingSquad ─────────────────────────────────────────────────
 
     [Fact]

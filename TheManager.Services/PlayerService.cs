@@ -31,6 +31,30 @@ public static class PlayerService
         }
     }
 
+    // ── Hidden potential (new mechanic — no BASIC equivalent) ────────────────
+
+    /// <summary>Last age of the 26–30 peak window; decline begins the season after.</summary>
+    private const int PeakWindowEndAge = 30;
+
+    /// <summary>
+    /// Assigns the hidden <see cref="Player.PeakAge"/> (26–30) and
+    /// <see cref="Player.PotentialSkill"/> for a newly created player.
+    /// PotentialSkill is always strictly greater than the skill the player was
+    /// created with: a guaranteed base headroom of 0.3–0.5, plus 0.2–0.5 per
+    /// year remaining until peak. New mechanic — no BASIC equivalent.
+    /// </summary>
+    public static void AssignPotential(Player player, Random rng)
+    {
+        player.PeakAge = 26 + rng.Next(5);                       // 26–30 inclusive
+
+        int yearsToPeak        = Math.Max(0, player.PeakAge - player.DisplayAge);
+        double baseHeadroom    = 0.3 + rng.Next(3) / 10.0;       // 0.3–0.5, always
+        double headroomPerYear = 0.2 + rng.Next(4) / 10.0;       // 0.2–0.5
+        player.PotentialSkill  = player.Skill + baseHeadroom
+                               + yearsToPeak * headroomPerYear;
+        // PotentialSkill's own setter clamps to 9.9
+    }
+
     // ── Transfer listing (line 1928) ─────────────────────────────────────────
 
     /// <summary>
@@ -162,6 +186,11 @@ public static class PlayerService
     ///   H(Y) -= 1.4 - randomDrift    (net skill change ≈ −1.4 to +1.0)
     ///   Clamp and recalculate status (subroutine 525)
     ///   Players with J=42 (OnLoan) or J=76 (LoanUnavailable) are skipped.
+    ///
+    /// Extends the original with aging and the hidden-potential mechanic
+    /// (no BASIC equivalent): each player ages one year, and the drift is
+    /// biased downward by 0.05 per year beyond age 30 — the end of the peak
+    /// window. The ceiling itself never drops once assigned.
     /// </summary>
     public static void ApplyEndOfSeasonSkillUpdate(Player?[] squad, Random rng)
     {
@@ -180,8 +209,15 @@ public static class PlayerService
 
             if (player.Position == PlayerPosition.None) continue;
 
-            double randomDrift = ((rng.Next(25) / 10.0) - 1.4) / 2;   // range –0.7 to +0.5
-            player.Skill += randomDrift;
+            // Age one year — increment away from zero because a negative Age
+            // means transfer-listed (G(I)<0).
+            player.Age += Math.Sign(player.Age);
+
+            // Ages 26–30 are all peak years; decline only sets in past 30.
+            // The ceiling (PotentialSkill) never drops once assigned.
+            double randomDrift  = ((rng.Next(25) / 10.0) - 1.4) / 2;   // range –0.7 to +0.5
+            int yearsPastPeak   = Math.Max(0, player.DisplayAge - PeakWindowEndAge);
+            player.Skill       += randomDrift - yearsPastPeak * 0.05;
 
             RecalculateStatus(player);
         }

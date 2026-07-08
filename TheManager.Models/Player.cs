@@ -26,17 +26,41 @@ public class Player
 
     // ── Skill / Age ───────────────────────────────────────────────────────────
 
+    private double _potentialSkill = 9.9;
+
+    /// <summary>
+    /// Hidden ceiling on Skill — the best this player can ever become (1.1–9.9).
+    /// Never drops once assigned and is never displayed in the UI. No FOOT.BAS
+    /// equivalent (new mechanic); the youth analogue is Y(3,I) /
+    /// <see cref="YouthPlayer.PotentialSkillPercent"/>.
+    /// Defaults to 9.9 (uncapped) so pre-existing save files load unchanged.
+    /// NOTE: declared before Skill so JSON deserialisation assigns it first.
+    /// </summary>
+    public double PotentialSkill
+    {
+        get => _potentialSkill;
+        set => _potentialSkill = Math.Clamp(value, 1.1, 9.9);
+    }
+
+    /// <summary>
+    /// Hidden age (26–30) at which the player is expected to reach their peak;
+    /// sizes the headroom rolled at creation. Ages 26–30 are all peak years —
+    /// decline only begins past 30. Never displayed. No FOOT.BAS equivalent.
+    /// 0 = not yet assigned (legacy save) — assigned on load.
+    /// </summary>
+    public int PeakAge { get; set; }
+
     /// <summary>
     /// Skill rating 1.0–9.9+. Star players have Skill > 9.7 (status = Star, J=105).
+    /// Capped at the player's hidden <see cref="PotentialSkill"/>.
     /// Corresponds to H(I).
     /// </summary>
-    //public double Skill { get; set; }
     public double Skill
     {
         get => _skill;
         set
         {
-            _skill = Math.Clamp(value, 1.1, 9.9);
+            _skill = Math.Clamp(value, 1.1, _potentialSkill);
         }
     }
 

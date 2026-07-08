@@ -91,6 +91,9 @@ public static class InitializationService
         player.ContractWeeks = 20 + rng.Next(56);
         player.Name          = NameGenerationService.GenerateName(rng);
 
+        // Hidden ceiling / peak age (new mechanic — no BASIC equivalent)
+        PlayerService.AssignPotential(player, rng);
+
         PlayerService.RecalculateStatus(player);
         return player;
     }
