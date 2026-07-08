@@ -150,6 +150,23 @@ public class PlayerServiceTests
         Assert.Equal(0, squad[1]!.YellowCardsThisSeason);
     }
 
+    [Theory]
+    [InlineData(1,  0)]
+    [InlineData(12, 0)]
+    [InlineData(13, 1)]
+    [InlineData(20, 8)]
+    public void ApplyEndOfSeasonSkillUpdate_InjuryHealsByTwelveWeeksOverBreak(
+        int weeksInjured, int expectedRemaining)
+    {
+        var squad = new Player?[29];
+        squad[1] = MakePlayer(age: 25, peakAge: 30);
+        squad[1]!.WeeksInjured = weeksInjured;
+
+        PlayerService.ApplyEndOfSeasonSkillUpdate(squad, new Random(0));
+
+        Assert.Equal(expectedRemaining, squad[1]!.WeeksInjured);
+    }
+
     [Fact]
     public void ApplyEndOfSeasonSkillUpdate_PlayerAgesOneYear()
     {

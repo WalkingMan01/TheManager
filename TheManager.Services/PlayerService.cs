@@ -37,6 +37,12 @@ public static class PlayerService
     private const int PeakWindowEndAge = 30;
 
     /// <summary>
+    /// Weeks of recovery credited over the off-season break — injuries shorter
+    /// than this are fully healed by the start of the new season.
+    /// </summary>
+    private const int OffSeasonWeeks = 12;
+
+    /// <summary>
     /// Assigns the hidden <see cref="Player.PeakAge"/> (26–30) and
     /// <see cref="Player.PotentialSkill"/> for a newly created player.
     /// PotentialSkill is always strictly greater than the skill the player was
@@ -190,7 +196,9 @@ public static class PlayerService
     /// Extends the original with aging and the hidden-potential mechanic
     /// (no BASIC equivalent): each player ages one year, and the drift is
     /// biased downward by 0.05 per year beyond age 30 — the end of the peak
-    /// window. The ceiling itself never drops once assigned.
+    /// window. The ceiling itself never drops once assigned. Injuries also
+    /// heal over the off-season break (<see cref="OffSeasonWeeks"/>), so only
+    /// the longest-term injuries carry into the new season.
     /// </summary>
     public static void ApplyEndOfSeasonSkillUpdate(Player?[] squad, Random rng)
     {
@@ -206,6 +214,7 @@ public static class PlayerService
             }
 
             player.YellowCardsThisSeason = 0;
+            player.WeeksInjured = Math.Max(0, player.WeeksInjured - OffSeasonWeeks);
 
             if (player.Position == PlayerPosition.None) continue;
 
