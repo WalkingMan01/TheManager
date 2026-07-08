@@ -21,7 +21,6 @@ public class MatchEngineService
     private const double PhysioEffectiveness        = 0.6;  // fraction of physio skill applied to injury reduction
     private const double SkillBoostPerGoal          = 0.04; // skill gain awarded to the scorer
     private const int    TemperIncidentDenominator  = 472;  // probability denominator for crowd incidents
-    private const int    MaxPickAttempts            = 20;   // retry cap in slot-picker helpers
     private const int    YellowCardChancePercent    = 6;    // per starting slot, per match (~0.7 cards/match on average)
     private const int    GoalStartMinute            = 2;
 
@@ -223,14 +222,17 @@ public class MatchEngineService
     /// <summary>
     /// Credits a goal to a squad player: picks the scorer, updates their season
     /// stats and skill, and returns their name. Returns <see langword="null"/>
-    /// if no suitable player is found in the squad.
+    /// only when slots 2–11 hold no players at all.
     /// </summary>
     public string? RecordOurGoal(Player?[] squad)
     {
         // 2/3 of the time an attacker scores; 1/3 of the time a non-attacker.
+        // If the preferred category has no one on the pitch (sent off, injured,
+        // unusual formation), fall back to the other so a scorer is always
+        // credited rather than the goal going unattributed.
         int? scorerSlot = _random.Next(3) == 0
-            ? PickNonAttackerSlot(squad)
-            : PickAttackerSlot(squad);
+            ? PickNonAttackerSlot(squad) ?? PickAttackerSlot(squad)
+            : PickAttackerSlot(squad) ?? PickNonAttackerSlot(squad);
 
         if (scorerSlot == null) return null;
         var scorer = squad[scorerSlot.Value];
@@ -352,30 +354,29 @@ public class MatchEngineService
     }
 
     // Picks a non-empty, non-attacker slot from 2–11.
-    // Returns null if no match is found within MaxPickAttempts tries.
+    // Picks a random non-attacker slot from 2–11, or null if none exist.
     private int? PickNonAttackerSlot(Player?[] squad)
     {
-        for (int attempt = 0; attempt < MaxPickAttempts; attempt++)
+        var candidates = new List<int>();
+        for (int slot = 2; slot <= 11; slot++)
         {
-            int slot = 2 + _random.Next(10);
             var p = squad[slot];
             if (p != null && p.Position != PlayerPosition.Attacker)
-                return slot;
+                candidates.Add(slot);
         }
-        return null;
+        return candidates.Count > 0 ? candidates[_random.Next(candidates.Count)] : null;
     }
 
-    // Picks an attacker slot from 2–11.
-    // Returns null if no match is found within MaxPickAttempts tries.
+    // Picks a random attacker slot from 2–11, or null if none exist.
     private int? PickAttackerSlot(Player?[] squad)
     {
-        for (int attempt = 0; attempt < MaxPickAttempts; attempt++)
+        var candidates = new List<int>();
+        for (int slot = 2; slot <= 11; slot++)
         {
-            int slot = 2 + _random.Next(10);
             if (squad[slot]?.Position == PlayerPosition.Attacker)
-                return slot;
+                candidates.Add(slot);
         }
-        return null;
+        return candidates.Count > 0 ? candidates[_random.Next(candidates.Count)] : null;
     }
 }
 

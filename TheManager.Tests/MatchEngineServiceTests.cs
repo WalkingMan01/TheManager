@@ -186,6 +186,60 @@ public class MatchEngineServiceTests
         Assert.Equal(3, player.SuspensionMatchesRemaining);
     }
 
+    // ── RecordOurGoal ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void RecordOurGoal_NoAttackersOnPitch_StillCreditsAPlayer()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var engine = new MatchEngineService(new Random(seed));
+            var squad  = MakeFullSquad();   // slots 2–11 are all defenders
+
+            Assert.NotNull(engine.RecordOurGoal(squad));
+        }
+    }
+
+    [Fact]
+    public void RecordOurGoal_OnlyAttackersOnPitch_StillCreditsAPlayer()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var engine = new MatchEngineService(new Random(seed));
+            var squad  = new Player?[29];
+            for (int slot = 2; slot <= 11; slot++)
+            {
+                squad[slot] = MakePlayer($"P{slot}");
+                squad[slot]!.Position = PlayerPosition.Attacker;
+            }
+
+            Assert.NotNull(engine.RecordOurGoal(squad));
+        }
+    }
+
+    [Fact]
+    public void RecordOurGoal_SinglePlayerOnPitch_AlwaysCreditsThatPlayer()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            var engine = new MatchEngineService(new Random(seed));
+            var squad  = new Player?[29];
+            squad[11] = MakePlayer("Lone");
+            squad[11]!.Position = PlayerPosition.Attacker;
+
+            Assert.Equal("Lone", engine.RecordOurGoal(squad));
+        }
+    }
+
+    [Fact]
+    public void RecordOurGoal_EmptyLineup_ReturnsNull()
+    {
+        var engine = new MatchEngineService(new Random(0));
+        var squad  = new Player?[29];
+
+        Assert.Null(engine.RecordOurGoal(squad));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Player MakePlayer(string name) => new()
