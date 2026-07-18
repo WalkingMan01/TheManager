@@ -164,15 +164,15 @@ public static class PlayerService
 
             if (player.Position is PlayerPosition.Midfielder or PlayerPosition.Attacker)
             {
-                // line 3306
-                if (won)  player.Skill += 1.0 / 20;
-                if (lost) player.Skill -= 1.0 / 25;
+                // line 3306 (win boost reduced from the original 1/20)
+                if (won)  player.Skill += 0.03;
+                if (lost) player.Skill -= 0.03;
             }
             else
             {
-                // line 3307 — GK and defenders
-                if (won)        player.Skill += 1.0 / 20;
-                if (lost)       player.Skill -= 0.06;
+                // line 3307 — GK and defenders (win boost reduced from the original 1/20)
+                if (won)        player.Skill += 0.03;
+                if (lost)       player.Skill -= 0.03;
                 if (cleanSheet) player.Skill += 0.03;
             }
 

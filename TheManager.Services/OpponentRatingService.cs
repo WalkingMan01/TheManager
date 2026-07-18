@@ -23,6 +23,9 @@ public static class OpponentRatingService
     ///     League match: cx = division − difficultyLevel       (line 418)
     ///     Cup match:    cx = cupRound  − difficultyLevel       (line 415)
     ///   Each rating = (6 − cx) + RND(0–3) + topThreeBonus     (line 419)
+    ///     Deliberate deviation from FOOT.BAS: on Normal difficulty (JT=0)
+    ///     the random component is RND(0–2) instead of RND(0–3), softening
+    ///     Normal to sit halfway between Easy and the original Normal.
     ///   League morale: mm = 100 − (5 × leaguePos) + RND(1–20) (line 450)
     ///   Cup morale:    mm = 75 + RND(0–23)                    (subroutine 410)
     ///   Opponent temper (pv): 15 + RND(0–74)                  (line 455)
@@ -50,11 +53,14 @@ public static class OpponentRatingService
             : (int)ourDivision - difficultyLevel; // cx = AP − JT
 
         // ── Four positional ratings (line 419) ───────────────────────────────
+        // On Normal the random roll is capped at 0–2 (not the original 0–3),
+        // softening Normal to sit halfway between Easy and the BASIC original.
+        int randomCeiling      = difficultyLevel == 0 ? 3 : 4;
         int ratingBase         = 6 - difficultyAdjustment;
-        int goalkeeperRating   = ratingBase + rng.Next(4) + topThreeBonus;  // EI1
-        int defenceRating      = ratingBase + rng.Next(4) + topThreeBonus;  // ej
-        int midRating          = ratingBase + rng.Next(4) + topThreeBonus;  // ek
-        int attackRating       = ratingBase + rng.Next(4) + topThreeBonus;  // el
+        int goalkeeperRating   = ratingBase + rng.Next(randomCeiling) + topThreeBonus;  // EI1
+        int defenceRating      = ratingBase + rng.Next(randomCeiling) + topThreeBonus;  // ej
+        int midRating          = ratingBase + rng.Next(randomCeiling) + topThreeBonus;  // ek
+        int attackRating       = ratingBase + rng.Next(randomCeiling) + topThreeBonus;  // el
 
         // ── Morale (lines 410, 450–453) ───────────────────────────────────────
         int morale;

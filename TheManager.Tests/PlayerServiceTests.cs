@@ -123,7 +123,7 @@ public class PlayerServiceTests
 
         PlayerService.ApplyPostMatchSkillChanges(squad, won: true, lost: false, cleanSheet: false);
 
-        Assert.Equal(5.05, squad[9]!.Skill, precision: 5);
+        Assert.Equal(5.03, squad[9]!.Skill, precision: 5);
     }
 
     // ── ApplyEndOfSeasonSkillUpdate ───────────────────────────────────────────
