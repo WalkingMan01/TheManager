@@ -168,6 +168,7 @@ public static class InitializationService
         gameState.Club.ManagerName    = managerName;
         gameState.Club.PointsPerWin   = 3;
         gameState.Club.TicketPriceInPounds = 5 - (int)division;  // line 5620: nj=1+(4-AP)
+        SeedGround(gameState.Club, division, rng);
 
         SeasonService.RecalculateDivisionFinancials(gameState.Finances, division);
         gameState.Finances.SharePriceInPence = 2_000 - (int)division * 400;  // line 5442: AK=2000-(AP*400)
@@ -247,6 +248,8 @@ public static class InitializationService
         if ((int)newDivision > 2)
             gameState.Club.GroundImprovementCost = 0;
 
+        SeedGround(gameState.Club, newDivision, rng);
+
         // Reset all-time records (subroutine 5554, line 4533)
         gameState.Finances.RecordSigningFee     = 0;
         gameState.Finances.RecordSaleFee        = 0;
@@ -325,6 +328,8 @@ public static class InitializationService
         if ((int)newDivision > 2)
             gameState.Club.GroundImprovementCost = 0;
 
+        SeedGround(gameState.Club, newDivision, rng);
+
         // Reset all-time records
         gameState.Finances.RecordSigningFee    = 0;
         gameState.Finances.RecordSaleFee       = 0;
@@ -374,6 +379,30 @@ public static class InitializationService
         gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(newDivision);
     }
 
+    // ── Ground seeding (docs/specs/gate-receipts-ground-capacity.md, Step 2) ──
+
+    /// <summary>
+    /// Seeds the club's ground name and capacity: the real ground for a known
+    /// league club, or the division fallback with ±10% jitter (rounded to the
+    /// nearest 100) and a generated "&lt;Club&gt; Stadium" name otherwise.
+    /// </summary>
+    private static void SeedGround(Club club, Division division, Random rng)
+    {
+        if (TeamData.TryGetGround(club.Name, out string groundName, out int capacity))
+        {
+            club.GroundName     = groundName;
+            club.GroundCapacity = capacity;
+            return;
+        }
+
+        double jitter = 1 - Constants.GroundCapacityJitterFraction
+                      + rng.NextDouble() * 2 * Constants.GroundCapacityJitterFraction;
+        int fallback  = (int)Math.Round(
+            Constants.FallbackGroundCapacity(division) * jitter / 100.0) * 100;
+
+        club.GroundName     = $"{club.Name.Trim()} Stadium";
+        club.GroundCapacity = fallback;
+    }
 }
 
 // ── Result types ──────────────────────────────────────────────────────────────

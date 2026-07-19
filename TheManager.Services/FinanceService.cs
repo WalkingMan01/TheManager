@@ -33,10 +33,10 @@ public static class FinanceService
         report.PlayerWageBill = input.PlayerWageBill;
 
         // ── General running costs (lines 2561–2562) ──────────────────────────
-        // FT = co/4  (testimonial/sponsor payment base)
+        // FT = co/4  (sponsorship payment base)
         // FP = co/31 (base running costs, then randomised upward)
         // FQ = co/59, FR = co/99 (variance factors)
-        double testimonialPaymentBase  = finances.OverdraftMaximum / 4.0;
+        double sponsorshipBase         = finances.OverdraftMaximum / 4.0;
         double runningCostsBase        = finances.OverdraftMaximum / 31.0;
         double runningCostMidFactor    = finances.OverdraftMaximum / 59.0;
         double runningCostLowFactor    = finances.OverdraftMaximum / 99.0;
@@ -65,14 +65,16 @@ public static class FinanceService
             weeklyBalance       += input.LotteryIncome;
         }
 
-        // ── Testimonial payment (lines 2506–2508) ─────────────────────────────
-        // Fires when a player has >400 games played (ABS(x(I))>400)
-        if (input.TestimonialPayment)
+        // ── Long-service sponsorship (lines 2506–2508) ────────────────────────
+        // Fires when a player has >400 games played (ABS(x(I))>400). The
+        // original called this a testimonial; it is now reported as sponsorship
+        // income alongside the random sponsor payment below.
+        if (input.HasLongServingPlayer)
         {
-            // Testimonial amount = INT(FT - FP) = testimonialPaymentBase - runningCostsBase
-            double testimonialAmount = (int)(testimonialPaymentBase - runningCostsBase);
-            report.TestimonialPayment = testimonialAmount;
-            weeklyBalance            += testimonialAmount;
+            // Amount = INT(FT - FP) = sponsorshipBase - runningCostsBase
+            double longServiceAmount = (int)(sponsorshipBase - runningCostsBase);
+            report.SponsorPayment    += longServiceAmount;
+            weeklyBalance            += longServiceAmount;
         }
 
         // ── Insurance payout (line 2509) ──────────────────────────────────────
@@ -98,8 +100,8 @@ public static class FinanceService
         int sponsorRoll = 1 + rng.Next(35);
         if (sponsorRoll == 3)
         {
-            double sponsorPayment  = (int)(testimonialPaymentBase - runningCostsBase);
-            report.SponsorPayment  = sponsorPayment;
+            double sponsorPayment  = (int)(sponsorshipBase - runningCostsBase);
+            report.SponsorPayment += sponsorPayment;
             weeklyBalance         += sponsorPayment;
         }
 
@@ -262,6 +264,6 @@ public class WeeklyReportInput
     public bool   WonLeagueMatch             { get; set; }   // ot flag
     public bool   WonCupMatch                { get; set; }   // os flag
     public bool   IsManagerOfMonthEligible   { get; set; }   // MA>=10 AND ag<=3 AND CI==MB
-    public bool   TestimonialPayment         { get; set; }   // ABS(x(I))>400 for any player
+    public bool   HasLongServingPlayer       { get; set; }   // ABS(x(I))>400 → sponsorship payment
     public int    Division                   { get; set; }   // AP
 }

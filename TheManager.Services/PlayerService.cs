@@ -23,7 +23,6 @@ public static class PlayerService
     /// </summary>
     public static void RecalculateStatus(Player player)
     {
-        // ToDo: Remove this method ?
         if (player.Position == PlayerPosition.None)
         {
             player.Skill = 0;

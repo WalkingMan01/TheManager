@@ -55,6 +55,30 @@ public class WeeklyTickServiceTests
         Assert.Equal(0, player.SuspensionMatchesRemaining);
     }
 
+    // ── Appearances ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Process_Matchday_CreditsStartersWithAGamePlayed()
+    {
+        var state  = MakeGameState(new Random(20));
+        int before = state.Squad[1]!.GamesPlayed;
+
+        WeeklyTickService.Process(state, MakeContext(), new Random(20));
+
+        Assert.Equal(before + 1, state.Squad[1]!.GamesPlayed);
+    }
+
+    [Fact]
+    public void Process_RestDay_DoesNotCreditAnAppearance()
+    {
+        var state  = MakeGameState(new Random(21));
+        int before = state.Squad[1]!.GamesPlayed;
+
+        WeeklyTickService.Process(state, MakeContext() with { MatchPlayed = false }, new Random(21));
+
+        Assert.Equal(before, state.Squad[1]!.GamesPlayed);
+    }
+
     // ── Finance report ────────────────────────────────────────────────────────
 
     [Fact]

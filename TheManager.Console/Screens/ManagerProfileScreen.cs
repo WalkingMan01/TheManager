@@ -21,6 +21,9 @@ internal static class ManagerProfileScreen
         // ── This season ───────────────────────────────────────────────────────
         AnsiConsole.MarkupLine("  [bold]This Season[/]");
         AnsiConsole.MarkupLine($"    Club      : [bold]{Markup.Escape(club.Name.Trim())}[/]  ({Ui.DivisionName(club.Division)})");
+        if (club.GroundCapacity > 0)
+            AnsiConsole.MarkupLine(
+                $"    Ground    : {Markup.Escape(club.GroundName.Trim())}  (capacity [cyan]{club.GroundCapacity:N0}[/])");
 
         int livePosition = Math.Max(1,
             state.CurrentLeague.Entries

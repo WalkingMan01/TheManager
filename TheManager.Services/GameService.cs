@@ -431,7 +431,8 @@ public class GameService
             WonCupMatch:    false,
             LostLastMatch:  _lostLastMatch,
             WasHomeGame:    false,
-            OpponentLeaguePosition: 0);
+            OpponentLeaguePosition: 0,
+            MatchPlayed:    false);
 
         var matchday = FixtureSchedulerService.AdvanceMatchday(_gameState.CurrentWeek, _gameState.FixturesPlayed,
                            Constants.FixturesInSeason(_gameState.Club.Division), wasLeagueFixture: false);

@@ -81,6 +81,7 @@ public static class SaveLoadService
         var random = rng ?? new Random();
         MigrateLegacyPotentials(state, random);
         MigrateLegacyCupState(state);
+        MigrateLegacyGround(state);
         return state;
     }
 
@@ -122,6 +123,7 @@ public static class SaveLoadService
 
         MigrateLegacyPotentials(state, rng ?? new Random());
         MigrateLegacyCupState(state);
+        MigrateLegacyGround(state);
         return state;
     }
 
@@ -166,5 +168,29 @@ public static class SaveLoadService
         bool hasCupCalendar = state.Fixtures.Any(f => f.MatchType == Models.MatchType.FACup);
         if (!hasCupCalendar && state.Fixtures.Count > 0)
             state.FACup.CurrentRound = CupRound.NotEntered;
+    }
+
+    /// <summary>
+    /// One-time migration for saves created before the ground-capacity model
+    /// (docs/specs/gate-receipts-ground-capacity.md, Step 4): seed the ground
+    /// name and capacity from the real-ground table, or the division fallback
+    /// with no jitter — deterministic, no <see cref="Random"/> in the load path.
+    /// </summary>
+    private static void MigrateLegacyGround(GameState state)
+    {
+        var club = state.Club;
+        if (club.GroundCapacity > 0 && !string.IsNullOrWhiteSpace(club.GroundName))
+            return;
+
+        if (TeamData.TryGetGround(club.Name, out string groundName, out int capacity))
+        {
+            club.GroundName     = groundName;
+            club.GroundCapacity = capacity;
+        }
+        else
+        {
+            club.GroundName     = $"{club.Name.Trim()} Stadium";
+            club.GroundCapacity = Constants.FallbackGroundCapacity(club.Division);
+        }
     }
 }

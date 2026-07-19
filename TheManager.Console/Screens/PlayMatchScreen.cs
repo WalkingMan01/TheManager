@@ -120,13 +120,59 @@ internal static class PlayMatchScreen
         }
 
         if (result.IsHomeGame && state.Finances.LastMatchAttendance > 0)
+        {
+            bool soldOut = state.Club.GroundCapacity > 0
+                && state.Finances.LastMatchAttendance
+                   >= state.Club.GroundCapacity * Constants.SellOutFraction;
+            string soldOutBadge = soldOut ? " [bold yellow](SOLD OUT)[/]" : "";
             AnsiConsole.MarkupLine(
-                $"  Attendance: [cyan]{state.Finances.LastMatchAttendance:N0}[/]   Gate: [cyan]{Ui.FormatMoney(state.Finances.LastMatchGateMoney)}[/]");
+                $"  Attendance: [cyan]{state.Finances.LastMatchAttendance:N0}[/]{soldOutBadge}");
+        }
+
+        Ui.Pause("Press any key for the weekly news...");
+        ShowWeeklyNews(result, state, rng);
+    }
+
+    // ── Weekly news (second screen after the match/rest day) ──────────────────
+
+    /// <summary>
+    /// Clears the screen and shows everything that happened off the pitch this
+    /// week: finances, injuries, suspensions, scout news, and expiring contracts.
+    /// </summary>
+    private static void ShowWeeklyNews(MatchResult result, GameState state, Random rng)
+    {
+        Ui.Header("WEEKLY NEWS");
 
         DrawWeeklyFinances(result);
 
         AnsiConsole.MarkupLine(
             $"  Bank balance: [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]   Morale: [yellow]{state.Club.TeamMorale}[/]");
+
+        var injuries = result.Incidents.Where(i => i.Type == IncidentType.Injury).ToList();
+        if (injuries.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("  [bold dim]INJURIES[/]");
+            foreach (var inc in injuries)
+                AnsiConsole.MarkupLine(
+                    $"  [red]{Markup.Escape(inc.PlayerName.Trim())}[/] injured — " +
+                    $"out for {inc.WeeksOut} week{(inc.WeeksOut == 1 ? "" : "s")}");
+        }
+
+        if (result.NewSuspensions.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("  [bold dim]SUSPENSIONS[/]");
+            foreach (var s in result.NewSuspensions)
+            {
+                string reason = s.Reason == SuspensionReason.RedCard
+                    ? "sent off"
+                    : "five yellow cards";
+                AnsiConsole.MarkupLine(
+                    $"  [red]{Markup.Escape(s.PlayerName.Trim())}[/] suspended for " +
+                    $"{s.MatchesOut} match{(s.MatchesOut == 1 ? "" : "es")} ({reason})");
+            }
+        }
 
         if (result.ScoutFindings.Count > 0)
         {
@@ -155,21 +201,6 @@ internal static class PlayMatchScreen
             AnsiConsole.MarkupLine("  [bold dim]EXPIRING CONTRACTS — LAST CHANCE[/]");
             foreach (var (slot, player) in result.ExpiringPlayers)
                 ShowLastChanceNegotiation(player, slot, state, rng);
-        }
-
-        if (result.NewSuspensions.Count > 0)
-        {
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("  [bold dim]SUSPENSIONS[/]");
-            foreach (var s in result.NewSuspensions)
-            {
-                string reason = s.Reason == SuspensionReason.RedCard
-                    ? "sent off"
-                    : "five yellow cards";
-                AnsiConsole.MarkupLine(
-                    $"  [red]{Markup.Escape(s.PlayerName.Trim())}[/] suspended for " +
-                    $"{s.MatchesOut} match{(s.MatchesOut == 1 ? "" : "es")} ({reason})");
-            }
         }
 
         Ui.Pause();
@@ -251,30 +282,8 @@ internal static class PlayMatchScreen
 
         DrawCupResultsSection(result);
 
-        DrawWeeklyFinances(result);
-
-        AnsiConsole.MarkupLine(
-            $"  Bank balance: [cyan]{Ui.FormatMoney(state.Finances.BankBalance)}[/]   Morale: [yellow]{state.Club.TeamMorale}[/]");
-
-        if (result.ScoutFindings.Count > 0)
-        {
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("  [bold dim]SCOUT NEWS[/]");
-            foreach (var f in result.ScoutFindings)
-                AnsiConsole.MarkupLine(
-                    $"  [dim]{Markup.Escape(f.ScoutName)}[/] found " +
-                    $"[bold]{Markup.Escape(f.Player.Name.Trim())}[/] at {Markup.Escape(f.SourceClubName)}");
-        }
-
-        if (result.ExpiringPlayers.Count > 0)
-        {
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("  [bold dim]EXPIRING CONTRACTS — LAST CHANCE[/]");
-            foreach (var (slot, player) in result.ExpiringPlayers)
-                ShowLastChanceNegotiation(player, slot, state, rng);
-        }
-
-        Ui.Pause();
+        Ui.Pause("Press any key for the weekly news...");
+        ShowWeeklyNews(result, state, rng);
     }
 
     // ── Weekly finances (legacy "WEEKLY NEWS", FOOT.BAS subroutines 2501–2563) ─
@@ -318,7 +327,6 @@ internal static class PlayMatchScreen
         Line("VAT bill",          -report.VatBill);
         Line("Directors withdrew",-report.DirectorsWithdrawal);
         Line("Insurance payout",   report.InsurancePayout);
-        Line("Testimonial",        report.TestimonialPayment);
         Line("Manager of Month",   report.ManagerOfMonthBonus);
 
         AnsiConsole.Write(table);

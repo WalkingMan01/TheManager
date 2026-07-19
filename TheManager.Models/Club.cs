@@ -46,6 +46,19 @@ public class Club
 
     public bool GroundIsMaxCapacity => GroundImprovementCost == 0;
 
+    /// <summary>
+    /// Ground capacity in spectators. New — no BASIC equivalent; the original's
+    /// only capacity notion was a hard 18,721 cap while NI > 0 (subroutine 3801).
+    /// 0 in a loaded save means "seed from club name / division" (see SaveLoadService).
+    /// </summary>
+    public int GroundCapacity { get; set; }
+
+    /// <summary>
+    /// Ground name (e.g. "Old Trafford"). New — no BASIC equivalent. Seeded with
+    /// the capacity; "" in a loaded save means "seed from club name / division".
+    /// </summary>
+    public string GroundName { get; set; } = "";
+
     // ── League rules ──────────────────────────────────────────────────────────
 
     /// <summary>Points awarded for a win (2 or 3). Corresponds to PTS%.</summary>

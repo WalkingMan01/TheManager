@@ -30,6 +30,45 @@ public static class Constants
     public static int FixturesInSeason(Division division)
         => division == Division.One ? WeeksInSeason : WeeksInSeasonLargeDivision;
 
+    // ── Ground capacity & attendance (docs/specs/gate-receipts-ground-capacity.md) ─
+
+    /// <summary>±10% jitter applied to the fallback ground capacity at seed time.</summary>
+    public const double GroundCapacityJitterFraction = 0.10;
+
+    /// <summary>Occupancy ceiling for the club in 1st place (100%), all divisions.</summary>
+    public const double OccupancyCeiling = 1.00;
+
+    /// <summary>Width of the per-position occupancy band (2 points), all divisions.</summary>
+    public const double OccupancyBandWidth = 0.02;
+
+    /// <summary>Occupancy bump for a home cup tie (+2%, capped at 100%), all divisions.</summary>
+    public const double OccupancyCupBump = 0.02;
+
+    /// <summary>
+    /// Occupancy ceiling for the club in last place. The ceiling slides linearly
+    /// from <see cref="OccupancyCeiling"/> at 1st to this value at the bottom.
+    /// Division One bottoms out at 90.5% (band 88.5–90.5%); lower divisions at
+    /// 62% (band 60–62%) — attendance never drops below 60% of capacity.
+    /// </summary>
+    public static double OccupancyCeilingAtBottom(Division division)
+        => division == Division.One ? 0.905 : 0.62;
+
+    /// <summary>Attendance at or above this fraction of capacity counts as a sell-out
+    /// (away fans don't always fill their allocation).</summary>
+    public const double SellOutFraction = 0.99;
+
+    /// <summary>
+    /// Fallback ground capacity for a club name not in <see cref="TeamData"/>'s
+    /// real-ground table, near each division's real-world median.
+    /// </summary>
+    public static int FallbackGroundCapacity(Division division) => division switch
+    {
+        Division.One   => 30_000,
+        Division.Two   => 22_000,
+        Division.Three => 12_000,
+        _              => 8_000
+    };
+
     /// <summary>
     /// Returns the inclusive [Start, End] team-index range within AllTeamNames for the given division.
     /// Div 1 = [1–20], Div 2 = [21–44], Div 3 = [45–68], Div 4 = [69–92].

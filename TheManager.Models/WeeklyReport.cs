@@ -14,7 +14,6 @@ public class WeeklyReport
     public double BankInterest         { get; set; }
     public double PoliceBill           { get; set; }
     public double LotteryIncome        { get; set; }
-    public double TestimonialPayment   { get; set; }
     public double InsurancePayout      { get; set; }
     public double LeagueBonusPaid      { get; set; }
     public double CupBonusPaid         { get; set; }

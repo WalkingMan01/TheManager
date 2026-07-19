@@ -14,9 +14,7 @@ TheManager.slnx
 ├── TheManager.Services/     — all game logic
 ├── TheManager.Console/      — Spectre.Console terminal UI (net10.0); the active UI target
 ├── TheManager.MatchHarness/ — standalone WinForms tool for testing match simulation
-├── TheManager.Tests/        — xUnit test suite
-├── TheManager.Test/         — legacy console test runner (no xUnit; Program.cs only; not in slnx)
-└── TheManager/              — legacy SDK.Web placeholder; not in slnx, not the active entry point
+└── TheManager.Tests/        — xUnit test suite
 ```
 
 Dependency direction: `TheManager.Console` → `TheManager.Services` → `TheManager.Models`
@@ -91,4 +89,4 @@ Players are stored as `Player?[29]`, mirroring BASIC's 1-based array:
 When implementing or verifying logic, cross-reference `Original Code/FOOT.BAS`. The file is ~2,000 lines of AmigaBASIC. Line numbers in comments refer to that file.
 
 ## Tests
-`TheManager.Tests` is the xUnit suite — run it with `dotnet test TheManager.Tests`. The legacy `TheManager.Test` project has a `Program.cs` entry point but no test framework and is not part of the solution. Prefer xUnit and integration-style tests over heavy mocking — mock only at system boundaries (e.g., file I/O).
+`TheManager.Tests` is the xUnit suite — run it with `dotnet test TheManager.Tests`. Prefer xUnit and integration-style tests over heavy mocking — mock only at system boundaries (e.g., file I/O).

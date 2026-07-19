@@ -13,4 +13,5 @@ public record MatchContext(
     bool LostLastMatch,
     bool WasHomeGame,
     int  OpponentLeaguePosition,
-    bool IsCupMatch = false);
+    bool IsCupMatch = false,
+    bool MatchPlayed = true);

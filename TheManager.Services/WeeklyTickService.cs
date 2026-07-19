@@ -22,7 +22,9 @@ public static class WeeklyTickService
     /// </summary>
     public static WeeklyTickResult Process(GameState gameState, MatchContext ctx, Random rng)
     {
-        PlayerService.UpdateSquadAppearances(gameState.Squad);
+        // Rest days and cup-elimination weeks have no match — no appearances.
+        if (ctx.MatchPlayed)
+            PlayerService.UpdateSquadAppearances(gameState.Squad);
         ApplyYouthCoaching(gameState, rng);
 
         gameState.Club.ManagerContractWeeks = Math.Max(0, gameState.Club.ManagerContractWeeks - 1);
@@ -58,7 +60,7 @@ public static class WeeklyTickService
         gameState.Finances.LastMatchAttendance = attendance;
         gameState.Finances.LastMatchGateMoney  = gateMoney;
 
-        bool hasTestimonial = Enumerable.Range(1, 20)
+        bool hasLongServingPlayer = Enumerable.Range(1, 20)
             .Any(i => (gameState.Squad[i]?.GamesPlayed ?? 0) > 400);
 
         int    divNum     = (int)gameState.Club.Division;
@@ -74,7 +76,7 @@ public static class WeeklyTickService
             WonLeagueMatch           = ctx.WonLeagueMatch,
             WonCupMatch              = ctx.WonCupMatch,
             IsManagerOfMonthEligible = false,
-            TestimonialPayment       = hasTestimonial,
+            HasLongServingPlayer     = hasLongServingPlayer,
             Division                 = divNum
         };
 
@@ -120,24 +122,43 @@ public static class WeeklyTickService
         }
     }
 
-    // ── Gate attendance (BASIC subroutine 3801, lines 3197–3229) ─────────────
+    // ── Gate attendance (BASIC subroutine 3801, lines 3197–3229; capacity model
+    //    per docs/specs/gate-receipts-ground-capacity.md, Step 3) ──────────────
 
     private static double CalculateGateAttendance(GameState gameState, MatchContext ctx, Random rng)
     {
         if (!ctx.WasHomeGame) return 0;
 
-        int divNum = (int)gameState.Club.Division;
+        int divNum   = (int)gameState.Club.Division;
+        int capacity = gameState.Club.GroundCapacity;
         int ourPos = Math.Max(1,
             gameState.CurrentLeague.Entries
                 .FindIndex(e => e.TeamName.Trim() == gameState.Club.Name.Trim()) + 1);
 
+        // Occupancy model, all divisions: each league position has a 2-point
+        // occupancy band; the ceiling slides linearly from 100% at 1st to a
+        // per-division floor at the bottom (90.5% in Division One, 62% below —
+        // attendance never dips under 60% of capacity). The week's occupancy is
+        // drawn uniformly from the band; a home cup tie bumps it +2%, capped.
+        if (capacity > 0)
+        {
+            int    teamCount = Constants.TeamCount(gameState.Club.Division);
+            double bottom    = Constants.OccupancyCeilingAtBottom(gameState.Club.Division);
+            double ceiling   = Constants.OccupancyCeiling
+                             - (Constants.OccupancyCeiling - bottom)
+                             * (Math.Min(ourPos, teamCount) - 1) / (teamCount - 1.0);
+            double occupancy = ceiling - rng.NextDouble() * Constants.OccupancyBandWidth;
+            if (ctx.IsCupMatch)
+                occupancy = Math.Min(Constants.OccupancyCeiling, occupancy + Constants.OccupancyCupBump);
+
+            return Math.Min(capacity, (int)(capacity * occupancy));
+        }
+
+        // Unseeded capacity (legacy state only): the original BASIC demand formula.
         int dn = 50_000 + rng.Next(10_000);
         dn = (int)((double)dn / divNum) / divNum;
         dn -= (int)(1_250.0 / divNum / divNum * ourPos);
         dn -= (int)(1_250.0 / divNum / divNum * ctx.OpponentLeaguePosition);
-        if (divNum == 1) dn += dn / 3;
-        if (divNum < 3 && gameState.Club.GroundImprovementCost > 0 && dn > 18_721)
-            dn = 18_721;
 
         // Home cup ties draw a bigger crowd (spec: docs/specs/fa-cup.md, Step 4).
         if (ctx.IsCupMatch) dn = (int)(dn * 1.25);
