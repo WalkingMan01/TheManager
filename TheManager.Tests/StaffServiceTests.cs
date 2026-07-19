@@ -120,6 +120,35 @@ public class StaffServiceTests
         Assert.Equal(1, club.YouthPlayerCount);
     }
 
+    [Theory]
+    [InlineData(PlayerPosition.Goalkeeper)]
+    [InlineData(PlayerPosition.Defender)]
+    [InlineData(PlayerPosition.Midfielder)]
+    [InlineData(PlayerPosition.Attacker)]
+    public void HireYouthPlayer_WithChosenPosition_UsesThatPosition(PlayerPosition position)
+    {
+        var club = new Club { YouthPlayerCount = 0 };
+        var team = new List<YouthPlayer>();
+
+        var result = StaffService.HireYouthPlayer(club, team, new Random(1), position);
+
+        Assert.NotNull(result);
+        Assert.Equal(position, result!.Position);
+    }
+
+    [Fact]
+    public void GenerateYouthPlayer_WithoutChosenPosition_StillRollsARandomOne()
+    {
+        // The default path must keep the original random roll: over many seeds
+        // every one of the four positions should appear.
+        var seen = new HashSet<PlayerPosition>();
+        for (int seed = 0; seed < 50; seed++)
+            seen.Add(StaffService.GenerateYouthPlayer(new Random(seed)).Position);
+
+        Assert.Equal(4, seen.Count);
+        Assert.DoesNotContain(PlayerPosition.None, seen);
+    }
+
     [Fact]
     public void SackYouthPlayer_RemovesPlayerAndDecrementsCount()
     {

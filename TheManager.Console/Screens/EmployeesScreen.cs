@@ -162,7 +162,21 @@ internal static class EmployeesScreen
 
             case "Sign youth player":
             {
-                var y = StaffService.HireYouthPlayer(state.Club, state.YouthTeam, rng);
+                var posPick = AnsiConsole.Prompt(
+                    new SelectionPrompt<string>()
+                        .Title("[bold]Which position are you recruiting for?[/]")
+                        .AddChoices("Goalkeeper", "Defender", "Midfielder", "Attacker", "Cancel"));
+                if (posPick == "Cancel") break;
+
+                var position = posPick switch
+                {
+                    "Goalkeeper" => PlayerPosition.Goalkeeper,
+                    "Defender"   => PlayerPosition.Defender,
+                    "Midfielder" => PlayerPosition.Midfielder,
+                    _            => PlayerPosition.Attacker
+                };
+
+                var y = StaffService.HireYouthPlayer(state.Club, state.YouthTeam, rng, position);
                 if (y is not null)
                     ShowHired(
                         $"youth {PositionAbbr(y.Position)}, age {y.Age}, pot {y.PotentialSkillPercent}%",

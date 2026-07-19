@@ -87,12 +87,17 @@ public static class StaffService
     ///
     /// BASIC lines 4133–4138:
     ///   Generate player (GOSUB 4144 → 4159).
+    ///
+    /// Deliberate deviation from FOOT.BAS: <paramref name="position"/> lets the
+    /// manager choose the recruit's position (the original always rolled it).
+    /// Null keeps the original random roll.
     /// </summary>
-    public static YouthPlayer? HireYouthPlayer(Club club, List<YouthPlayer> youthTeam, Random rng)
+    public static YouthPlayer? HireYouthPlayer(
+        Club club, List<YouthPlayer> youthTeam, Random rng, PlayerPosition? position = null)
     {
         if (club.YouthPlayerCount >= 7) return null;
 
-        var candidate = GenerateYouthPlayer(rng);
+        var candidate = GenerateYouthPlayer(rng, position);
 
         youthTeam.Add(candidate);
         club.YouthPlayerCount++;
@@ -281,11 +286,12 @@ public static class StaffService
     ///   salary   = 50 (fixed)
     ///   skill    = RND(0–59) %
     ///   potential= 35 + RND(0–64) %
-    ///   position = 1 + RND(0–3)
+    ///   position = 1 + RND(0–3), unless the caller chose one (see
+    ///              <see cref="HireYouthPlayer"/> — deviation from FOOT.BAS)
     ///   age      = 16 + RND(0–1)
     ///   temper   = clamped(-3 + RND(0–16), 0, 9)
     /// </summary>
-    public static YouthPlayer GenerateYouthPlayer(Random rng)
+    public static YouthPlayer GenerateYouthPlayer(Random rng, PlayerPosition? position = null)
     {
         int rawTemper = -3 + rng.Next(17);
         return new YouthPlayer
@@ -294,7 +300,7 @@ public static class StaffService
             WeeklySalary          = 50,
             SkillPercent          = rng.Next(60),             // Y(2,I+5)
             PotentialSkillPercent = 35 + rng.Next(65),        // Y(3,I+5)
-            Position              = (PlayerPosition)(1 + rng.Next(4)),
+            Position              = position ?? (PlayerPosition)(1 + rng.Next(4)),
             Age                   = 16 + rng.Next(2),
             Temper                = Math.Max(0, Math.Min(9, rawTemper))
         };
