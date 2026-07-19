@@ -7,7 +7,8 @@ namespace TheManager.Models;
 ///
 /// Premier League occupies indices 1–20 (20 teams).
 /// Championship, League One, League Two occupy indices 21–44, 45–68, 69–92 (24 teams each).
-/// Cup-only entrants occupy indices 93–108.
+/// Cup-only (non-league) entrants occupy indices 93–124 (32 teams — the FA Cup
+/// first round is 48 league + 32 non-league sides).
 /// </summary>
 public static class TeamData
 {
@@ -42,11 +43,14 @@ public static class TeamData
         "Port Vale", "Rochdale", "Rotherham United", "Salford City", "Shrewsbury Town",
         "Swindon Town", "Tranmere Rovers", "Walsall", "York City",
 
-        // ── Cup-only entrants (93–108) ────────────────────────────────────────
-        "Bath City", "Blyth Spartans", "Boston United", "Cheltenham Town", "Enfield",
+        // ── Cup-only non-league entrants (93–124) ─────────────────────────────
+        "Bath City", "Blyth Spartans", "Boston United", "Aldershot Town", "Enfield",
         "Farnborough Town", "Kidderminster Harriers", "Maidstone United", "Morecambe", "Northwich Victoria",
         "Stafford Rangers", "Telford United", "Wealdstone", "Welling United", "Wimbledon Reserves",
-        "Yeovil Town",
+        "Yeovil Town", "Altrincham", "Barrow", "Dagenham & Redbridge", "Dover Athletic",
+        "Eastleigh", "Gateshead", "Halifax Town", "Hartlepool United", "Hereford",
+        "Macclesfield Town", "Runcorn", "Scarborough", "Solihull Moors", "Southport",
+        "Sutton United", "Woking",
     ];
 
     /// <summary>Returns the trimmed team names for the given division (1–4), in order.</summary>
@@ -69,5 +73,19 @@ public static class TeamData
 
         for (int i = 1; i < Names.Length; i++)
             state.AllTeamNames[i] = Names[i];
+    }
+
+    /// <summary>
+    /// Copies the built-in names into any empty slots of an existing array.
+    /// Used by save migration when the team pool grows between versions.
+    /// </summary>
+    public static void FillMissing(string[] allTeamNames)
+    {
+        int limit = Math.Min(Names.Length, allTeamNames.Length);
+        for (int i = 1; i < limit; i++)
+        {
+            if (string.IsNullOrWhiteSpace(allTeamNames[i]))
+                allTeamNames[i] = Names[i];
+        }
     }
 }

@@ -78,7 +78,9 @@ public static class SaveLoadService
         if (state == null)
             throw new InvalidDataException("Save file contained null game state.");
 
-        MigrateLegacyPotentials(state, rng ?? new Random());
+        var random = rng ?? new Random();
+        MigrateLegacyPotentials(state, random);
+        MigrateLegacyCupState(state);
         return state;
     }
 
@@ -119,6 +121,7 @@ public static class SaveLoadService
             throw new InvalidDataException("Save file contained null game state.");
 
         MigrateLegacyPotentials(state, rng ?? new Random());
+        MigrateLegacyCupState(state);
         return state;
     }
 
@@ -136,5 +139,32 @@ public static class SaveLoadService
             if (player is { PeakAge: 0 })
                 PlayerService.AssignPotential(player, rng);
         }
+    }
+
+    /// <summary>
+    /// One-time migration for saves created before the FA Cup port:
+    ///   - The team-name pool grew from 120 to 128 slots (32 non-league teams,
+    ///     indices 93–124) — expand the array and fill the new names.
+    ///   - A save whose fixture list has no cup matchdays sits the FA Cup out
+    ///     for the season in progress and joins from the next season
+    ///     (docs/specs/fa-cup.md, Step 6).
+    /// </summary>
+    private static void MigrateLegacyCupState(GameState state)
+    {
+        if (state.AllTeamNames.Length < 128)
+        {
+            var expanded = new string[128];
+            Array.Copy(state.AllTeamNames, expanded, state.AllTeamNames.Length);
+            state.AllTeamNames = expanded;
+        }
+
+        for (int i = 0; i < state.AllTeamNames.Length; i++)
+            state.AllTeamNames[i] ??= string.Empty;
+
+        TeamData.FillMissing(state.AllTeamNames);
+
+        bool hasCupCalendar = state.Fixtures.Any(f => f.MatchType == Models.MatchType.FACup);
+        if (!hasCupCalendar && state.Fixtures.Count > 0)
+            state.FACup.CurrentRound = CupRound.NotEntered;
     }
 }

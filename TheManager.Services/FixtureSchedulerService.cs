@@ -4,30 +4,27 @@ using MatchType = TheManager.Models.MatchType;
 namespace TheManager.Services;
 
 /// <summary>
-/// Manages the week-by-week fixture cycle, determining match type, opponent,
-/// and home/away status for each league week plus cup weeks.
+/// Manages the matchday-by-matchday fixture cycle, determining match type,
+/// opponent, and home/away status for each league matchday plus cup matchdays.
 ///
 /// Division One has 20 teams and plays 38 league fixtures per season.
 /// Divisions Two–Four each have 24 teams and play 46 fixtures per season.
+/// The season calendar is 54 matchdays (<see cref="Constants.SeasonMatchdays"/>);
+/// FA Cup rounds fall on <see cref="Constants.FACupMatchdays"/>.
 ///
-/// The BASIC cycle runs from CI=1 to CI=59:
-///   CI = 12, 19, 26, 33, 40, 47, 54 → League Cup fixture weeks
-///   CI = 16, 23, 30, 37, 44, 51, 58 → FA Cup fixture weeks
-///   CI = 59                          → end-of-season trigger
-///   All other values                 → league match
-///
-/// Home/away alternates based on matches remaining (cJ):
-///   Even cJ (38, 36, 34 …) → home  (BK%=1)
-///   Odd  cJ                → away  (BK%=2)
+/// The original BASIC cycle ran CI=1–59 with cup slots at fixed offsets
+/// (League Cup 12,19,…,54; FA Cup 16,23,…,58; CI=59 = end of season).
 ///
 /// Corresponds to lines 422–430, 1701–1724 in FOOT.BAS.
 /// </summary>
 public static class FixtureSchedulerService
 {
-    // Cup weeks are fixed offsets within the 59-week season cycle.
-    // ToDo: Restore when cup logic is implemented.
-    private static readonly HashSet<int> LeagueCupWeeks = []; // { 12, 19, 26, 33, 40, 47, 54 }
-    private static readonly HashSet<int> FACupWeeks     = []; // { 16, 23, 30, 37, 44, 51, 58 }
+    /// <summary>
+    /// For Division One (38 league fixtures in 46 non-cup matchdays), the
+    /// 1-based non-cup ordinals that are rest days instead of league fixtures.
+    /// Spread roughly evenly; deterministic; never matchday 1, never consecutive.
+    /// </summary>
+    private static readonly int[] DivisionOneRestOrdinals = [6, 12, 18, 24, 30, 36, 42, 46];
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -48,19 +45,66 @@ public static class FixtureSchedulerService
     }
 
     /// <summary>
-    /// Advances CI by one week and decrements the matches-remaining counter.
-    /// Call this after a match result has been processed.
+    /// Advances the matchday counter (CI) by one and, when a league fixture was
+    /// played, the fixtures-played counter. Cup ties and rest days advance the
+    /// calendar but never the league counters, keeping the sacking form window
+    /// and the round-robin simulation aligned.
     ///
-    /// <paramref name="maxFixtures"/> is the total fixtures in the season for the
-    /// current division (38 for Div 1, 46 for Divs 2–4). Defaults to 38.
+    /// <paramref name="maxFixtures"/> is the total league fixtures in the season
+    /// for the current division (38 for Div 1, 46 for Divs 2–4). Defaults to 38.
     ///
     /// BASIC lines 422–424:
     ///   CI=CI+1; if NC=0 then skip to weekly news; else GOTO 1701.
     /// </summary>
-    public static WeekAdvanceResult AdvanceWeek(int currentWeek, int fixturesPlayed, int maxFixtures = 38)
+    public static MatchdayAdvanceResult AdvanceMatchday(
+        int currentWeek, int fixturesPlayed, int maxFixtures = 38, bool wasLeagueFixture = true)
     {
-        int newFixturesPlayed = Math.Min(maxFixtures, fixturesPlayed + 1);
-        return new WeekAdvanceResult(currentWeek + 1, newFixturesPlayed, maxFixtures - newFixturesPlayed);
+        int newFixturesPlayed = wasLeagueFixture
+            ? Math.Min(maxFixtures, fixturesPlayed + 1)
+            : fixturesPlayed;
+        return new MatchdayAdvanceResult(currentWeek + 1, newFixturesPlayed, maxFixtures - newFixturesPlayed);
+    }
+
+    /// <summary>
+    /// Builds the full 54-matchday season calendar for the club: league fixtures
+    /// on non-cup matchdays, FA Cup placeholders on <see cref="Constants.FACupMatchdays"/>
+    /// (opponent filled in at draw time), and — for Division One, whose 38 league
+    /// fixtures don't fill the 46 non-cup slots — 8 evenly spread rest days.
+    /// </summary>
+    public static List<ScheduledMatch> BuildSeasonCalendar(
+        Division division, string clubName, string[] allTeamNames)
+    {
+        var leagueFixtures = GenerateSeasonFixtures(division, clubName, allTeamNames);
+        var cupMatchdays   = new HashSet<int>(Constants.FACupMatchdays);
+        bool hasRestDays   = division == Division.One;
+        var restOrdinals   = new HashSet<int>(DivisionOneRestOrdinals);
+
+        var calendar        = new List<ScheduledMatch>(Constants.SeasonMatchdays);
+        int leagueIndex     = 0;
+        int nonCupOrdinal   = 0;
+
+        for (int matchday = 1; matchday <= Constants.SeasonMatchdays; matchday++)
+        {
+            if (cupMatchdays.Contains(matchday))
+            {
+                calendar.Add(new ScheduledMatch { Week = matchday, MatchType = MatchType.FACup });
+                continue;
+            }
+
+            nonCupOrdinal++;
+
+            if ((hasRestDays && restOrdinals.Contains(nonCupOrdinal)) || leagueIndex >= leagueFixtures.Count)
+            {
+                calendar.Add(new ScheduledMatch { Week = matchday, MatchType = MatchType.NoFixture });
+                continue;
+            }
+
+            var fixture = leagueFixtures[leagueIndex++];
+            fixture.Week = matchday;
+            calendar.Add(fixture);
+        }
+
+        return calendar;
     }
 
     /// <summary>
@@ -244,5 +288,5 @@ public static class FixtureSchedulerService
 
 // ── Result types ──────────────────────────────────────────────────────────────
 
-/// <summary>Output of <see cref="FixtureSchedulerService.AdvanceWeek"/>.</summary>
-public record WeekAdvanceResult(int CurrentWeek, int FixturesPlayed, int MatchesRemainingThisSeason);
+/// <summary>Output of <see cref="FixtureSchedulerService.AdvanceMatchday"/>.</summary>
+public record MatchdayAdvanceResult(int CurrentWeek, int FixturesPlayed, int MatchesRemainingThisSeason);

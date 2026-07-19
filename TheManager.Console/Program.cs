@@ -38,6 +38,7 @@ while (gameService == null)
 bool running = true;
 while (running)
 {
+    gameService.PrepareCupMatchday();
     var match  = FixtureSchedulerService.GetCurrentMatch(gameService.State.CurrentWeek, gameService.State.Fixtures);
     var action = WeekHubScreen.Show(gameService.State, match);
 
@@ -50,7 +51,7 @@ while (running)
         case WeekAction.PlayMatch:
             var result = gameService.PlayMatch();
             if (result.WasEndOfSeason)
-                running = EndOfSeasonScreen.Show(gameService.State);
+                EndOfSeasonScreen.Show(gameService.State);
             else
             {
                 PlayMatchScreen.ShowResult(result, gameService.State, gameService.Random);
@@ -72,6 +73,10 @@ while (running)
 
         case WeekAction.Fixtures:
             FixturesScreen.Show(gameService.State);
+            break;
+
+        case WeekAction.Cup:
+            CupScreen.Show(gameService.State);
             break;
 
         case WeekAction.Employees:

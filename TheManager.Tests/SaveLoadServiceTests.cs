@@ -1,11 +1,64 @@
 using System.Text.Json;
 using TheManager.Models;
 using TheManager.Services;
+using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager.Tests;
 
 public class SaveLoadServiceTests
 {
+    // ── Deserialize (legacy cup migration) ────────────────────────────────────
+
+    [Fact]
+    public void Deserialize_LegacySaveWith120TeamNames_ExpandsTo128AndFillsNonLeagueNames()
+    {
+        var state = new GameState();
+        TeamData.Seed(state);
+        state.AllTeamNames = state.AllTeamNames.Take(120).ToArray();   // pre-FA-Cup pool
+        string json = JsonSerializer.Serialize(state, SaveLoadService.SerializerOptions);
+
+        var loaded = SaveLoadService.Deserialize(json, new Random(42));
+
+        Assert.Equal(128, loaded.AllTeamNames.Length);
+        for (int i = 93; i <= 124; i++)
+            Assert.False(string.IsNullOrWhiteSpace(loaded.AllTeamNames[i]),
+                $"expected a non-league name at index {i}");
+    }
+
+    [Fact]
+    public void Deserialize_LegacySaveWithLeagueOnlyFixtures_SitsOutTheCupThisSeason()
+    {
+        var state = new GameState();
+        TeamData.Seed(state);
+        state.FACup.CurrentRound = CupRound.Round1;
+        state.Fixtures = Enumerable.Range(1, 46)
+            .Select(w => new ScheduledMatch { Week = w, MatchType = MatchType.League, OpponentName = "X" })
+            .ToList();
+        string json = JsonSerializer.Serialize(state, SaveLoadService.SerializerOptions);
+
+        var loaded = SaveLoadService.Deserialize(json, new Random(42));
+
+        Assert.Equal(CupRound.NotEntered, loaded.FACup.CurrentRound);
+    }
+
+    [Fact]
+    public void Deserialize_SaveWithCupCalendar_KeepsCupState()
+    {
+        var state = new GameState();
+        TeamData.Seed(state);
+        state.FACup.CurrentRound = CupRound.Round2;
+        state.Fixtures =
+        [
+            new ScheduledMatch { Week = 1,  MatchType = MatchType.League, OpponentName = "X" },
+            new ScheduledMatch { Week = 12, MatchType = MatchType.FACup }
+        ];
+        string json = JsonSerializer.Serialize(state, SaveLoadService.SerializerOptions);
+
+        var loaded = SaveLoadService.Deserialize(json, new Random(42));
+
+        Assert.Equal(CupRound.Round2, loaded.FACup.CurrentRound);
+    }
+
     // ── Deserialize (legacy-save migration) ───────────────────────────────────
 
     [Fact]

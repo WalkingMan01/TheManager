@@ -32,19 +32,19 @@ public class GameService
     public GameState State => _gameState;
     public Random    Random => _random;  
 
-    public GameService()
+    public GameService(Random? random = null)
     {
         _gameState = new GameState();
-        _random    = new Random();
-        _engine    = new MatchEngineService();
+        _random    = random ?? new Random();
+        _engine    = new MatchEngineService(_random);
     }
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-    private GameService(GameState loadedState)
+    private GameService(GameState loadedState, Random? random)
     {
         _gameState = loadedState;
-        _random    = new Random();
-        _engine    = new MatchEngineService();
+        _random    = random ?? new Random();
+        _engine    = new MatchEngineService(_random);
         Team       = loadedState.Club.Name.Trim();
         Manager    = loadedState.Club.ManagerName;
         Division   = loadedState.Club.Division;
@@ -55,18 +55,43 @@ public class GameService
     /// Use this path instead of <c>new GameService() { … }</c> + <see cref="StartGame"/>
     /// when restoring a saved game — <c>StartGame</c> must not be called on this instance.
     /// </summary>
-    public static GameService FromSave(GameState loadedState) => new(loadedState);
+    public static GameService FromSave(GameState loadedState, Random? random = null)
+        => new(loadedState, random);
 
     // ── Game startup ──────────────────────────────────────────────────────────
 
     public void StartGame()
     {
         InitializationService.SetupNewGame(_gameState, Team, Division, Manager, _random);
-        _gameState.Fixtures = FixtureSchedulerService.GenerateSeasonFixtures(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
+        _gameState.Fixtures = FixtureSchedulerService.BuildSeasonCalendar(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
         _gameState.CurrentLeague = LeagueService.InitialiseTable(_gameState.Club.Division, _gameState.AllTeamNames);
     }
 
     // ── Match pipeline ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// On an FA Cup matchday, ensures the round is drawn and copies the player's
+    /// tie onto the calendar entry so screens can show it before kick-off.
+    /// Idempotent; a no-op on other matchdays.
+    /// </summary>
+    public void PrepareCupMatchday()
+    {
+        var scheduled = FixtureSchedulerService.GetCurrentMatch(_gameState.CurrentWeek, _gameState.Fixtures);
+        if (scheduled.MatchType != MatchType.FACup || scheduled.WasPlayed) return;
+
+        int roundIndex = Array.IndexOf(Constants.FACupMatchdays, _gameState.CurrentWeek);
+        if (roundIndex < 0) roundIndex = _gameState.FACup.RoundHistory.Count;
+
+        CupService.EnsureRoundDrawn(_gameState.FACup, _gameState.AllTeamNames, _gameState.Club.Name, roundIndex, _random);
+
+        var tie = CupService.FindPlayerFixture(_gameState.FACup.CurrentRoundFixtures, _gameState.Club.Name);
+        if (tie == null) return;
+
+        bool tieIsHome = tie.HomeTeam.Trim().Equals(_gameState.Club.Name.Trim(), StringComparison.OrdinalIgnoreCase);
+        scheduled.OpponentName      = tieIsHome ? tie.AwayTeam : tie.HomeTeam;
+        scheduled.OpponentTeamIndex = tieIsHome ? tie.AwayTeamIndex : tie.HomeTeamIndex;
+        scheduled.IsHomeGame        = tieIsHome;
+    }
 
     public MatchResult PlayMatch()
     {
@@ -76,6 +101,42 @@ public class GameService
         {
             RunEndOfSeason();
             return new MatchResult { WasEndOfSeason = true };
+        }
+
+        if (scheduled.MatchType == MatchType.NoFixture)
+            return PlayRestDay(scheduled);
+
+        // ── Cup matchday pre-processing ───────────────────────────────────────
+        var      cup          = _gameState.FACup;
+        CupRound cupRound     = CupRound.NotEntered;
+        CupFixture? playerTie = null;
+        bool     neutralVenue = false;
+
+        if (scheduled.MatchType == MatchType.FACup)
+        {
+            int roundIndex = Array.IndexOf(Constants.FACupMatchdays, _gameState.CurrentWeek);
+            if (roundIndex < 0) roundIndex = cup.RoundHistory.Count;
+
+            CupService.EnsureRoundDrawn(cup, _gameState.AllTeamNames, _gameState.Club.Name, roundIndex, _random);
+            cupRound  = CupService.RoundForIndex(roundIndex);
+            playerTie = CupService.FindPlayerFixture(cup.CurrentRoundFixtures, _gameState.Club.Name);
+
+            if (playerTie == null)
+            {
+                // Eliminated or not yet entered — the round happens without us.
+                var roundResults = cup.CurrentRoundFixtures.Count > 0
+                    ? CupService.CompleteRound(cup, _random)
+                    : [];
+                return PlayRestDay(scheduled, roundResults, CupService.RoundDisplayName(cupRound));
+            }
+
+            // Fill the calendar placeholder so the fixtures screen shows the tie.
+            bool tieIsHome = playerTie.HomeTeam.Trim()
+                .Equals(_gameState.Club.Name.Trim(), StringComparison.OrdinalIgnoreCase);
+            scheduled.OpponentName      = tieIsHome ? playerTie.AwayTeam : playerTie.HomeTeam;
+            scheduled.OpponentTeamIndex = tieIsHome ? playerTie.AwayTeamIndex : playerTie.HomeTeamIndex;
+            scheduled.IsHomeGame        = tieIsHome;
+            neutralVenue                = CupService.IsNeutralVenue(cupRound);
         }
 
         bool   isHome       = scheduled.IsHomeGame;
@@ -90,8 +151,10 @@ public class GameService
             _gameState.CurrentLeague,
             _gameState.Club.Division,
             _gameState.DifficultyLevel,
-            cupRound: 0,
-            isCupMatch: false,
+            opponentDivision: isCupWeek
+                ? CupService.GetDivisionForTeamIndex(scheduled.OpponentTeamIndex)
+                : 0,
+            isCupMatch: isCupWeek,
             _random);
 
         var matchInput = OpponentRatingService.BuildMatchInput(
@@ -192,9 +255,15 @@ public class GameService
             }
         }
 
-        bool weWon      = ourScore > theirScore;
-        bool weDrew     = ourScore == theirScore;
-        bool weLost     = ourScore < theirScore;
+        // ── Penalty shootout (drawn cup tie — replays are abstracted away) ────
+        PenaltyShootoutResult? shootout = null;
+        if (isCupWeek && ourScore == theirScore)
+            shootout = PenaltyShootoutService.Run(
+                _gameState.Squad, opponentName, scheduled.OpponentRatings, _random);
+
+        bool weWon      = ourScore > theirScore || (shootout?.WeWon ?? false);
+        bool weDrew     = ourScore == theirScore && shootout == null;
+        bool weLost     = !weWon && !weDrew;
         bool cleanSheet = theirScore == 0;
 
         // ── Post-match updates ────────────────────────────────────────────────
@@ -245,22 +314,70 @@ public class GameService
         scheduled.OurScore   = ourScore;
         scheduled.TheirScore = theirScore;
 
+        // ── Cup recording ─────────────────────────────────────────────────────
+        List<CupFixture> cupResults = [];
+        if (isCupWeek && playerTie != null)
+        {
+            bool tieIsHome = scheduled.IsHomeGame;
+            playerTie.HomeScore = tieIsHome ? ourScore : theirScore;
+            playerTie.AwayScore = tieIsHome ? theirScore : ourScore;
+            playerTie.Winner    = weWon ? _gameState.Club.Name : opponentName;
+
+            if (shootout != null)
+            {
+                playerTie.WonOnPenalties = true;
+                playerTie.HomePenalties  = tieIsHome ? shootout.OurScore   : shootout.TheirScore;
+                playerTie.AwayPenalties  = tieIsHome ? shootout.TheirScore : shootout.OurScore;
+
+                scheduled.WonOnPenalties = true;
+                scheduled.OurPenalties   = shootout.OurScore;
+                scheduled.TheirPenalties = shootout.TheirScore;
+            }
+
+            // Highest round reached; the exit round stays on record if we lost.
+            cup.CurrentRound           = cupRound;
+            _gameState.Club.FACupRound = cupRound;
+
+            if (weWon)
+            {
+                cup.RoundTracker++;
+                if (cupRound == CupRound.Final)
+                {
+                    cup.CurrentRound           = CupRound.Winner;
+                    _gameState.Club.FACupRound = CupRound.Winner;
+                }
+            }
+
+            cupResults = CupService.CompleteRound(cup, _random);
+        }
+
         // ── Build context for the weekly tick ─────────────────────────────────
         var ctx = new MatchContext(
             WonLeagueMatch:       weWon && !isCupWeek,
             WonCupMatch:          weWon && isCupWeek,
             LostLastMatch:        weLost,
-            WasHomeGame:          isHome,
-            OpponentLeaguePosition: scheduled.OpponentRatings.LeaguePosition);
+            WasHomeGame:          isHome && !neutralVenue,
+            OpponentLeaguePosition: scheduled.OpponentRatings.LeaguePosition,
+            IsCupMatch:           isCupWeek);
 
         _lostLastMatch = weLost;
 
-        var week = FixtureSchedulerService.AdvanceWeek(_gameState.CurrentWeek, _gameState.FixturesPlayed,
-                       Constants.FixturesInSeason(_gameState.Club.Division));
-        _gameState.CurrentWeek               = week.CurrentWeek;
-        _gameState.FixturesPlayed            = week.FixturesPlayed;
-        _gameState.MatchesRemainingThisSeason = week.MatchesRemainingThisSeason;
+        var matchday = FixtureSchedulerService.AdvanceMatchday(_gameState.CurrentWeek, _gameState.FixturesPlayed,
+                       Constants.FixturesInSeason(_gameState.Club.Division), wasLeagueFixture: !isCupWeek);
+        _gameState.CurrentWeek               = matchday.CurrentWeek;
+        _gameState.FixturesPlayed            = matchday.FixturesPlayed;
+        _gameState.MatchesRemainingThisSeason = matchday.MatchesRemainingThisSeason;
         var tick = WeeklyTickService.Process(_gameState, ctx, _random);
+
+        // ── Wembley gate (semi-final and final: neutral venue, split 50/50) ───
+        if (neutralVenue)
+        {
+            double wembleyAttendance = cupRound == CupRound.Final ? 100_000 : 80_000;
+            double ourGateShare      = wembleyAttendance * _gameState.Club.TicketPriceInPounds / 2;
+            _gameState.Finances.BankBalance         += ourGateShare;
+            _gameState.Finances.LastMatchAttendance  = wembleyAttendance;
+            _gameState.Finances.LastMatchGateMoney   = ourGateShare;
+        }
 
         bool    managerSacked  = tick.Crisis.ManagerSacked;
         string? sackingReason  = managerSacked ? tick.Crisis.Summary : null;
@@ -280,10 +397,67 @@ public class GameService
             MatchLength     = sim.MatchLength,
             Goals           = matchGoals,
             OtherFixtures   = otherFixtures,
+            MatchType       = scheduled.MatchType,
+            CupRoundName    = isCupWeek ? CupService.RoundDisplayName(cupRound) : null,
+            Shootout        = shootout,
+            CupResults      = cupResults,
+            IsNeutralVenue  = neutralVenue,
             ScoutFindings   = tick.ScoutFindings,
             ExpiringPlayers = managerSacked ? [] : tick.ExpiringPlayers,
             Incidents       = matchIncidents,
             NewSuspensions  = newSuspensions,
+            FinanceReport   = tick.FinanceReport,
+            ManagerSacked   = managerSacked,
+            SackingReason   = sackingReason,
+            NewClubName     = newClubName,
+            NewClubDivision = newClubDiv
+        };
+    }
+
+    // ── Rest days ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A matchday with no fixture for us: a Division One league gap, or a cup
+    /// matchday after elimination (mirrors BASIC AAA=1 — straight to the weekly
+    /// tick). The calendar advances; the league counters do not.
+    /// </summary>
+    private MatchResult PlayRestDay(
+        ScheduledMatch    scheduled,
+        List<CupFixture>? cupResults   = null,
+        string?           cupRoundName = null)
+    {
+        var ctx = new MatchContext(
+            WonLeagueMatch: false,
+            WonCupMatch:    false,
+            LostLastMatch:  _lostLastMatch,
+            WasHomeGame:    false,
+            OpponentLeaguePosition: 0);
+
+        var matchday = FixtureSchedulerService.AdvanceMatchday(_gameState.CurrentWeek, _gameState.FixturesPlayed,
+                           Constants.FixturesInSeason(_gameState.Club.Division), wasLeagueFixture: false);
+        _gameState.CurrentWeek                = matchday.CurrentWeek;
+        _gameState.FixturesPlayed             = matchday.FixturesPlayed;
+        _gameState.MatchesRemainingThisSeason = matchday.MatchesRemainingThisSeason;
+        var tick = WeeklyTickService.Process(_gameState, ctx, _random);
+
+        bool     managerSacked = tick.Crisis.ManagerSacked;
+        string?  sackingReason = managerSacked ? tick.Crisis.Summary : null;
+        string?  newClubName   = null;
+        Division? newClubDiv   = null;
+
+        if (managerSacked)
+            (newClubName, newClubDiv) = TransitionToNewClubAfterSacking();
+
+        return new MatchResult
+        {
+            OurClubName     = _gameState.Club.Name,
+            WasRestDay      = true,
+            MatchType       = scheduled.MatchType,
+            CupRoundName    = cupRoundName,
+            CupResults      = cupResults ?? [],
+            ScoutFindings   = tick.ScoutFindings,
+            ExpiringPlayers = managerSacked ? [] : tick.ExpiringPlayers,
+            FinanceReport   = tick.FinanceReport,
             ManagerSacked   = managerSacked,
             SackingReason   = sackingReason,
             NewClubName     = newClubName,
@@ -329,24 +503,21 @@ public class GameService
         InitializationService.JoinNewClubMidSeason(
             _gameState, newClub, newDivision, newPosition, _random);
 
-        // Regenerate remaining fixtures from the current week onwards.
-        var allFixtures = FixtureSchedulerService.GenerateSeasonFixtures(
-            newDivision, _gameState.Club.Name, _gameState.AllTeamNames);
-
-        int remaining = _gameState.MatchesRemainingThisSeason;
+        // Regenerate the remaining calendar from the current matchday onwards:
+        // the new club's league fixtures land on the same non-cup matchdays, so
+        // cup rounds stay on their fixed dates.
         int startWeek = _gameState.CurrentWeek;
 
-        _gameState.Fixtures = allFixtures
-            .TakeLast(remaining)
-            .Select((f, i) => new ScheduledMatch
-            {
-                Week              = startWeek + i,
-                MatchType         = f.MatchType,
-                OpponentName      = f.OpponentName,
-                OpponentTeamIndex = f.OpponentTeamIndex,
-                IsHomeGame        = f.IsHomeGame
-            })
+        _gameState.Fixtures = FixtureSchedulerService
+            .BuildSeasonCalendar(newDivision, _gameState.Club.Name, _gameState.AllTeamNames)
+            .Where(f => f.Week >= startWeek)
             .ToList();
+
+        // Re-derive the league counters from what is actually left to play.
+        int remainingLeagueFixtures = _gameState.Fixtures.Count(f => f.MatchType == MatchType.League);
+        int maxFixtures             = Constants.FixturesInSeason(newDivision);
+        _gameState.MatchesRemainingThisSeason = remainingLeagueFixtures;
+        _gameState.FixturesPlayed             = maxFixtures - remainingLeagueFixtures;
 
         // Keep the existing mid-season standings but replace team names with
         // those from the new division, and record the new division.
@@ -392,30 +563,22 @@ public class GameService
 
         _gameState.MatchesRemainingThisSeason = Constants.FixturesInSeason(_gameState.Club.Division);
 
-        // Draw the new season's cup brackets.
-        var lcBracket = CupService.SetupInitialBracket(_gameState.AllTeamNames, _random);
+        // Rebuild the new season's cup brackets and draw round 1.
+        _gameState.LeagueCup.Bracket = CupService.SetupInitialBracket();
+        _gameState.LeagueCup.RoundHistory.Clear();
         _gameState.LeagueCup.CurrentRoundFixtures =
-            [..CupService.DrawRound(lcBracket, _gameState.AllTeamNames, _random)
-                     .Select(ToCupFixture)];
+            CupService.DrawRound(_gameState.LeagueCup.Bracket, _gameState.AllTeamNames, _random);
 
-        var faBracket = CupService.SetupInitialBracket(_gameState.AllTeamNames, _random);
+        _gameState.FACup.Bracket = CupService.SetupInitialBracket();
+        _gameState.FACup.RoundHistory.Clear();
         _gameState.FACup.CurrentRoundFixtures =
-            [..CupService.DrawRound(faBracket, _gameState.AllTeamNames, _random)
-                     .Select(ToCupFixture)];
+            CupService.DrawRound(_gameState.FACup.Bracket, _gameState.AllTeamNames, _random);
 
         // Regenerate the fixture calendar and league table for the new season.
         _gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(_gameState.Club.Division);
-        _gameState.Fixtures = FixtureSchedulerService.GenerateSeasonFixtures(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
+        _gameState.Fixtures = FixtureSchedulerService.BuildSeasonCalendar(_gameState.Club.Division, _gameState.Club.Name, _gameState.AllTeamNames);
         _gameState.CurrentLeague = LeagueService.InitialiseTable(_gameState.Club.Division, _gameState.AllTeamNames);
 
         _lostLastMatch = false;
     }
-
-    private static CupFixture ToCupFixture(CupFixturePair pair) => new()
-    {
-        HomeTeam     = pair.HomeTeamName,
-        AwayTeam     = pair.AwayTeamName,
-        HomeDivision = (Division)Math.Clamp(pair.HomeDivision, 1, 4),
-        AwayDivision = (Division)Math.Clamp(pair.AwayDivision, 1, 4)
-    };
 }

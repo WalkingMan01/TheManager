@@ -265,26 +265,3 @@ public class WeeklyReportInput
     public bool   TestimonialPayment         { get; set; }   // ABS(x(I))>400 for any player
     public int    Division                   { get; set; }   // AP
 }
-
-/// <summary>Line-by-line breakdown of the week's finances.</summary>
-public class WeeklyReport
-{
-    public double GateMoney            { get; set; }
-    public double PlayerWageBill       { get; set; }
-    public double RunningCosts         { get; set; }
-    public double BankInterest         { get; set; }
-    public double PoliceBill           { get; set; }
-    public double LotteryIncome        { get; set; }
-    public double TestimonialPayment   { get; set; }
-    public double InsurancePayout      { get; set; }
-    public double LeagueBonusPaid      { get; set; }
-    public double CupBonusPaid         { get; set; }
-    public double SponsorPayment       { get; set; }
-    public double TvBroadcastIncome    { get; set; }
-    public double ManagerOfMonthBonus  { get; set; }
-    public double LoanRepayment        { get; set; }
-    public double MortgageRepayment    { get; set; }
-    public double VatBill              { get; set; }
-    public double DirectorsWithdrawal  { get; set; }
-    public double WeeklyProfit         { get; set; }
-}

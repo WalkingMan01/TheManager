@@ -1,5 +1,6 @@
 using Spectre.Console;
 using TheManager.Models;
+using TheManager.Services;
 using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager.ConsoleApp.Screens;
@@ -33,7 +34,7 @@ internal static class FixturesScreen
     {
         var table = new Table()
             .Border(TableBorder.Rounded)
-            .AddColumn(new TableColumn("[dim]Wk[/]").RightAligned())
+            .AddColumn(new TableColumn("[dim]MD[/]").RightAligned())
             .AddColumn(new TableColumn("[bold]Opponent[/]"))
             .AddColumn(new TableColumn("[dim]H/A[/]").Centered())
             .AddColumn(new TableColumn("[dim]Type[/]"))
@@ -46,11 +47,11 @@ internal static class FixturesScreen
 
             string week = isCurrent ? $"[bold yellow]{fixture.Week}[/]" : fixture.Week.ToString();
 
-            string opp = fixture.OpponentName.Trim();
+            string opp = OpponentCell(fixture, isPast);
             if (isCurrent)   opp = $"[bold yellow]{opp}[/]";
             else if (isPast) opp = $"[dim]{opp}[/]";
 
-            string venue = fixture.IsHomeGame ? "H" : "A";
+            string venue = VenueCell(fixture);
             if (isPast) venue = $"[dim]{venue}[/]";
 
             string result = BuildResultCell(fixture);
@@ -61,6 +62,34 @@ internal static class FixturesScreen
         return table;
     }
 
+    private static string OpponentCell(ScheduledMatch fixture, bool isPast)
+    {
+        if (fixture.MatchType == MatchType.NoFixture)
+            return "[dim]No fixture[/]";
+
+        if (fixture.MatchType == MatchType.FACup && string.IsNullOrWhiteSpace(fixture.OpponentName))
+        {
+            // Past undrawn cup matchday = we weren't in that round.
+            if (isPast) return "—";
+            var round = WeekHubScreen.CupRoundForMatchday(fixture.Week);
+            return $"FA Cup {CupService.RoundDisplayName(round)} (draw pending)";
+        }
+
+        return Markup.Escape(fixture.OpponentName.Trim());
+    }
+
+    private static string VenueCell(ScheduledMatch fixture)
+    {
+        if (fixture.MatchType == MatchType.NoFixture)
+            return "";
+
+        if (fixture.MatchType == MatchType.FACup
+            && CupService.IsNeutralVenue(WeekHubScreen.CupRoundForMatchday(fixture.Week)))
+            return "N";
+
+        return fixture.IsHomeGame ? "H" : "A";
+    }
+
     private static string BuildResultCell(ScheduledMatch fixture)
     {
         if (!fixture.WasPlayed)
@@ -68,6 +97,15 @@ internal static class FixturesScreen
 
         int ours   = fixture.OurScore!.Value;
         int theirs = fixture.TheirScore!.Value;
+
+        // A tie decided on penalties: W/L comes from the shootout, not the score.
+        if (fixture.WonOnPenalties && fixture.OurPenalties.HasValue)
+        {
+            bool won     = fixture.OurPenalties > fixture.TheirPenalties;
+            string pColor = won ? "green" : "red";
+            string pBadge = won ? "W" : "L";
+            return $"[{pColor}]{pBadge} {ours}–{theirs} ({fixture.OurPenalties}–{fixture.TheirPenalties}p)[/]";
+        }
 
         string color = ours > theirs ? "green"
                      : ours < theirs ? "red"
@@ -83,6 +121,7 @@ internal static class FixturesScreen
         MatchType.League    => "League",
         MatchType.LeagueCup => "LC",
         MatchType.FACup     => "FA",
+        MatchType.NoFixture => "[dim]—[/]",
         _                   => type.ToString()
     };
 }

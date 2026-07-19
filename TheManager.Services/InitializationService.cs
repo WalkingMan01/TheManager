@@ -192,14 +192,16 @@ public static class InitializationService
         gameState.Club.ScoutCount     = staff.Scouts.Count;
         gameState.Club.YouthPlayerCount = staff.YouthPlayers.Count;
 
-        // Cup draws (BASIC lines 4900–4904)
-        var lcBracket = CupService.SetupInitialBracket(gameState.AllTeamNames, rng);
+        // Cup brackets and round-1 draws (BASIC lines 4900–4904)
+        gameState.LeagueCup.Bracket = CupService.SetupInitialBracket();
+        gameState.LeagueCup.RoundHistory.Clear();
         gameState.LeagueCup.CurrentRoundFixtures =
-            [..CupService.DrawRound(lcBracket, gameState.AllTeamNames, rng).Select(ToCupFixture)];
+            CupService.DrawRound(gameState.LeagueCup.Bracket, gameState.AllTeamNames, rng);
 
-        var faBracket = CupService.SetupInitialBracket(gameState.AllTeamNames, rng);
+        gameState.FACup.Bracket = CupService.SetupInitialBracket();
+        gameState.FACup.RoundHistory.Clear();
         gameState.FACup.CurrentRoundFixtures =
-            [..CupService.DrawRound(faBracket, gameState.AllTeamNames, rng).Select(ToCupFixture)];
+            CupService.DrawRound(gameState.FACup.Bracket, gameState.AllTeamNames, rng);
 
         // Reset counters
         gameState.CurrentWeek              = 1;
@@ -372,15 +374,6 @@ public static class InitializationService
         gameState.CurrentOpponentIndex = FixtureSchedulerService.GetDivisionStartIndex(newDivision);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static CupFixture ToCupFixture(CupFixturePair pair) => new()
-    {
-        HomeTeam     = pair.HomeTeamName,
-        AwayTeam     = pair.AwayTeamName,
-        HomeDivision = (Division)Math.Clamp(pair.HomeDivision, 1, 4),
-        AwayDivision = (Division)Math.Clamp(pair.AwayDivision, 1, 4)
-    };
 }
 
 // ── Result types ──────────────────────────────────────────────────────────────

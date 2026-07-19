@@ -1,20 +1,45 @@
 using Spectre.Console;
 using TheManager.Models;
+using TheManager.Services;
 using MatchType = TheManager.Models.MatchType;
 
 namespace TheManager.ConsoleApp.Screens;
 
-internal enum WeekAction { CheckMatch, PlayMatch, LeagueTable, Squad, Fixtures, Employees, ScoutReports, TransferMarket, ManagerProfile, Difficulty, SaveGame, Quit }
+internal enum WeekAction { CheckMatch, PlayMatch, LeagueTable, Squad, Fixtures, Cup, Employees, ScoutReports, TransferMarket, ManagerProfile, Difficulty, SaveGame, Quit }
 
 internal static class WeekHubScreen
 {
     public static WeekAction Show(GameState state, ScheduledMatch match)
     {
-        Ui.Header($"WEEK {state.CurrentWeek}  ·  {state.Club.Name.Trim()}  ·  {Ui.DivisionName(state.Club.Division)}");
+        Ui.Header($"MATCHDAY {state.CurrentWeek}  ·  {state.Club.Name.Trim()}  ·  {Ui.DivisionName(state.Club.Division)}");
 
-        if (match.MatchType == MatchType.EndOfSeason)
+        bool isEndOfSeason = match.MatchType == MatchType.EndOfSeason;
+        bool isRestDay     = match.MatchType == MatchType.NoFixture;
+        bool isCupDay      = match.MatchType == MatchType.FACup;
+        bool cupDrawKnown  = !string.IsNullOrWhiteSpace(match.OpponentName);
+
+        if (isEndOfSeason)
         {
             AnsiConsole.MarkupLine("  Season complete — process end of season to continue.");
+        }
+        else if (isRestDay)
+        {
+            AnsiConsole.MarkupLine("  [dim]No fixture today — rest day.[/]");
+        }
+        else if (isCupDay)
+        {
+            var round = CupRoundForMatchday(match.Week);
+            string roundName = CupService.RoundDisplayName(round).ToUpperInvariant();
+            string wembley   = CupService.IsNeutralVenue(round) ? " — [bold]WEMBLEY[/]" : "";
+
+            if (cupDrawKnown)
+            {
+                string venue = CupService.IsNeutralVenue(round) ? "[bold]WEMBLEY[/]"
+                             : match.IsHomeGame ? "[green]HOME[/]" : "AWAY";
+                AnsiConsole.MarkupLine($"  FA CUP {roundName}:  [bold]{match.OpponentName.Trim()}[/]  ({venue})");
+            }
+            else
+                AnsiConsole.MarkupLine($"  FA CUP {roundName}{wembley}  [dim](no tie this round — rest day)[/]");
         }
         else
         {
@@ -27,14 +52,15 @@ internal static class WeekHubScreen
 
         DrawNewsSection(state);
 
-        bool isEndOfSeason = match.MatchType == MatchType.EndOfSeason;
-
         var choices = new List<string>();
-        if (!isEndOfSeason) choices.Add("Check Match");
-        choices.Add(isEndOfSeason ? "Process End of Season" : "Play Match");
+        if (!isEndOfSeason && !isRestDay) choices.Add("Check Match");
+        choices.Add(isEndOfSeason ? "Process End of Season"
+                  : isRestDay     ? "Continue (rest day)"
+                  : "Play Match");
         choices.Add("League Table");
         choices.Add("Squad");
         choices.Add("Fixtures");
+        choices.Add("FA Cup");
         choices.Add("Employees");
         choices.Add("Scout Reports");
         choices.Add("Transfer Market");
@@ -53,10 +79,12 @@ internal static class WeekHubScreen
         {
             "Check Match"            => WeekAction.CheckMatch,
             "Play Match"             => WeekAction.PlayMatch,
+            "Continue (rest day)"    => WeekAction.PlayMatch,
             "Process End of Season"  => WeekAction.PlayMatch,
             "League Table"           => WeekAction.LeagueTable,
             "Squad"                  => WeekAction.Squad,
             "Fixtures"               => WeekAction.Fixtures,
+            "FA Cup"                 => WeekAction.Cup,
             "Employees"              => WeekAction.Employees,
             "Scout Reports"          => WeekAction.ScoutReports,
             "Transfer Market"        => WeekAction.TransferMarket,
@@ -65,6 +93,13 @@ internal static class WeekHubScreen
             "Save Game"              => WeekAction.SaveGame,
             _                        => WeekAction.Quit
         };
+    }
+
+    /// <summary>Round played on a given cup matchday (falls back to Round1).</summary>
+    internal static CupRound CupRoundForMatchday(int matchday)
+    {
+        int idx = Array.IndexOf(Constants.FACupMatchdays, matchday);
+        return CupService.RoundForIndex(Math.Max(0, idx));
     }
 
     private static void DrawNewsSection(GameState state)

@@ -33,8 +33,37 @@ public class MatchResult
     /// <summary>Cards and injuries that occurred during the match, in chronological order.</summary>
     public List<MatchIncident> Incidents { get; set; } = new();
 
+    /// <summary>
+    /// Itemised weekly finance breakdown from this week's tick. Null only when
+    /// the week ended the season instead of running a tick.
+    /// </summary>
+    public WeeklyReport? FinanceReport { get; set; }
+
     /// <summary>Suspensions newly imposed this match (red card or 5th yellow card).</summary>
     public List<SuspensionNotice> NewSuspensions { get; set; } = new();
+
+    // ── Rest days & cup ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// True when the matchday had no fixture for us (Division One league gap, or
+    /// a cup matchday after elimination). Only the weekly tick ran.
+    /// </summary>
+    public bool WasRestDay { get; set; }
+
+    /// <summary>The match type this result was produced for.</summary>
+    public MatchType MatchType { get; set; } = MatchType.League;
+
+    /// <summary>Cup round display name (e.g. "Round 3", "Semi Final") for cup matchdays.</summary>
+    public string? CupRoundName { get; set; }
+
+    /// <summary>Penalty shootout, kick by kick. Null unless the cup tie was drawn.</summary>
+    public PenaltyShootoutResult? Shootout { get; set; }
+
+    /// <summary>All completed ties from this cup round (including ours), for the news section.</summary>
+    public List<CupFixture> CupResults { get; set; } = new();
+
+    /// <summary>True when this cup tie is played at Wembley (semi-final or final).</summary>
+    public bool IsNeutralVenue { get; set; }
 
     // ── Sacking ───────────────────────────────────────────────────────────────
 

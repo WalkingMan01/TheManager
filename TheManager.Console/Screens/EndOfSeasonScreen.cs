@@ -5,7 +5,7 @@ namespace TheManager.ConsoleApp.Screens;
 
 internal static class EndOfSeasonScreen
 {
-    public static bool Show(GameState state)
+    public static void Show(GameState state)
     {
         Ui.Header("END OF SEASON");
 
@@ -34,10 +34,6 @@ internal static class EndOfSeasonScreen
         AnsiConsole.MarkupLine($"  New season begins — [bold]{Ui.DivisionName(state.Club.Division)}[/]");
         AnsiConsole.WriteLine();
 
-        var choice = AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .AddChoices("Continue to new season", "Quit"));
-
-        return choice == "Continue to new season";
+        Ui.Pause();
     }
 }

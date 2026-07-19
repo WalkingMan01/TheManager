@@ -3,283 +3,324 @@ using TheManager.Models;
 namespace TheManager.Services;
 
 /// <summary>
-/// Manages the FA Cup and League Cup bracket draws, round progression,
-/// and result recording.
+/// Manages the FA Cup (and League Cup) bracket, round draws, simulated results,
+/// and round progression.
 ///
-/// The cup system in FOOT.BAS uses two data structures:
-///   L(64)    — a 64-slot bracket that holds the team indices currently in the
-///              competition. Slots are filled at draw time and cleared on elimination.
-///   Z(4,32)  — paired fixtures for each round:
-///              Z(J, I)   = home team index
-///              Z(J+1, I) = away team index
-///              where J=1 for League Cup, J=3 for FA Cup.
+/// The competition follows the real FA Cup shape rather than the original's flat
+/// 64-team bracket: round 1 holds 80 teams (all 48 Division Three/Four clubs plus
+/// 32 non-league sides), rounds 1–2 reduce that to 20, and at round 3 all 44
+/// Division One/Two clubs enter to make a 64-team field — clean powers of two
+/// from there (64 → 32 → 16 → 8 → 4 → 2).
 ///
-/// Corresponds to subroutines 1100, 1237, 1249, and related logic in FOOT.BAS.
+/// Corresponds to subroutines 1100, 1237, 1249 in FOOT.BAS (bracket L(), fixture
+/// pairs Z(), random-walk draw), extended per docs/specs/fa-cup.md.
 /// </summary>
 public static class CupService
 {
     // ── Constants ─────────────────────────────────────────────────────────────
 
-    /// <summary>Total slots in the cup bracket array L(). Corresponds to L(64).</summary>
-    public const int BracketSize = 64;
+    /// <summary>Bracket capacity — the 80-team round 1. Extends L(64) in FOOT.BAS.</summary>
+    public const int BracketSize = CupCompetition.BracketSize;
 
-    /// <summary>Number of cup-only teams (indices 81–96 in Y$). Corresponds to RA=81+RND*16.</summary>
-    public const int CupTeamPoolStart = 81;
-    public const int CupTeamPoolSize  = 16;
+    /// <summary>First index of the non-league (cup-only) pool in AllTeamNames.</summary>
+    public const int CupTeamPoolStart = 93;
 
-    // ── Initial bracket setup (subroutine 1100, lines 815–841) ───────────────
+    /// <summary>Number of non-league teams entering round 1.</summary>
+    public const int CupTeamPoolSize = 32;
+
+    /// <summary>Round-3 entrants: every Division One and Two club (indices 1–44).</summary>
+    private const int TopDivisionTeamCount = 44;
+
+    /// <summary>0-based round index (into Constants.FACupMatchdays) at which Divisions One/Two enter.</summary>
+    public const int TopDivisionEntryRoundIndex = 2;
+
+    // ── Round mapping ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Populates the 64-slot cup bracket for the start of a competition.
-    ///
-    /// BASIC subroutine 1100:
-    ///   1. Place 8 cup-specific teams (indices 81–96) into random bracket slots.
-    ///   2. Fill the remaining 56 slots sequentially with league teams (indices 41–80).
-    ///
-    /// Returns the filled bracket as a 1-based int[65] (index 0 unused), matching
-    /// the BASIC L(64) array layout.
+    /// Maps a 0-based cup-matchday index to its round:
+    /// R1, R2, R3, R4, R5, QF, SF, Final.
     /// </summary>
-    public static int[] SetupInitialBracket(IReadOnlyList<string> allTeamNames, Random rng)
+    public static CupRound RoundForIndex(int roundIndex) => roundIndex switch
     {
-        int[] bracket        = new int[BracketSize + 1];   // 1-based, L(1..64)
-        var   usedCupTeams   = new HashSet<int>();
+        0 => CupRound.Round1,
+        1 => CupRound.Round2,
+        2 => CupRound.Round3,
+        3 => CupRound.Round4,
+        4 => CupRound.Round5,
+        5 => CupRound.QuarterFinal,
+        6 => CupRound.SemiFinal,
+        7 => CupRound.Final,
+        _ => CupRound.NotEntered
+    };
 
-        // Place 8 randomly chosen cup-only teams in random bracket positions
-        for (int cupTeamCount = 1; cupTeamCount <= 8; cupTeamCount++)
-        {
-            int cupTeamIndex;
-            do
-            {
-                cupTeamIndex = CupTeamPoolStart + rng.Next(CupTeamPoolSize);
-            }
-            while (usedCupTeams.Contains(cupTeamIndex));
+    /// <summary>Display name for a round ("Round 3", "Semi Final", …).</summary>
+    public static string RoundDisplayName(CupRound round) => round switch
+    {
+        CupRound.QuarterFinal => "Quarter Final",
+        CupRound.SemiFinal    => "Semi Final",
+        CupRound.Final        => "Final",
+        CupRound.Winner       => "Winner",
+        CupRound.NotEntered   => "—",
+        _                     => $"Round {(int)round}"
+    };
 
-            usedCupTeams.Add(cupTeamIndex);
+    /// <summary>Semi-finals and the final are played at Wembley (neutral venue).</summary>
+    public static bool IsNeutralVenue(CupRound round)
+        => round is CupRound.SemiFinal or CupRound.Final;
 
-            int bracketSlot;
-            do
-            {
-                bracketSlot = 1 + rng.Next(BracketSize);
-            }
-            while (bracket[bracketSlot] != 0);
+    // ── Initial bracket (subroutine 1100, reshaped) ───────────────────────────
 
-            bracket[bracketSlot] = cupTeamIndex;
-        }
+    /// <summary>
+    /// Builds the 80-team round-1 bracket: all Division Three/Four clubs
+    /// (indices 45–92) plus all 32 non-league sides (93–124). Division One/Two
+    /// clubs are absent — they enter at round 3 via <see cref="MergeTopDivisions"/>.
+    /// Returns a 1-based int[81] matching the BASIC L() layout (0 = empty).
+    /// </summary>
+    public static int[] SetupInitialBracket()
+    {
+        int[] bracket = new int[BracketSize + 1];
+        int slot = 1;
 
-        // Fill remaining slots with league teams (indices 41–80, lower two divisions)
-        int leagueTeamIndex = 41;
-        for (int bracketSlot = 1; bracketSlot <= BracketSize && leagueTeamIndex <= 80; bracketSlot++)
-        {
-            if (bracket[bracketSlot] == 0)
-            {
-                bracket[bracketSlot] = leagueTeamIndex;
-                leagueTeamIndex++;
-            }
-        }
+        var (div3Start, _) = Constants.DivisionRange(Division.Three);
+        var (_, div4End)   = Constants.DivisionRange(Division.Four);
+        for (int teamIndex = div3Start; teamIndex <= div4End; teamIndex++)
+            bracket[slot++] = teamIndex;
+
+        for (int i = 0; i < CupTeamPoolSize; i++)
+            bracket[slot++] = CupTeamPoolStart + i;
 
         return bracket;
     }
 
-    // ── Build round fixtures (subroutine 1237, lines 936–959) ────────────────
+    /// <summary>
+    /// Round-3 entry: adds every Division One and Two club (indices 1–44) to the
+    /// bracket alongside the round-2 survivors. Generalises BASIC line 1723
+    /// (player-only late entry) to the whole top two divisions.
+    /// </summary>
+    public static void MergeTopDivisions(int[] bracket)
+    {
+        var present = new HashSet<int>(bracket.Where(t => t != 0));
+        int slot = 1;
+
+        for (int teamIndex = 1; teamIndex <= TopDivisionTeamCount; teamIndex++)
+        {
+            if (present.Contains(teamIndex)) continue;
+
+            while (slot <= BracketSize && bracket[slot] != 0) slot++;
+            if (slot > BracketSize) break;   // bracket full — cannot happen with 20 survivors
+            bracket[slot] = teamIndex;
+        }
+    }
+
+    // ── The draw (subroutine 1237) ────────────────────────────────────────────
 
     /// <summary>
-    /// Pairs up the remaining teams in the bracket into fixtures for the next round.
-    /// Shuffles filled bracket slots randomly then assigns pairs to the Z fixture array.
-    ///
-    /// BASIC subroutine 1237:
-    ///   Walk through L(F) in a random order; each consecutive pair forms a fixture.
-    ///   Z(J, K) = first team, Z(J+1, K) = second team (J=1 LC, J=3 FA).
-    ///
-    /// Returns a list of <see cref="CupFixturePair"/> representing the draw.
+    /// Pairs every team in the bracket into ties in a random order.
+    /// With this competition's shape every field is even (80/40/64/32/16/8/4/2);
+    /// if an odd team were ever left over it simply stays unpaired and
+    /// <see cref="CompleteRound"/> gives it a bye into the next round.
     /// </summary>
-    public static List<CupFixturePair> DrawRound(
+    public static List<CupFixture> DrawRound(
         int[]                 bracket,
         IReadOnlyList<string> allTeamNames,
         Random                rng)
     {
-        // Collect all filled slots and shuffle them
-        var filledSlots = new List<int>();
+        var teams = new List<int>();
         for (int slot = 1; slot <= BracketSize; slot++)
         {
             if (bracket[slot] != 0)
-                filledSlots.Add(bracket[slot]);
+                teams.Add(bracket[slot]);
         }
 
-        Shuffle(filledSlots, rng);
+        Shuffle(teams, rng);
 
-        var fixtures = new List<CupFixturePair>();
-        for (int pairIndex = 0; pairIndex + 1 < filledSlots.Count; pairIndex += 2)
+        var fixtures = new List<CupFixture>();
+        for (int pairIndex = 0; pairIndex + 1 < teams.Count; pairIndex += 2)
         {
-            int homeTeamIndex = filledSlots[pairIndex];
-            int awayTeamIndex = filledSlots[pairIndex + 1];
+            int homeIndex = teams[pairIndex];
+            int awayIndex = teams[pairIndex + 1];
 
-            fixtures.Add(new CupFixturePair
+            fixtures.Add(new CupFixture
             {
-                HomeTeamIndex = homeTeamIndex,
-                AwayTeamIndex = awayTeamIndex,
-                HomeTeamName  = allTeamNames[homeTeamIndex],
-                AwayTeamName  = allTeamNames[awayTeamIndex],
-                HomeDivision  = GetDivisionForTeamIndex(homeTeamIndex),
-                AwayDivision  = GetDivisionForTeamIndex(awayTeamIndex)
+                HomeTeamIndex = homeIndex,
+                AwayTeamIndex = awayIndex,
+                HomeTeam      = allTeamNames[homeIndex],
+                AwayTeam      = allTeamNames[awayIndex],
+                HomeDivision  = (Division)Math.Clamp(GetDivisionForTeamIndex(homeIndex), 1, 4),
+                AwayDivision  = (Division)Math.Clamp(GetDivisionForTeamIndex(awayIndex), 1, 4)
             });
         }
 
         return fixtures;
     }
 
-    // ── Simulate non-player fixtures (lines 1223–1226) ───────────────────────
+    // ── Simulating AI ties (lines 1260–1261, replay abstracted) ───────────────
 
     /// <summary>
-    /// Generates random scores for a cup fixture that does not involve the
-    /// player's team and records the winner back into the bracket.
-    ///
-    /// BASIC lines 1260–1261:
-    ///   homeScore = max(0, random based on division difference)
-    ///   awayScore = max(0, random based on division difference)
-    ///   Replay if drawn (marked with 'R'); winner goes into L(F).
-    ///
-    /// Returns the result with the winning team index.
+    /// Fills in a decisive result for a tie not involving the player. Scores use
+    /// the BASIC division-difference formula; a level tie is decided on penalties
+    /// (the original's replays are abstracted away — deviation 2 in the spec).
     /// </summary>
-    public static CupMatchResult SimulateFixture(
-        CupFixturePair fixture,
-        int[]          bracket,
-        int            nextAvailableBracketSlot,
-        Random         rng)
+    public static void SimulateTie(CupFixture tie, Random rng)
     {
-        int divisionDifference = Math.Abs(fixture.HomeDivision - fixture.AwayDivision);
-        bool homeFavoured      = fixture.HomeDivision < fixture.AwayDivision;
+        int homeDiv = GetDivisionForTeamIndex(tie.HomeTeamIndex);
+        int awayDiv = GetDivisionForTeamIndex(tie.AwayTeamIndex);
+        int divisionDifference = Math.Abs(homeDiv - awayDiv);
+        bool homeFavoured      = homeDiv < awayDiv;
 
         int homeScore = Math.Max(0, rng.Next(7) - 1 - (homeFavoured ? 0 : divisionDifference));
         int awayScore = Math.Max(0, rng.Next(6) - 1 - (homeFavoured ? divisionDifference : 0));
 
-        bool isReplay   = homeScore == awayScore;
-        int winnerIndex = homeScore > awayScore ? fixture.HomeTeamIndex : fixture.AwayTeamIndex;
+        tie.HomeScore = homeScore;
+        tie.AwayScore = awayScore;
 
-        // Line 1226: put winner into the bracket
-        if (!isReplay)
-            bracket[nextAvailableBracketSlot] = winnerIndex;
-
-        return new CupMatchResult
+        if (homeScore != awayScore)
         {
-            HomeScore    = homeScore,
-            AwayScore    = awayScore,
-            IsReplay     = isReplay,
-            WinnerIndex  = isReplay ? 0 : winnerIndex
-        };
+            tie.Winner = homeScore > awayScore ? tie.HomeTeam : tie.AwayTeam;
+            return;
+        }
+
+        // Level — decided on penalties. Slight edge to the higher-division side.
+        int homeChance   = 50 + (awayDiv - homeDiv) * 10;
+        bool homeWinsPens = rng.Next(100) < homeChance;
+
+        int winnerPens = 3 + rng.Next(3);                          // 3–5
+        int loserPens  = Math.Max(0, winnerPens - 1 - rng.Next(2)); // 1–2 behind
+
+        tie.WonOnPenalties = true;
+        tie.HomePenalties  = homeWinsPens ? winnerPens : loserPens;
+        tie.AwayPenalties  = homeWinsPens ? loserPens : winnerPens;
+        tie.Winner         = homeWinsPens ? tie.HomeTeam : tie.AwayTeam;
     }
 
-    // ── Advance to next round (lines 1228–1249) ───────────────────────────────
+    // ── Round progression ─────────────────────────────────────────────────────
 
     /// <summary>
-    /// Advances the competition to the next round by:
-    ///   1. Incrementing the round counter.
-    ///   2. Rebuilding the bracket from the current winners.
-    ///   3. If this is round 3 in a 64-team competition, redistributing the
-    ///      bracket slots sequentially (line 1231–1234).
-    ///
-    /// Returns the new round number (9 = final won).
+    /// Ensures the round with 0-based index <paramref name="roundIndex"/> is drawn
+    /// and waiting in <see cref="CupCompetition.CurrentRoundFixtures"/>. Any rounds
+    /// missed entirely (legacy saves) are simulated first, keeping the player's
+    /// club alive through them. The round-3 top-division merge happens here.
     /// </summary>
-    public static int AdvanceRound(
-        CupCompetition competition,
-        int[]          bracket,
+    public static void EnsureRoundDrawn(
+        CupCompetition cup,
+        string[]       allTeamNames,
+        string         playerClubName,
+        int            roundIndex,
         Random         rng)
     {
-        int newRound = (int)competition.CurrentRound + 1;
-        competition.CurrentRound = (CupRound)Math.Min(newRound, (int)CupRound.Winner);
-
-        if (newRound == (int)CupRound.Winner)
+        while (cup.RoundHistory.Count < roundIndex)
         {
-            // Clear bracket — competition over (line 1249)
-            Array.Clear(bracket, 0, bracket.Length);
-        }
-        else if (newRound == 3)
-        {
-            // Round 3: redistribute all winners into sequential bracket slots (lines 1231–1234)
-            RedistributeBracketSequentially(bracket);
+            DrawIfPending(cup, allTeamNames, rng);
+            ForcePlayerWin(cup, playerClubName, rng);
+            CompleteRound(cup, rng);
         }
 
-        return newRound;
+        DrawIfPending(cup, allTeamNames, rng);
     }
 
-    // ── Check if the player's team is in a specific fixture ───────────────────
+    /// <summary>
+    /// Finishes the current round: simulates every tie not yet decided (the
+    /// player's tie, if any, must already carry its result), appends the round to
+    /// <see cref="CupCompetition.RoundHistory"/>, rebuilds the bracket from the
+    /// winners (an unpaired team receives a bye), and clears the fixture list.
+    /// Returns the completed round's results.
+    /// </summary>
+    public static List<CupFixture> CompleteRound(CupCompetition cup, Random rng)
+    {
+        foreach (var tie in cup.CurrentRoundFixtures)
+        {
+            if (string.IsNullOrEmpty(tie.Winner))
+                SimulateTie(tie, rng);
+        }
+
+        var results = cup.CurrentRoundFixtures;
+        cup.RoundHistory.Add(new CupRoundRecord
+        {
+            Round   = RoundForIndex(cup.RoundHistory.Count),
+            Results = results
+        });
+
+        // Winners + any bracket team that was in no tie this round (bye guard).
+        var winners = results
+            .Select(t => t.Winner.Trim() == t.HomeTeam.Trim() ? t.HomeTeamIndex : t.AwayTeamIndex)
+            .ToList();
+        var paired = new HashSet<int>(
+            results.SelectMany(t => new[] { t.HomeTeamIndex, t.AwayTeamIndex }));
+        winners.AddRange(cup.Bracket.Where(t => t != 0 && !paired.Contains(t)));
+
+        Array.Clear(cup.Bracket, 0, cup.Bracket.Length);
+        for (int i = 0; i < winners.Count && i < BracketSize; i++)
+            cup.Bracket[i + 1] = winners[i];
+
+        cup.CurrentRoundFixtures = new List<CupFixture>();
+        return results;
+    }
 
     /// <summary>
-    /// Searches the fixture list to find the tie involving the player's club.
-    /// Returns null if the club is not in this round (already eliminated).
-    ///
-    /// BASIC line 879: OE = ABS(Y$(Z(J,I))=Z$ OR Y$(Z(J+1,I))=Z$)
+    /// Finds the tie involving the player's club in the current round.
+    /// Null when the club is not in the round (eliminated or not yet entered).
+    /// BASIC line 879.
     /// </summary>
-    public static CupFixturePair? FindPlayerFixture(
-        IReadOnlyList<CupFixturePair> fixtures,
+    public static CupFixture? FindPlayerFixture(
+        IReadOnlyList<CupFixture> fixtures,
         string playerClubName)
     {
+        string trimmed = playerClubName.Trim();
         return fixtures.FirstOrDefault(
-            f => f.HomeTeamName.Trim() == playerClubName.Trim()
-              || f.AwayTeamName.Trim() == playerClubName.Trim());
+            f => f.HomeTeam.Trim().Equals(trimmed, StringComparison.OrdinalIgnoreCase)
+              || f.AwayTeam.Trim().Equals(trimmed, StringComparison.OrdinalIgnoreCase));
     }
 
-    // ── Record the player's cup result (lines 255–258, 250–254) ──────────────
+    // ── Team classification ───────────────────────────────────────────────────
 
     /// <summary>
-    /// Records the result of the player's cup tie:
-    ///   - Puts the winning team back into the bracket.
-    ///   - Updates the cup round counter (CT/CR in BASIC).
-    ///   - If a draw, flags for replay.
-    ///
-    /// Returns the outcome from the player's perspective.
+    /// Maps a team's AllTeamNames index to a division number.
+    /// Div1=[1–20], Div2=[21–44], Div3=[45–68], Div4=[69–92], non-league=5.
     /// </summary>
-    public static CupTieOutcome RecordPlayerResult(
-        CupCompetition competition,
-        int[]          bracket,
-        string         playerClubName,
-        string         opponentName,
-        int            playerScore,
-        int            opponentScore,
-        bool           playerIsHome,
-        Random         rng)
+    public static int GetDivisionForTeamIndex(int teamIndex)
     {
-        if (playerScore == opponentScore)
-            return CupTieOutcome.Replay;
-
-        bool playerWon = playerScore > opponentScore;
-
-        // Find a free bracket slot for the winner (line 1226: L(F)=winner)
-        int bracketSlot = FindFreeBracketSlot(bracket, rng);
-        if (bracketSlot > 0)
-            bracket[bracketSlot] = playerWon ? FindTeamInBracket(bracket, playerClubName) : -1;
-
-        if (playerWon)
-        {
-            competition.RoundTracker++;
-            return CupTieOutcome.PlayerWon;
-        }
-
-        return CupTieOutcome.PlayerEliminated;
+        if (teamIndex < 1)  return 0;
+        if (teamIndex <= 20) return 1;
+        if (teamIndex <= 44) return 2;
+        if (teamIndex <= 68) return 3;
+        if (teamIndex <= 92) return 4;
+        return 5;   // non-league (cup-only) teams
     }
 
-    // ── Season fixture log helpers (lines 954–957) ────────────────────────────
-
-    /// <summary>
-    /// Builds the fixture log string stored in A$(cupIndex, round).
-    ///
-    /// BASIC format: "H" or "A" + opponent name (9 chars) + "  " + divisionChar
-    /// where divisionChar = CHR$(INT((teamIndex+19)/20) + 48), adjusted for 53.
-    /// </summary>
-    public static string BuildFixtureLogEntry(
-        bool   isHome,
-        string opponentName,
-        int    opponentDivision)
-    {
-        char homeAwayFlag    = isHome ? 'H' : 'A';
-        string paddedName    = opponentName.Length > 9
-            ? opponentName[..9]
-            : opponentName.PadRight(9);
-        char divisionChar    = (char)('0' + opponentDivision);
-
-        return $"{homeAwayFlag}{paddedName}  {divisionChar}";
-    }
+    /// <summary>True for cup-only non-league teams (indices 93+).</summary>
+    public static bool IsNonLeague(int teamIndex) => teamIndex >= CupTeamPoolStart;
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private static void DrawIfPending(CupCompetition cup, string[] allTeamNames, Random rng)
+    {
+        if (cup.CurrentRoundFixtures.Count > 0) return;
+        if (cup.Bracket.All(t => t == 0)) return;   // competition over / not set up
+
+        if (cup.RoundHistory.Count == TopDivisionEntryRoundIndex)
+            MergeTopDivisions(cup.Bracket);
+
+        cup.CurrentRoundFixtures = DrawRound(cup.Bracket, allTeamNames, rng);
+    }
+
+    /// <summary>
+    /// Legacy-save catch-up only: if the player's club is in the round being
+    /// fast-forwarded, hand it a win so a migrated save never silently knocks
+    /// the player out.
+    /// </summary>
+    private static void ForcePlayerWin(CupCompetition cup, string playerClubName, Random rng)
+    {
+        var tie = FindPlayerFixture(cup.CurrentRoundFixtures, playerClubName);
+        if (tie == null) return;
+
+        bool playerIsHome = tie.HomeTeam.Trim().Equals(playerClubName.Trim(), StringComparison.OrdinalIgnoreCase);
+        int winScore  = 1 + rng.Next(3);
+        int loseScore = Math.Max(0, winScore - 1 - rng.Next(2));
+
+        tie.HomeScore = playerIsHome ? winScore : loseScore;
+        tie.AwayScore = playerIsHome ? loseScore : winScore;
+        tie.Winner    = playerIsHome ? tie.HomeTeam : tie.AwayTeam;
+    }
 
     private static void Shuffle<T>(List<T> list, Random rng)
     {
@@ -289,71 +330,4 @@ public static class CupService
             (list[i], list[j]) = (list[j], list[i]);
         }
     }
-
-    private static void RedistributeBracketSequentially(int[] bracket)
-    {
-        var winners = bracket.Skip(1).Where(t => t != 0).ToList();
-        Array.Clear(bracket, 1, BracketSize);
-        for (int i = 0; i < winners.Count; i++)
-            bracket[i + 1] = winners[i];
-    }
-
-    /// <summary>
-    /// Maps a team's Y$ index to the division it belongs to.
-    /// Div1=[1–20], Div2=[21–44], Div3=[45–68], Div4=[69–92], Cup-only=93+.
-    /// </summary>
-    public static int GetDivisionForTeamIndex(int teamIndex)
-    {
-        if (teamIndex < 1)  return 0;
-        if (teamIndex <= 20) return 1;
-        if (teamIndex <= 44) return 2;
-        if (teamIndex <= 68) return 3;
-        if (teamIndex <= 92) return 4;
-        return 5;   // cup-only teams treated as division 5
-    }
-
-    private static int FindFreeBracketSlot(int[] bracket, Random rng)
-    {
-        for (int attempt = 0; attempt < 200; attempt++)
-        {
-            int slot = 1 + rng.Next(BracketSize);
-            if (bracket[slot] == 0) return slot;
-        }
-        return 0;
-    }
-
-    private static int FindTeamInBracket(int[] bracket, string teamName)
-    {
-        // Returns a placeholder — caller responsible for resolving team index
-        return -1;
-    }
-}
-
-// ── Data classes ─────────────────────────────────────────────────────────────
-
-/// <summary>A drawn cup tie between two teams.</summary>
-public class CupFixturePair
-{
-    public int    HomeTeamIndex { get; set; }
-    public int    AwayTeamIndex { get; set; }
-    public string HomeTeamName  { get; set; } = string.Empty;
-    public string AwayTeamName  { get; set; } = string.Empty;
-    public int    HomeDivision  { get; set; }
-    public int    AwayDivision  { get; set; }
-}
-
-/// <summary>Outcome of a simulated cup match.</summary>
-public class CupMatchResult
-{
-    public int  HomeScore   { get; set; }
-    public int  AwayScore   { get; set; }
-    public bool IsReplay    { get; set; }
-    public int  WinnerIndex { get; set; }   // 0 if replay
-}
-
-public enum CupTieOutcome
-{
-    PlayerWon,
-    PlayerEliminated,
-    Replay
 }

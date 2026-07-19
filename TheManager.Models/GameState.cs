@@ -68,9 +68,10 @@ public class GameState
     /// <summary>
     /// All team names across 4 divisions + cup-only slots.
     /// Div 1 = [1–20] (20 teams), Div 2 = [21–44], Div 3 = [45–68], Div 4 = [69–92] (24 teams each),
-    /// Cup-only = [93–108]. Corresponds to Y$(1–108) in FOOT.BAS (extended for larger divisions).
+    /// Cup-only (non-league) = [93–124] (32 teams). Corresponds to Y$ in FOOT.BAS
+    /// (extended for larger divisions and the 80-team FA Cup first round).
     /// </summary>
-    public string[] AllTeamNames { get; set; } = new string[120];
+    public string[] AllTeamNames { get; set; } = new string[128];
 
     /// <summary>Current division league table for the managed club.</summary>
     public LeagueTable CurrentLeague { get; set; } = new();

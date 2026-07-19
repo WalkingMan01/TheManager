@@ -9,6 +9,9 @@ namespace TheManager.Models;
 /// </summary>
 public class CupCompetition
 {
+    /// <summary>Bracket capacity: the FA Cup first round holds 80 teams. Extends L(64) in FOOT.BAS.</summary>
+    public const int BracketSize = 80;
+
     public CupType Type { get; set; }
 
     /// <summary>
@@ -16,6 +19,20 @@ public class CupCompetition
     /// Corresponds to OJ (League Cup) or OK (FA Cup).
     /// </summary>
     public CupRound CurrentRound { get; set; }
+
+    /// <summary>
+    /// 80-slot knockout bracket of team indices still in the competition
+    /// (1-based; 0 = empty slot). Extends L(64) in FOOT.BAS.
+    /// </summary>
+    public int[] Bracket { get; set; } = new int[BracketSize + 1];
+
+    /// <summary>
+    /// Completed rounds, in order: every tie with its final score. The winners of
+    /// the last entry (plus the round-3 entrants, before round 3) are the teams
+    /// still in the competition. No FOOT.BAS equivalent — the original kept only
+    /// the player's own fixture log (A$).
+    /// </summary>
+    public List<CupRoundRecord> RoundHistory { get; set; } = new();
 
     /// <summary>
     /// Fixtures for all ties in the current round (not just the player's tie).
@@ -50,4 +67,11 @@ public class CupCompetition
         CupRound.NotEntered   => "—",
         _                     => $"Round {(int)CurrentRound}"
     };
+}
+
+/// <summary>One completed cup round: the round and all of its finished ties.</summary>
+public class CupRoundRecord
+{
+    public CupRound Round { get; set; }
+    public List<CupFixture> Results { get; set; } = new();
 }

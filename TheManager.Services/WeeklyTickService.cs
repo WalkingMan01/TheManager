@@ -139,6 +139,9 @@ public static class WeeklyTickService
         if (divNum < 3 && gameState.Club.GroundImprovementCost > 0 && dn > 18_721)
             dn = 18_721;
 
+        // Home cup ties draw a bigger crowd (spec: docs/specs/fa-cup.md, Step 4).
+        if (ctx.IsCupMatch) dn = (int)(dn * 1.25);
+
         return Math.Max(500, dn + 1 + rng.Next(50));
     }
 }

@@ -11,7 +11,14 @@ internal static class CheckMatchScreen
     {
         var match = FixtureSchedulerService.GetCurrentMatch(state.CurrentWeek, state.Fixtures);
 
-        Ui.Header($"CHECK MATCH  ·  Week {match.Week}  ·  {MatchTypeLabel(match.MatchType)}");
+        Ui.Header($"CHECK MATCH  ·  Matchday {match.Week}  ·  {MatchTypeLabel(match.MatchType)}");
+
+        if (match.MatchType == MatchType.NoFixture || string.IsNullOrWhiteSpace(match.OpponentName))
+        {
+            AnsiConsole.MarkupLine("  [dim]No fixture to check this matchday.[/]");
+            Ui.Pause();
+            return;
+        }
 
         string ourName  = state.Club.Name.Trim();
         string oppName  = match.OpponentName.Trim();
@@ -31,10 +38,12 @@ internal static class CheckMatchScreen
                 state.CurrentLeague,
                 state.Club.Division,
                 state.DifficultyLevel,
-                cupRound: isCup ? (int)state.LeagueCup.CurrentRound : 0,
+                opponentDivision: isCup
+                    ? CupService.GetDivisionForTeamIndex(match.OpponentTeamIndex)
+                    : 0,
                 isCupMatch: isCup,
                 rng);
-        }      
+        }
 
         bool weAreHome = match.IsHomeGame;
 

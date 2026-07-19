@@ -73,43 +73,134 @@ public class FixtureSchedulerServiceTests
         }
     }
 
-    // ── AdvanceWeek ───────────────────────────────────────────────────────────
+    // ── AdvanceMatchday ───────────────────────────────────────────────────────
 
     [Fact]
-    public void AdvanceWeek_ReturnsNextWeekNumber()
+    public void AdvanceMatchday_ReturnsNextMatchdayNumber()
     {
-        var result = FixtureSchedulerService.AdvanceWeek(currentWeek: 5, fixturesPlayed: 4);
+        var result = FixtureSchedulerService.AdvanceMatchday(currentWeek: 5, fixturesPlayed: 4);
         Assert.Equal(6, result.CurrentWeek);
     }
 
     [Fact]
-    public void AdvanceWeek_FixturesPlayedIncreasesBy1()
+    public void AdvanceMatchday_FixturesPlayedIncreasesBy1()
     {
-        var result = FixtureSchedulerService.AdvanceWeek(currentWeek: 1, fixturesPlayed: 10);
+        var result = FixtureSchedulerService.AdvanceMatchday(currentWeek: 1, fixturesPlayed: 10);
         Assert.Equal(11, result.FixturesPlayed);
     }
 
     [Fact]
-    public void AdvanceWeek_MatchesRemainingReducesBy1()
+    public void AdvanceMatchday_MatchesRemainingReducesBy1()
     {
-        var result = FixtureSchedulerService.AdvanceWeek(currentWeek: 1, fixturesPlayed: 10);
+        var result = FixtureSchedulerService.AdvanceMatchday(currentWeek: 1, fixturesPlayed: 10);
         Assert.Equal(38 - 11, result.MatchesRemainingThisSeason);
     }
 
     [Fact]
-    public void AdvanceWeek_CapsFixturesAt38()
+    public void AdvanceMatchday_CapsFixturesAt38()
     {
-        var result = FixtureSchedulerService.AdvanceWeek(currentWeek: 38, fixturesPlayed: 38);
+        var result = FixtureSchedulerService.AdvanceMatchday(currentWeek: 38, fixturesPlayed: 38);
         Assert.Equal(38, result.FixturesPlayed);
         Assert.Equal(0, result.MatchesRemainingThisSeason);
     }
 
     [Fact]
-    public void AdvanceWeek_37FixturesPlayed_FixturesPlayedCapsAt38()
+    public void AdvanceMatchday_37FixturesPlayed_FixturesPlayedCapsAt38()
     {
-        var result = FixtureSchedulerService.AdvanceWeek(currentWeek: 37, fixturesPlayed: 37);
+        var result = FixtureSchedulerService.AdvanceMatchday(currentWeek: 37, fixturesPlayed: 37);
         Assert.Equal(38, result.FixturesPlayed);
         Assert.Equal(0, result.MatchesRemainingThisSeason);
+    }
+
+    [Fact]
+    public void AdvanceMatchday_CupMatchday_DoesNotCountLeagueFixture()
+    {
+        var result = FixtureSchedulerService.AdvanceMatchday(
+            currentWeek: 12, fixturesPlayed: 10, maxFixtures: 46, wasLeagueFixture: false);
+
+        Assert.Equal(13, result.CurrentWeek);
+        Assert.Equal(10, result.FixturesPlayed);
+        Assert.Equal(36, result.MatchesRemainingThisSeason);
+    }
+
+    // ── BuildSeasonCalendar ───────────────────────────────────────────────────
+
+    private static string[] SeededTeamNames()
+    {
+        var state = new GameState();
+        TeamData.Seed(state);
+        return state.AllTeamNames;
+    }
+
+    [Fact]
+    public void BuildSeasonCalendar_Covers54Matchdays()
+    {
+        var names    = SeededTeamNames();
+        var calendar = FixtureSchedulerService.BuildSeasonCalendar(Division.Two, names[21], names);
+
+        Assert.Equal(Constants.SeasonMatchdays, calendar.Count);
+        Assert.Equal(Enumerable.Range(1, Constants.SeasonMatchdays), calendar.Select(m => m.Week));
+    }
+
+    [Fact]
+    public void BuildSeasonCalendar_LowerDivision_46LeagueFixturesAnd8CupMatchdays()
+    {
+        var names    = SeededTeamNames();
+        var calendar = FixtureSchedulerService.BuildSeasonCalendar(Division.Three, names[45], names);
+
+        Assert.Equal(46, calendar.Count(m => m.MatchType == MatchType.League));
+        Assert.Equal(8,  calendar.Count(m => m.MatchType == MatchType.FACup));
+        Assert.Equal(0,  calendar.Count(m => m.MatchType == MatchType.NoFixture));
+    }
+
+    [Fact]
+    public void BuildSeasonCalendar_DivisionOne_38League8Cup8RestDays()
+    {
+        var names    = SeededTeamNames();
+        var calendar = FixtureSchedulerService.BuildSeasonCalendar(Division.One, names[1], names);
+
+        Assert.Equal(38, calendar.Count(m => m.MatchType == MatchType.League));
+        Assert.Equal(8,  calendar.Count(m => m.MatchType == MatchType.FACup));
+        Assert.Equal(8,  calendar.Count(m => m.MatchType == MatchType.NoFixture));
+    }
+
+    [Fact]
+    public void BuildSeasonCalendar_CupMatchdaysAreOnTheFixedDates()
+    {
+        var names    = SeededTeamNames();
+        var calendar = FixtureSchedulerService.BuildSeasonCalendar(Division.Two, names[21], names);
+
+        var cupDays = calendar.Where(m => m.MatchType == MatchType.FACup).Select(m => m.Week);
+        Assert.Equal(Constants.FACupMatchdays, cupDays);
+    }
+
+    [Fact]
+    public void BuildSeasonCalendar_DivisionOne_RestDaysNeverOnMatchday1OrConsecutive()
+    {
+        var names    = SeededTeamNames();
+        var calendar = FixtureSchedulerService.BuildSeasonCalendar(Division.One, names[1], names);
+
+        var restDays = calendar.Where(m => m.MatchType == MatchType.NoFixture).Select(m => m.Week).ToList();
+        Assert.DoesNotContain(1, restDays);
+        for (int i = 1; i < restDays.Count; i++)
+            Assert.True(restDays[i] - restDays[i - 1] > 1, "rest days must not be consecutive");
+    }
+
+    [Fact]
+    public void BuildSeasonCalendar_LeagueFixturesKeepEachOpponentHomeAndAway()
+    {
+        var names    = SeededTeamNames();
+        var calendar = FixtureSchedulerService.BuildSeasonCalendar(Division.Two, names[21], names);
+
+        var leagueGames = calendar.Where(m => m.MatchType == MatchType.League).ToList();
+        var byOpponent  = leagueGames.GroupBy(m => m.OpponentName);
+
+        Assert.Equal(23, byOpponent.Count());
+        Assert.All(byOpponent, g =>
+        {
+            Assert.Equal(2, g.Count());
+            Assert.Single(g, m => m.IsHomeGame);
+        });
     }
 
     // ── GetDivisionStartIndex ─────────────────────────────────────────────────

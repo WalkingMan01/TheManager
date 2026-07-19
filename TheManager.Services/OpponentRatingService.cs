@@ -21,7 +21,12 @@ public static class OpponentRatingService
     ///   topThreeBonus (IB) = 1 if opponent in top 3 AND difficulty is normal/hard (JT&lt;1)
     ///   difficultyAdjustment (cx):
     ///     League match: cx = division − difficultyLevel       (line 418)
-    ///     Cup match:    cx = cupRound  − difficultyLevel       (line 415)
+    ///     Cup match:    cx = opponentDivision − difficultyLevel
+    ///       Deliberate deviation from FOOT.BAS (line 415 used the cup round
+    ///       counter cs, making every cup opponent identity-blind and later
+    ///       rounds roll *weaker*): cup opponents are now rated by the league
+    ///       they actually play in, with non-league sides treated as a
+    ///       lower-half League Two team (division 4, no top-3 bonus).
     ///   Each rating = (6 − cx) + RND(0–3) + topThreeBonus     (line 419)
     ///     Deliberate deviation from FOOT.BAS: on Normal difficulty (JT=0)
     ///     the random component is RND(0–2) instead of RND(0–3), softening
@@ -35,12 +40,17 @@ public static class OpponentRatingService
         LeagueTable currentLeague,
         Division    ourDivision,
         int         difficultyLevel,    // JT: 1=hard, 0=normal, -1=easy
-        int         cupRound,           // cs: relevant cup round (0 for league match)
+        int         opponentDivision,   // cup matches only: 1–4, or 5 for non-league (0 for league matches)
         bool        isCupMatch,         // true when CV=1, cq=1, or cp=1
         Random      rng)
     {
         // ── Find opponent's league position (subroutine 416) ──────────────────
-        int opponentLeaguePosition = FindLeaguePosition(currentLeague, opponentName);
+        // Cup opponents from other divisions (or non-league) are not in our
+        // table — treat them as mid-table so they get no top-3 bonus.
+        int foundPosition          = FindLeaguePosition(currentLeague, opponentName);
+        int opponentLeaguePosition = foundPosition > 0 ? foundPosition
+                                   : isCupMatch        ? 12
+                                   : 2;   // default mn=2 in BASIC subroutine 416
 
         // ── Top-3 bonus (line 433) ────────────────────────────────────────────
         // IB = 1 if opponent is in top 3 AND difficulty is normal or hard (JT < 1)
@@ -48,9 +58,11 @@ public static class OpponentRatingService
         int  topThreeBonus       = opponentIsTopThree ? 1 : 0;
 
         // ── Difficulty adjustment (lines 415, 418) ────────────────────────────
+        // Cup: the opponent's real division drives the ratings (non-league = 5,
+        // clamped to 4 so they roll like a lower-half League Two side).
         int difficultyAdjustment = isCupMatch
-            ? cupRound - difficultyLevel        // cx = cs − JT
-            : (int)ourDivision - difficultyLevel; // cx = AP − JT
+            ? Math.Clamp(opponentDivision, 1, 4) - difficultyLevel
+            : (int)ourDivision - difficultyLevel;   // cx = AP − JT
 
         // ── Four positional ratings (line 419) ───────────────────────────────
         // On Normal the random roll is capped at 0–2 (not the original 0–3),
@@ -140,6 +152,6 @@ public static class OpponentRatingService
             if (league.Entries[position].TeamName.Trim() == trimmed)
                 return position + 1;
         }
-        return 2;   // default mn=2 in BASIC subroutine 416
+        return 0;   // not in this table — caller picks the fallback
     }
 }

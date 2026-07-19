@@ -1,3 +1,9 @@
+Cup teams are too good
+Results of FA Cup displayed differently - Penalties maybes shown more prominent
+FA Cup draw not made till the week before the first FA Cup match - shown on weekly tick
+Check fixture should show FA Cup fixture
+
+
 Save game should show available slots and allow overwriting or deleting
 Maybes have some news at the top of the main menu
 

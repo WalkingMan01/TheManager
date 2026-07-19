@@ -55,6 +55,48 @@ public class WeeklyTickServiceTests
         Assert.Equal(0, player.SuspensionMatchesRemaining);
     }
 
+    // ── Finance report ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Process_HomeGame_ReportsGateReceiptsAsAttendanceTimesTicketPrice()
+    {
+        var state  = MakeGameState(new Random(10));
+        var result = WeeklyTickService.Process(state, MakeContext(wasHomeGame: true), new Random(10));
+
+        Assert.NotNull(result.FinanceReport);
+        Assert.True(result.Attendance > 0);
+        Assert.Equal(result.Attendance * state.Club.TicketPriceInPounds, result.GateMoney);
+        Assert.Equal(result.GateMoney, result.FinanceReport.GateMoney);
+        Assert.Equal(result.GateMoney, state.Finances.LastMatchGateMoney);
+        Assert.True(result.FinanceReport.PlayerWageBill > 0);
+    }
+
+    [Fact]
+    public void Process_AwayGame_ReportsNoGateMoney()
+    {
+        var state  = MakeGameState(new Random(11));
+        var result = WeeklyTickService.Process(state, MakeContext(wasHomeGame: false), new Random(11));
+
+        Assert.Equal(0, result.Attendance);
+        Assert.Equal(0, result.FinanceReport.GateMoney);
+    }
+
+    [Fact]
+    public void Process_HomeCupTie_DrawsBiggerCrowdThanTheSameLeagueMatch()
+    {
+        // Identical states and identical rng seeds: the only difference is the
+        // cup flag, so the cup crowd must be the boosted one (spec: fa-cup.md).
+        var leagueState = MakeGameState(new Random(12));
+        var cupState    = MakeGameState(new Random(12));
+
+        var league = WeeklyTickService.Process(
+            leagueState, MakeContext(wasHomeGame: true), new Random(99));
+        var cup    = WeeklyTickService.Process(
+            cupState, MakeContext(wasHomeGame: true, isCupMatch: true), new Random(99));
+
+        Assert.True(cup.Attendance > league.Attendance);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static GameState MakeGameState(Random rng)
@@ -65,10 +107,11 @@ public class WeeklyTickServiceTests
         return state;
     }
 
-    private static MatchContext MakeContext() => new(
+    private static MatchContext MakeContext(bool wasHomeGame = false, bool isCupMatch = false) => new(
         WonLeagueMatch: false,
         WonCupMatch: false,
         LostLastMatch: false,
-        WasHomeGame: false,
-        OpponentLeaguePosition: 1);
+        WasHomeGame: wasHomeGame,
+        OpponentLeaguePosition: 1,
+        IsCupMatch: isCupMatch);
 }
