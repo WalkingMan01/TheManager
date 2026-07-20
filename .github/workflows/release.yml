@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    # windows-latest to match build.yml, though only Console is published here
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore TheManager.slnx
+
+      - name: Publish Console
+        run: dotnet publish TheManager.Console -c Release -o publish/console
+
+      - name: Zip Console build
+        run: Compress-Archive -Path publish/console/* -DestinationPath TheManager-${{ github.ref_name }}.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: TheManager-${{ github.ref_name }}.zip
+          generate_release_notes: true
