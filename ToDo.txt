@@ -2,6 +2,12 @@ Cup teams are too good
 Results of FA Cup displayed differently - Penalties maybes shown more prominent
 FA Cup draw not made till the week before the first FA Cup match - shown on weekly tick
 Check fixture should show FA Cup fixture
+Check match engine - Opponents dont get extra home shot when at home
+
+League table should highlight all columns for our team
+Display FA Cup results when team has been knocked out
+Remember the name of the game restored, use when saving again later on
+PLayoffs - Should have check match / play match options as usual (Continue to playoffs)
 
 
 Save game should show available slots and allow overwriting or deleting
