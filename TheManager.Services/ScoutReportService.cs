@@ -79,7 +79,7 @@ public static class ScoutReportService
 
             // Quote the transfer fee once, up front, so every screen shows the
             // same price the buyer will actually pay.
-            discoveredPlayer.AskingPrice = TransferService.CalculateAskingPrice(discoveredPlayer, rng);
+            discoveredPlayer.AskingPrice = TransferService.CalculateAskingPrice(discoveredPlayer, targetDiv, rng);
 
             slotUpdates[scoutSquadSlot] = discoveredPlayer;
 

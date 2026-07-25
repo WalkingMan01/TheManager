@@ -105,11 +105,14 @@ public static class FinanceService
             weeklyBalance         += sponsorPayment;
         }
 
-        // ── TV broadcast income (lines 2518) — £20,000 every 5+ weeks ─────────
+        // ── TV broadcast income (lines 2518) — every 5+ weeks, scaled by division
+        // (docs/specs/player-wage-scaling.md) using the same multiplier as player
+        // wages, so top-flight TV money grows in step with the top-flight wage bill.
         if (finances.WeeksSinceLastTvBroadcast >= 5)
         {
-            report.TvBroadcastIncome              = 20_000;
-            weeklyBalance                        += 20_000;
+            double tvIncome                       = 20_000 * Constants.DivisionWageMultiplier(input.Division);
+            report.TvBroadcastIncome              = tvIncome;
+            weeklyBalance                        += tvIncome;
             finances.WeeksSinceLastTvBroadcast    = 0;
         }
         else

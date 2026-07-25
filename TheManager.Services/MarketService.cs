@@ -81,7 +81,7 @@ public static class MarketService
                 Player          = player,
                 OwningClubIndex = teamIndex,
                 OwningClubName  = clubName,
-                OfferedBid      = GenerateRivalBid(player, rivalDiv, rng)
+                OfferedBid      = GenerateRivalBid(player, ourDivision, rivalDiv, rng)
             });
         }
 
@@ -126,16 +126,19 @@ public static class MarketService
     /// <summary>
     /// Generates the rival club's opening bid as 65–100% of the calculated
     /// asking price. The percentage varies by the interested club's division
-    /// (higher-division clubs bid more aggressively).
+    /// (higher-division clubs bid more aggressively). The asking price itself
+    /// is priced off the selling club's own division (see
+    /// <see cref="TransferService.CalculateAskingPrice"/>), not the rival's.
     ///
     /// BASIC lines 4043–4062 adapted for the selling direction.
     /// </summary>
     public static double GenerateRivalBid(
-        Player player,
-        int    rivalDivision,
-        Random rng)
+        Player   player,
+        Division sellingDivision,
+        int      rivalDivision,
+        Random   rng)
     {
-        double asking = TransferService.CalculateAskingPrice(player, rng);
+        double asking = TransferService.CalculateAskingPrice(player, (int)sellingDivision, rng);
 
         // Higher-division clubs bid closer to asking price
         double minFraction = rivalDivision switch

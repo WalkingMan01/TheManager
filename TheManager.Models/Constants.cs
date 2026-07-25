@@ -112,4 +112,56 @@ public static class Constants
         Division.Four  => (69, 92),
         _ => throw new ArgumentOutOfRangeException(nameof(division))
     };
+
+    // ── Player wages (docs/specs/player-wage-scaling.md) ──────────────────────
+
+    /// <summary>
+    /// Flat multiplier applied to every player's calculated wage, on top of
+    /// <see cref="DivisionWageMultiplier"/>. A single dial to retune overall wage
+    /// levels without touching the underlying skill/age formula.
+    /// </summary>
+    public const double WageScaleFactor = 10.0;
+
+    /// <summary>
+    /// Division multiplier applied on top of <see cref="WageScaleFactor"/>, widening
+    /// the pay gap between divisions well beyond what the narrow 1.0–7.9 skill spread
+    /// alone would produce — Division One roughly 8x Division Four, mirroring the
+    /// real gap between Premier League and League Two wages. Used by wages, TV
+    /// income, signing-on fees, prize money, and staff wages — see
+    /// <see cref="TransferFeeDivisionMultiplier"/> for the separate (softer) scale
+    /// used by transfer fees specifically.
+    /// </summary>
+    public static double DivisionWageMultiplier(int divisionNumber) => divisionNumber switch
+    {
+        1 => 8.0,
+        2 => 4.0,
+        3 => 2.0,
+        _ => 1.0
+    };
+
+    /// <summary>
+    /// Division multiplier used only for transfer fees (<see cref="TransferService.CalculateAskingPrice"/>,
+    /// <see cref="FinancialCrisisService.ForceSalePrice"/>), applied on top of
+    /// <see cref="WageScaleFactor"/> same as <see cref="DivisionWageMultiplier"/>.
+    /// Softer at the bottom than the wage multiplier — Division Three and Four fees
+    /// were felt to be too steep relative to wages at the wage multiplier's 2x/1x.
+    /// </summary>
+    public static double TransferFeeDivisionMultiplier(int divisionNumber) => divisionNumber switch
+    {
+        1 => 8.0,
+        2 => 4.0,
+        3 => 1.0,
+        4 => 0.5,
+        _ => 1.0
+    };
+
+    /// <summary>
+    /// Flat multiplier applied to the division-based ticket price
+    /// (<c>(5 - division)</c>, see <see cref="InitializationService.SetupNewGame"/>)
+    /// so gate receipts stay proportionate to the scaled-up wage bill
+    /// (docs/specs/player-wage-scaling.md). Deliberately not stacked with
+    /// <see cref="DivisionWageMultiplier"/> — ground capacity already gives gate
+    /// money a wide division-based spread on its own.
+    /// </summary>
+    public const double TicketPriceScaleFactor = 12.0;
 }

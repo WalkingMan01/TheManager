@@ -41,6 +41,19 @@ public class GroundCapacityTests
         Assert.Equal(a.Club.GroundCapacity, b.Club.GroundCapacity);
     }
 
+    // ── Ticket price (docs/specs/player-wage-scaling.md) ───────────────────────
+
+    [Theory]
+    [InlineData(Division.One,   48.0)]
+    [InlineData(Division.Two,   36.0)]
+    [InlineData(Division.Three, 24.0)]
+    [InlineData(Division.Four,  12.0)]
+    public void SetupNewGame_TicketPriceIsScaledByDivision(Division division, double expected)
+    {
+        var state = MakeState("TESTFC", division, new Random(0));
+        Assert.Equal(expected, state.Club.TicketPriceInPounds);
+    }
+
     [Fact]
     public void EveryLeagueClub_HasARealGroundEntry()
     {

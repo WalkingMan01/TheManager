@@ -123,6 +123,30 @@ public class SeasonServiceTests
         Assert.True(first.BankBalance > third.BankBalance);
     }
 
+    [Fact]
+    public void AwardLeaguePrizeMoney_MatchesScaledFormula()
+    {
+        // INT(50000/division)/position, then scaled by WageScaleFactor *
+        // DivisionWageMultiplier (docs/specs/player-wage-scaling.md).
+        var finances = new Finances { BankBalance = 0 };
+        SeasonService.AwardLeaguePrizeMoney(finances, finalLeaguePosition: 1, Division.One);
+
+        double expected = (int)(50_000.0 / (int)Division.One) / 1
+            * Constants.WageScaleFactor * Constants.DivisionWageMultiplier((int)Division.One);
+
+        Assert.Equal((int)expected, finances.BankBalance);
+    }
+
+    [Fact]
+    public void AwardLeaguePrizeMoney_HigherDivisionPaysMore()
+    {
+        var divOne  = new Finances { BankBalance = 0 };
+        var divFour = new Finances { BankBalance = 0 };
+        SeasonService.AwardLeaguePrizeMoney(divOne,  1, Division.One);
+        SeasonService.AwardLeaguePrizeMoney(divFour, 1, Division.Four);
+        Assert.True(divOne.BankBalance > divFour.BankBalance);
+    }
+
     // ── AdjustSharePrice ──────────────────────────────────────────────────────
 
     [Fact]

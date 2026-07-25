@@ -152,7 +152,7 @@ public class MarketServiceTests
     public void GenerateRivalBid_ReturnsPositiveValue()
     {
         var player = new Player { Skill = 7.0, Age = 25 };
-        double bid = MarketService.GenerateRivalBid(player, rivalDivision: 2, new Random(0));
+        double bid = MarketService.GenerateRivalBid(player, Division.Two, rivalDivision: 2, new Random(0));
         Assert.True(bid > 0);
     }
 
@@ -160,7 +160,7 @@ public class MarketServiceTests
     public void GenerateRivalBid_IsRoundedToNearest1000()
     {
         var player = new Player { Skill = 7.0, Age = 25 };
-        double bid = MarketService.GenerateRivalBid(player, rivalDivision: 2, new Random(0));
+        double bid = MarketService.GenerateRivalBid(player, Division.Two, rivalDivision: 2, new Random(0));
         Assert.Equal(0, bid % 1000);
     }
 
@@ -170,8 +170,8 @@ public class MarketServiceTests
         // Same player, same seed → same asking price and same NextDouble fraction sample.
         // div1 minFraction (0.85) > div4 minFraction (0.60) so div1 bid is always higher.
         var player   = new Player { Skill = 7.0, Age = 25 };
-        double div1Bid = MarketService.GenerateRivalBid(player, rivalDivision: 1, new Random(42));
-        double div4Bid = MarketService.GenerateRivalBid(player, rivalDivision: 4, new Random(42));
+        double div1Bid = MarketService.GenerateRivalBid(player, Division.Two, rivalDivision: 1, new Random(42));
+        double div4Bid = MarketService.GenerateRivalBid(player, Division.Two, rivalDivision: 4, new Random(42));
         Assert.True(div1Bid > div4Bid);
     }
 
@@ -183,8 +183,19 @@ public class MarketServiceTests
     public void GenerateRivalBid_AllDivisions_ReturnPositiveBid(int division)
     {
         var player = new Player { Skill = 6.0, Age = 28 };
-        double bid = MarketService.GenerateRivalBid(player, division, new Random(0));
+        double bid = MarketService.GenerateRivalBid(player, Division.Two, division, new Random(0));
         Assert.True(bid > 0);
+    }
+
+    [Fact]
+    public void GenerateRivalBid_SellingDivisionAffectsAskingPrice()
+    {
+        // Same player, same seed, same rival division; only the selling club's
+        // own division (which prices the underlying asking price) differs.
+        var player = new Player { Skill = 7.0, Age = 25 };
+        double divOneSeller  = MarketService.GenerateRivalBid(player, Division.One,  rivalDivision: 2, new Random(1));
+        double divFourSeller = MarketService.GenerateRivalBid(player, Division.Four, rivalDivision: 2, new Random(1));
+        Assert.True(divOneSeller > divFourSeller);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

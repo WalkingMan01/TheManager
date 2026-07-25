@@ -131,14 +131,16 @@ public static class ContractService
         Division division,
         Random   rng)
     {
-        // Wage (BASIC line 2610)
-        double wageBase = (1 + rng.Next(20) + 50) * (int)player.Skill
-                          + (player.Skill > 9.6 ? 1_000 : 0);
-        int ageDivisor  = Math.Max(1, player.DisplayAge - 27);
-        int statedWage  = (int)Math.Max(50, wageBase / ageDivisor);
+        // Wage (BASIC line 2610; scaled — see docs/specs/player-wage-scaling.md).
+        // Shared with squad generation so the two formulas can't drift apart.
+        int statedWage = (int)InitializationService.CalculateWage(
+            player.Skill, player.DisplayAge, (int)division, rng);
 
-        // Signing-on fee (BASIC line 2612; renewal: HG=AP so no division-gap term)
-        int statedFee = (1_000 * (int)player.Skill) / (int)division;
+        // Signing-on fee (BASIC line 2612; renewal: HG=AP so no division-gap term).
+        // Scaled — see docs/specs/player-wage-scaling.md — same constants as the wage
+        // and transfer-fee formulas above, applied on top of the original division-÷.
+        int statedFee = (int)((1_000.0 * (int)player.Skill) / (int)division
+            * Constants.WageScaleFactor * Constants.DivisionWageMultiplier((int)division));
 
         // Contract length: half-year steps (×26) capped at weeks until age 35,
         // giving a bell curve peaking at 3 years (156w) around age 28–29.

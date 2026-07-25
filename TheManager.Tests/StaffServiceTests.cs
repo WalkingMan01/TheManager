@@ -143,7 +143,7 @@ public class StaffServiceTests
         // every one of the four positions should appear.
         var seen = new HashSet<PlayerPosition>();
         for (int seed = 0; seed < 50; seed++)
-            seen.Add(StaffService.GenerateYouthPlayer(new Random(seed)).Position);
+            seen.Add(StaffService.GenerateYouthPlayer(divisionNumber: 2, new Random(seed)).Position);
 
         Assert.Equal(4, seen.Count);
         Assert.DoesNotContain(PlayerPosition.None, seen);
@@ -252,6 +252,56 @@ public class StaffServiceTests
 
         Assert.NotNull(result);
         Assert.InRange(result.Value.player.PeakAge, 26, 30);
+    }
+
+    [Fact]
+    public void PromoteYouthPlayer_WageUsesCalculateWage_NotAHardcodedFlatAmount()
+    {
+        // Previously hardcoded to a flat £50/wk regardless of skill or division
+        // (docs/specs/player-wage-scaling.md) — a promoted youth should earn a real
+        // first-team wage, well above that, in a mid-tier division.
+        var squad = new Player?[29];
+        var youth = new List<YouthPlayer> { EligibleYouthPlayer() };
+        var club  = new Club { Division = Division.Two };
+
+        var result = StaffService.PromoteYouthPlayer(squad, youth, club, youthIndex: 0, new Random(0));
+
+        Assert.NotNull(result);
+        Assert.True(result.Value.player.WeeklyWage > 50);
+    }
+
+    // ── Staff wage scaling (docs/specs/player-wage-scaling.md) ───────────────
+
+    [Fact]
+    public void GenerateCoach_HigherDivisionEarnsMore()
+    {
+        double divOne  = StaffService.GenerateCoach(1, new Random(0)).WeeklySalary;
+        double divFour = StaffService.GenerateCoach(4, new Random(0)).WeeklySalary;
+        Assert.True(divOne > divFour);
+    }
+
+    [Fact]
+    public void GeneratePhysio_HigherDivisionEarnsMore()
+    {
+        double divOne  = StaffService.GeneratePhysio(1, new Random(0)).WeeklySalary;
+        double divFour = StaffService.GeneratePhysio(4, new Random(0)).WeeklySalary;
+        Assert.True(divOne > divFour);
+    }
+
+    [Fact]
+    public void GenerateScout_HigherDivisionEarnsMore()
+    {
+        double divOne  = StaffService.GenerateScout(1, new Random(0)).WeeklySalary;
+        double divFour = StaffService.GenerateScout(4, new Random(0)).WeeklySalary;
+        Assert.True(divOne > divFour);
+    }
+
+    [Fact]
+    public void GenerateYouthPlayer_HigherDivisionEarnsMore()
+    {
+        double divOne  = StaffService.GenerateYouthPlayer(1, new Random(0)).WeeklySalary;
+        double divFour = StaffService.GenerateYouthPlayer(4, new Random(0)).WeeklySalary;
+        Assert.True(divOne > divFour);
     }
 
     // ── TotalStaffWageBill ────────────────────────────────────────────────────

@@ -165,7 +165,7 @@ public static class FinancialCrisisService
             if (listedSlot == 0) break;
 
             var    player    = squad[listedSlot]!;
-            double salePrice = ForceSalePrice(player, rng);
+            double salePrice = ForceSalePrice(player, (int)club.Division, rng);
             string soldName  = player.Name.Trim();
 
             finances.BankBalance   += (int)salePrice;
@@ -208,8 +208,11 @@ public static class FinancialCrisisService
     ///   If INT(skill)=1: price = 6500
     ///   Otherwise: price = 5000 * (INT(H)-1)^2 * 2 + (star player bonus)
     ///   Add random spread, then apply to finances.
+    /// Deviation: scaled by Constants.WageScaleFactor and
+    /// Constants.TransferFeeDivisionMultiplier for the selling club's own division,
+    /// matching TransferService.CalculateAskingPrice (see docs/specs/player-wage-scaling.md).
     /// </summary>
-    private static double ForceSalePrice(Player player, Random rng)
+    private static double ForceSalePrice(Player player, int sellingDivision, Random rng)
     {
         int intSkill = (int)player.Skill;
 
@@ -219,7 +222,10 @@ public static class FinancialCrisisService
               + (player.IsStar ? 310_000 : 0);
 
         double spread = (int)(basePrice / 3) + 6_000;
-        return (int)(basePrice + rng.NextDouble() * spread);
+        double price  = (int)(basePrice + rng.NextDouble() * spread);
+
+        double scale = Constants.WageScaleFactor * Constants.TransferFeeDivisionMultiplier(sellingDivision);
+        return price * scale;
     }
 }
 

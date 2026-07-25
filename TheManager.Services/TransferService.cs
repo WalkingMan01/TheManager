@@ -21,8 +21,12 @@ public static class TransferService
     ///   Add random spread = INT(askingPrice/3)+6000
     ///   Age deduction: penalty = (Age-28), clamped ≥ 0;
     ///                  askingPrice -= INT(askingPrice/10) * penalty
+    /// Deviation: the BASIC result is then scaled by Constants.WageScaleFactor and
+    /// Constants.TransferFeeDivisionMultiplier for the selling club's division (see
+    /// docs/specs/player-wage-scaling.md) — the unscaled fee is now far too small
+    /// next to the rescaled wage bill it would take to pay a player like this.
     /// </summary>
-    public static double CalculateAskingPrice(Player player, Random rng)
+    public static double CalculateAskingPrice(Player player, int sellingDivision, Random rng)
     {
         int integerSkill = (int)player.Skill;
 
@@ -44,7 +48,8 @@ public static class TransferService
         int agePenalty = Math.Max(0, player.DisplayAge - 28);
         askingPrice    = (int)(askingPrice - (int)(askingPrice / 10.0) * agePenalty);
 
-        return askingPrice;
+        double scale = Constants.WageScaleFactor * Constants.TransferFeeDivisionMultiplier(sellingDivision);
+        return askingPrice * scale;
     }
 
     // ── Deal sweetener deductions (lines 4046–4050) ──────────────────────────

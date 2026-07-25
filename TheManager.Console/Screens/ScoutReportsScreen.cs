@@ -19,7 +19,8 @@ internal static class ScoutReportsScreen
             // discovery — quote them once now so the table and the deal agree.
             foreach (var f in findings)
                 if (f.Player.AskingPrice <= 0)
-                    f.Player.AskingPrice = TransferService.CalculateAskingPrice(f.Player, rng);
+                    f.Player.AskingPrice = TransferService.CalculateAskingPrice(
+                        f.Player, CupService.GetDivisionForTeamIndex(f.SourceClubIndex), rng);
 
             if (findings.Count > 0)
             {
@@ -251,7 +252,10 @@ internal static class ScoutReportsScreen
         else if (trimmedChoice.Equals("C", StringComparison.OrdinalIgnoreCase))
         {
             AnsiConsole.MarkupLine("  [dim]Enter your offer terms (0 to cancel each):[/]");
-            offeredWage = PromptInt("  Weekly wage (£): ", 0, 99_999);
+            // Ceiling comfortably above the highest wage CalculateWage can produce
+            // (a Division One star tops out around £130,400/week) — the old £99,999
+            // cap actively blocked offering a star player their asking wage.
+            offeredWage = PromptInt("  Weekly wage (£): ", 0, 999_999);
             if (offeredWage == 0) return;
 
             offeredFee = PromptInt("  Signing-on fee (£): ", 0, 9_999_999);

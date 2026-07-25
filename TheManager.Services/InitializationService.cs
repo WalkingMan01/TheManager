@@ -19,6 +19,12 @@ public static class InitializationService
 
     // ── New squad generation (subroutine 1501–1514) ───────────────────────────
 
+    /// <summary>Bank balance scales with how large the club's ground is relative to a
+    /// typical club in its division — clamped so a handful of big-name grounds can't
+    /// dwarf everyone else's starting cash.</summary>
+    private const double MinGroundCapacityRatio = 0.5;
+    private const double MaxGroundCapacityRatio = 2.5;
+
     /// <summary>
     /// Generates a complete starting squad with randomised attributes for a
     /// freshly chosen club at the given division.
@@ -34,7 +40,7 @@ public static class InitializationService
     ///     contract  = 20 + RND(0–55) weeks
     ///     temper    = 0–9 clamped random
     /// </summary>
-    public static SquadGenerationResult GenerateStartingSquad(Division division, Random rng)
+    public static SquadGenerationResult GenerateStartingSquad(Division division, int groundCapacity, Random rng)
     {
         int divNum = (int)division;
         const int squadSize = 16;
@@ -48,8 +54,13 @@ public static class InitializationService
         double playerWageBill =
             squad.Skip(1).Take(20).Where(p => p is not null).Sum(p => p!.WeeklyWage);
 
-        // Bank balance setup (lines 1104–1110)
-        double bankBalance = 150_000 + rng.Next((int)(500_000.0 / divNum));
+        // Bank balance setup (lines 1104–1110), scaled by ground size relative to
+        // the division's typical capacity — a big-stadium club starts richer than
+        // a small-ground rival in the same division.
+        double capacityRatio = Math.Clamp(
+            (double)groundCapacity / Constants.FallbackGroundCapacity(division),
+            MinGroundCapacityRatio, MaxGroundCapacityRatio);
+        double bankBalance = (150_000 + rng.Next((int)(500_000.0 / divNum))) * capacityRatio;
 
         return new SquadGenerationResult(squad, teamMorale, playerWageBill, (int)bankBalance);
     }
@@ -87,7 +98,7 @@ public static class InitializationService
         // Temper 0–9 (lines 1088–1089)
         player.Temper = Math.Max(0, Math.Min(9, -3 + rng.Next(17)));
 
-        player.WeeklyWage    = CalculateWage(player.Skill, player.Age, rng);
+        player.WeeklyWage    = CalculateWage(player.Skill, player.Age, divNum, rng);
         player.ContractWeeks = 20 + rng.Next(56);
         player.Name          = NameGenerationService.GenerateName(rng);
 
@@ -99,20 +110,25 @@ public static class InitializationService
     }
 
     /// <summary>
-    /// Calculates the weekly wage for a player given their skill and age.
-    /// Extracted for testability — pure function aside from the RNG call.
+    /// Calculates the weekly wage for a player given their skill, age, and division.
+    /// Shared by squad generation and contract renewal (<see cref="ContractService.GetPlayerDemands"/>)
+    /// — extracted for testability aside from the RNG call.
     ///
-    /// BASIC lines 1077–1082:
+    /// BASIC lines 1077–1082 / 2610:
     ///   V(1,Y) = (1 + RND*20 + 50) * INT(H(Y)) [+ 1000 if star]
     ///   V(1,Y) = INT(V(1,Y) / HV)   where HV = MAX(1, age-27)
     ///   V(1,Y) = MAX(50, V(1,Y))
+    /// Deviation: the BASIC result is then scaled by Constants.WageScaleFactor and
+    /// Constants.DivisionWageMultiplier (see docs/specs/player-wage-scaling.md) — the
+    /// original formula alone produces wages far too low to read as a football economy.
     /// </summary>
-    internal static double CalculateWage(double skill, int age, Random rng)
+    internal static double CalculateWage(double skill, int age, int divisionNumber, Random rng)
     {
         int    ageDivisor = Math.Max(1, age - 27);
-        double wageBase   = (1 + rng.Next(20) + 50) * (int)skill
-                            + (skill > 9.6 ? 1_000 : 0);
-        return Math.Max(50, (int)(wageBase / ageDivisor));
+        double scale      = Constants.WageScaleFactor * Constants.DivisionWageMultiplier(divisionNumber);
+        double wageBase   = ((1 + rng.Next(20) + 50) * (int)skill
+                            + (skill > 9.6 ? 1_000 : 0)) * scale;
+        return Math.Max(50 * scale, (int)(wageBase / ageDivisor));
     }
 
     // ── Starting staff (subroutines 5601–5624) ────────────────────────────────
@@ -126,19 +142,20 @@ public static class InitializationService
     ///   NN = RND(0–3) scouts
     ///   NO = RND(0–4) youth players
     /// </summary>
-    public static StartingStaff GenerateStartingStaff(Random rng)
+    public static StartingStaff GenerateStartingStaff(Division division, Random rng)
     {
-        var coach  = StaffService.GenerateCoach(rng);
-        var physio = StaffService.GeneratePhysio(rng);
+        int divNum = (int)division;
+        var coach  = StaffService.GenerateCoach(divNum, rng);
+        var physio = StaffService.GeneratePhysio(divNum, rng);
 
         // 0–3 scouts (line 5580: NN=INT(RND*4); if NN=0 goto 5607)
         var scouts = Enumerable.Range(0, rng.Next(4))
-            .Select(_ => StaffService.GenerateScout(rng))
+            .Select(_ => StaffService.GenerateScout(divNum, rng))
             .ToList();
 
         // 0–4 youth players (subroutine 5623)
         var youthPlayers = Enumerable.Range(0, rng.Next(5))
-            .Select(_ => StaffService.GenerateYouthPlayer(rng))
+            .Select(_ => StaffService.GenerateYouthPlayer(divNum, rng))
             .ToList();
 
         return new StartingStaff(coach, physio, scouts, youthPlayers);
@@ -167,7 +184,9 @@ public static class InitializationService
         gameState.Club.Division       = division;
         gameState.Club.ManagerName    = managerName;
         gameState.Club.PointsPerWin   = 3;
-        gameState.Club.TicketPriceInPounds = 5 - (int)division;  // line 5620: nj=1+(4-AP)
+        // line 5620: nj=1+(4-AP); scaled by TicketPriceScaleFactor for a modern gate-money
+        // economy in line with the scaled-up wage bill (docs/specs/player-wage-scaling.md)
+        gameState.Club.TicketPriceInPounds = (5 - (int)division) * Constants.TicketPriceScaleFactor;
         SeedGround(gameState.Club, division, rng);
 
         SeasonService.RecalculateDivisionFinancials(gameState.Finances, division);
@@ -175,7 +194,7 @@ public static class InitializationService
         gameState.Finances.SharesOwned       = 100_000;
 
         // Generate starting squad and staff
-        var squadResult = GenerateStartingSquad(division, rng);
+        var squadResult = GenerateStartingSquad(division, gameState.Club.GroundCapacity, rng);
         gameState.Squad                    = squadResult.Squad;
         gameState.Club.TeamMorale          = squadResult.TeamMorale;
         gameState.Finances.PlayerWageBill  = squadResult.PlayerWageBill;
@@ -183,7 +202,7 @@ public static class InitializationService
 
         TeamData.Seed(gameState);
 
-        var staff = GenerateStartingStaff(rng);
+        var staff = GenerateStartingStaff(division, rng);
         gameState.Coach               = staff.Coach;
         gameState.Physio              = staff.Physio;
         gameState.Scouts              = staff.Scouts;
@@ -281,13 +300,13 @@ public static class InitializationService
         gameState.SeasonSlot = 1;
 
         // Generate a new squad and staff for the club
-        var squadResult = GenerateStartingSquad(newDivision, rng);
+        var squadResult = GenerateStartingSquad(newDivision, gameState.Club.GroundCapacity, rng);
         gameState.Squad                    = squadResult.Squad;
         gameState.Club.TeamMorale          = squadResult.TeamMorale;
         gameState.Finances.PlayerWageBill  = squadResult.PlayerWageBill;
         gameState.Finances.BankBalance     = squadResult.BankBalance;
 
-        var staff = GenerateStartingStaff(rng);
+        var staff = GenerateStartingStaff(newDivision, rng);
         gameState.Coach               = staff.Coach;
         gameState.Physio              = staff.Physio;
         gameState.Scouts              = staff.Scouts;
@@ -360,13 +379,13 @@ public static class InitializationService
         gameState.TransferMarket.IncomingOffers.Clear();
 
         // Generate a new squad and staff
-        var squadResult = GenerateStartingSquad(newDivision, rng);
+        var squadResult = GenerateStartingSquad(newDivision, gameState.Club.GroundCapacity, rng);
         gameState.Squad                   = squadResult.Squad;
         gameState.Club.TeamMorale         = squadResult.TeamMorale;
         gameState.Finances.PlayerWageBill = squadResult.PlayerWageBill;
         gameState.Finances.BankBalance    = squadResult.BankBalance;
 
-        var staff = GenerateStartingStaff(rng);
+        var staff = GenerateStartingStaff(newDivision, rng);
         gameState.Coach                  = staff.Coach;
         gameState.Physio                 = staff.Physio;
         gameState.Scouts                 = staff.Scouts;

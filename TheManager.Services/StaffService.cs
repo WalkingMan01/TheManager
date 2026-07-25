@@ -20,7 +20,7 @@ public static class StaffService
     public static Coach? HireCoach(Club club, Random rng)
     {
         if (club.HasCoach) return null;
-        var coach       = GenerateCoach(rng);
+        var coach       = GenerateCoach((int)club.Division, rng);
         club.HasCoach   = true;
         return coach;
     }
@@ -40,7 +40,7 @@ public static class StaffService
     public static Physio? HirePhysio(Club club, Random rng)
     {
         if (club.HasPhysio) return null;
-        var physio      = GeneratePhysio(rng);
+        var physio      = GeneratePhysio((int)club.Division, rng);
         club.HasPhysio  = true;
         return physio;
     }
@@ -60,7 +60,7 @@ public static class StaffService
     public static Scout? HireScout(Club club, List<Scout> scouts, Random rng)
     {
         if (club.ScoutCount >= 3) return null;
-        var scout = GenerateScout(rng);
+        var scout = GenerateScout((int)club.Division, rng);
         scouts.Add(scout);
         club.ScoutCount++;
         return scout;
@@ -97,7 +97,7 @@ public static class StaffService
     {
         if (club.YouthPlayerCount >= 7) return null;
 
-        var candidate = GenerateYouthPlayer(rng, position);
+        var candidate = GenerateYouthPlayer((int)club.Division, rng, position);
 
         youthTeam.Add(candidate);
         club.YouthPlayerCount++;
@@ -167,7 +167,10 @@ public static class StaffService
             SeasonGoals   = 0,
             Appearances   = 0,
             ContractWeeks = 50,
-            WeeklyWage    = 50,
+            // A promoted youth earns a real first-team wage from day one — the old
+            // hardcoded £50/wk bypassed CalculateWage entirely, leaving them earning
+            // pocket change beside teammates on thousands a week (docs/specs/player-wage-scaling.md).
+            WeeklyWage    = InitializationService.CalculateWage(skill, youth.Age, divNum, rng),
         };
 
         // Hidden ceiling: reuse the youth's rolled potential (Y(3,I), percent
@@ -238,11 +241,15 @@ public static class StaffService
     /// BASIC line 4159 (IB=1):
     ///   salary  = 50 + (100 + RND(0–99)) = 150–249
     ///   skill   = 1 + RND(0–98)          = 1–99 %
+    /// Deviation: salary scaled by Constants.WageScaleFactor and
+    /// Constants.DivisionWageMultiplier (see docs/specs/player-wage-scaling.md) —
+    /// unscaled, a coach's £150–249/wk was a rounding error next to the rescaled
+    /// player wage bill.
     /// </summary>
-    public static Coach GenerateCoach(Random rng) => new()
+    public static Coach GenerateCoach(int divisionNumber, Random rng) => new()
     {
         Name          = NameGenerationService.GenerateName(rng),
-        WeeklySalary  = 50 + 100 + rng.Next(100),   // 150–249
+        WeeklySalary  = (50 + 100 + rng.Next(100)) * StaffWageScale(divisionNumber),   // 150–249, scaled
         SkillPercent  = 1  + rng.Next(99)            // 1–99
     };
 
@@ -250,10 +257,10 @@ public static class StaffService
     /// Generates a new physio with random name, salary, and skill.
     /// Same formula as coach (IB=2, IB &lt; 6 condition holds).
     /// </summary>
-    public static Physio GeneratePhysio(Random rng) => new()
+    public static Physio GeneratePhysio(int divisionNumber, Random rng) => new()
     {
         Name          = NameGenerationService.GenerateName(rng),
-        WeeklySalary  = 50 + 100 + rng.Next(100),
+        WeeklySalary  = (50 + 100 + rng.Next(100)) * StaffWageScale(divisionNumber),
         SkillPercent  = 1  + rng.Next(99)
     };
 
@@ -271,10 +278,10 @@ public static class StaffService
     /// LookingForForm &lt;= divisionBonus (max 9), so 16–18 caused scouts to never find
     /// anyone. The correct range is 4–8 to match the 1–9 player-skill scale.
     /// </summary>
-    public static Scout GenerateScout(Random rng) => new()
+    public static Scout GenerateScout(int divisionNumber, Random rng) => new()
     {
         Name         = NameGenerationService.GenerateName(rng),
-        WeeklySalary = 50 + 100 + rng.Next(100),
+        WeeklySalary = (50 + 100 + rng.Next(100)) * StaffWageScale(divisionNumber),
         SkillPercent = 1  + rng.Next(99)
         // LookingForPosition and LookingForForm are set by the player after hiring
     };
@@ -291,13 +298,13 @@ public static class StaffService
     ///   age      = 16 + RND(0–1)
     ///   temper   = clamped(-3 + RND(0–16), 0, 9)
     /// </summary>
-    public static YouthPlayer GenerateYouthPlayer(Random rng, PlayerPosition? position = null)
+    public static YouthPlayer GenerateYouthPlayer(int divisionNumber, Random rng, PlayerPosition? position = null)
     {
         int rawTemper = -3 + rng.Next(17);
         return new YouthPlayer
         {
             Name                  = NameGenerationService.GenerateName(rng),
-            WeeklySalary          = 50,
+            WeeklySalary          = 50 * StaffWageScale(divisionNumber),
             SkillPercent          = rng.Next(60),             // Y(2,I+5)
             PotentialSkillPercent = 35 + rng.Next(65),        // Y(3,I+5)
             Position              = position ?? (PlayerPosition)(1 + rng.Next(4)),
@@ -305,6 +312,12 @@ public static class StaffService
             Temper                = Math.Max(0, Math.Min(9, rawTemper))
         };
     }
+
+    /// <summary>Shared staff-salary scale — same constants as player wages (see
+    /// docs/specs/player-wage-scaling.md), so a coach/physio/scout/youth stipend
+    /// stays proportionate to the division's player wage bill.</summary>
+    private static double StaffWageScale(int divisionNumber)
+        => Constants.WageScaleFactor * Constants.DivisionWageMultiplier(divisionNumber);
 
     // ── Weekly wage total for all staff ─────────────────────────────────────
 

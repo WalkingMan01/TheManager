@@ -54,6 +54,9 @@ public static class SeasonService
     /// BASIC lines 2403–2404:
     ///   prize = INT(50000 / division) / leaguePosition
     ///   Only awarded when finalLeaguePosition ≤ 3.
+    /// Deviation: scaled by Constants.WageScaleFactor and Constants.DivisionWageMultiplier
+    /// (see docs/specs/player-wage-scaling.md) — the unscaled prize (£50,000 for
+    /// winning Division One) had become trivial next to the rescaled wage bill.
     /// </summary>
     public static void AwardLeaguePrizeMoney(
         Finances finances,
@@ -62,7 +65,8 @@ public static class SeasonService
     {
         if (finalLeaguePosition > 3) return;
 
-        double prizeAmount    = (int)(50_000.0 / (int)division) / finalLeaguePosition;
+        double prizeAmount = (int)(50_000.0 / (int)division) / finalLeaguePosition;
+        prizeAmount        *= Constants.WageScaleFactor * Constants.DivisionWageMultiplier((int)division);
         finances.BankBalance += (int)prizeAmount;
     }
 
