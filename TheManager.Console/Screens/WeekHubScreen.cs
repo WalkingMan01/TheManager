@@ -13,11 +13,16 @@ internal static class WeekHubScreen
     {
         Ui.Header($"MATCHDAY {state.CurrentWeek}  ·  {state.Club.Name.Trim()}  ·  {Ui.DivisionName(state.Club.Division)}");
 
-        bool isEndOfSeason = match.MatchType == MatchType.EndOfSeason;
-        bool isRestDay     = match.MatchType == MatchType.NoFixture;
-        bool isCupDay      = match.MatchType == MatchType.FACup;
-        bool cupDrawKnown  = !string.IsNullOrWhiteSpace(match.OpponentName);
+        bool isEndOfSeason  = match.MatchType == MatchType.EndOfSeason;
+        bool isRestDay      = match.MatchType == MatchType.NoFixture;
+        bool isCupDay       = match.MatchType == MatchType.FACup;
+        bool isPlayoffDay   = match.MatchType == MatchType.Playoff;
+        bool cupDrawKnown   = !string.IsNullOrWhiteSpace(match.OpponentName);
 
+        // Note: by the time this screen runs, GameService.PreparePlayoffMatchday
+        // has already turned a play-off-bound club's end-of-season matchday into
+        // a real MatchType.Playoff fixture, so isEndOfSeason is only ever true
+        // here for a club whose season has genuinely finished.
         if (isEndOfSeason)
         {
             AnsiConsole.MarkupLine("  Season complete — process end of season to continue.");
@@ -40,6 +45,21 @@ internal static class WeekHubScreen
             }
             else
                 AnsiConsole.MarkupLine($"  FA CUP {roundName}{wembley}  [dim](no tie this round — rest day)[/]");
+        }
+        else if (isPlayoffDay)
+        {
+            string stageName = match.Week == Constants.PlayoffFinalMatchday ? "PLAY-OFF FINAL"
+                              : match.Week == Constants.PlayoffSemiFinalFirstLegMatchday ? "PLAY-OFF SEMI FINAL — 1ST LEG"
+                              : "PLAY-OFF SEMI FINAL — 2ND LEG";
+            string venue = match.Week == Constants.PlayoffFinalMatchday ? "[bold]WEMBLEY[/]"
+                         : match.IsHomeGame ? "[green]HOME[/]" : "AWAY";
+
+            string aggregate = "";
+            if (match.Week == Constants.PlayoffSemiFinalSecondLegMatchday
+                && state.Playoff.FirstLegOurScore.HasValue)
+                aggregate = $"  [dim](agg after leg 1: {state.Playoff.FirstLegOurScore}–{state.Playoff.FirstLegTheirScore})[/]";
+
+            AnsiConsole.MarkupLine($"  {stageName}:  [bold]{match.OpponentName.Trim()}[/]  ({venue}){aggregate}");
         }
         else
         {
@@ -132,6 +152,7 @@ internal static class WeekHubScreen
         MatchType.League            => "League",
         MatchType.LeagueCup         => "League Cup",
         MatchType.FACup             => "FA Cup",
+        MatchType.Playoff           => "Play-off",
         MatchType.EuropeanFirstLeg  => "Euro (1st leg)",
         MatchType.EuropeanSecondLeg => "Euro (2nd leg)",
         MatchType.EuropeanFriendly  => "Euro Friendly",

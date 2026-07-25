@@ -12,6 +12,10 @@ public class MatchResult
     public int    OurScore     { get; set; }
     public int    TheirScore   { get; set; }
 
+    /// <summary>The matchday this result was produced for — used to tell a two-legged
+    /// tie's second leg apart from its first (e.g. play-off semi-finals).</summary>
+    public int Week { get; set; }
+
     /// <summary>Actual match duration in minutes (90–93). Used to drive the UI clock.</summary>
     public int MatchLength { get; set; } = 90;
 

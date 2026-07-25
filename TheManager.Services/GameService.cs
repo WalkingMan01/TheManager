@@ -93,14 +93,43 @@ public class GameService
         scheduled.IsHomeGame        = tieIsHome;
     }
 
+    /// <summary>
+    /// On the end-of-season matchday, if the club finished in a play-off spot,
+    /// builds the play-off field and schedules leg 1 straight away — the
+    /// play-offs are still part of the season, so the fixture (and the normal
+    /// Check Match / Play Match options) should already be on the calendar
+    /// before the player acts, rather than being hidden behind a separate
+    /// "continue" gate. Idempotent; a no-op once the leg is scheduled, once
+    /// the play-off has been resolved silently (club not involved), or on any
+    /// matchday that already has its own fixture.
+    /// </summary>
+    public void PreparePlayoffMatchday()
+    {
+        var scheduled = FixtureSchedulerService.GetCurrentMatch(_gameState.CurrentWeek, _gameState.Fixtures);
+        if (scheduled.MatchType != MatchType.EndOfSeason) return;
+
+        LeagueService.Sort(_gameState.CurrentLeague, _gameState.Club.PointsPerWin);
+        _gameState.Club.LeaguePosition = Math.Max(1,
+            _gameState.CurrentLeague.Entries
+                .FindIndex(e => e.TeamName.Trim() == _gameState.Club.Name.Trim()) + 1);
+
+        SchedulePlayoffIfNeeded();
+    }
+
     public MatchResult PlayMatch()
     {
         var scheduled = FixtureSchedulerService.GetCurrentMatch(_gameState.CurrentWeek, _gameState.Fixtures);
 
         if (scheduled.MatchType == MatchType.EndOfSeason)
         {
-            RunEndOfSeason();
-            return new MatchResult { WasEndOfSeason = true };
+            bool seasonEnded = RunEndOfSeason();
+            if (seasonEnded)
+                return new MatchResult { WasEndOfSeason = true };
+
+            // The season isn't over — a play-off leg was just scheduled for this
+            // same matchday. Play it now instead of returning a blank result with
+            // no opponent; nothing (no tick, no match) happened on this call.
+            return PlayMatch();
         }
 
         if (scheduled.MatchType == MatchType.NoFixture)
@@ -137,6 +166,12 @@ public class GameService
             scheduled.OpponentTeamIndex = tieIsHome ? playerTie.AwayTeamIndex : playerTie.HomeTeamIndex;
             scheduled.IsHomeGame        = tieIsHome;
             neutralVenue                = CupService.IsNeutralVenue(cupRound);
+        }
+        else if (scheduled.MatchType == MatchType.Playoff)
+        {
+            // Opponent and venue were already resolved when this fixture was
+            // appended (leg 1 in RunEndOfSeason, leg 2/final later in this method).
+            neutralVenue = scheduled.Week == Constants.PlayoffFinalMatchday;
         }
 
         bool   isHome       = scheduled.IsHomeGame;
@@ -255,9 +290,28 @@ public class GameService
             }
         }
 
-        // ── Penalty shootout (drawn cup tie — replays are abstracted away) ────
+        // ── Penalty shootout (drawn cup tie / play-off — replays are abstracted away) ─
+        // Play-off leg 1 is never decisive on its own — no shootout there even if
+        // drawn. Leg 2 goes to a shootout only if the two-leg AGGREGATE is level
+        // (no extra time in the semi-final — straight to penalties); everywhere
+        // else (FA Cup rounds, the play-off final) a draw on the night decides it.
+        bool isPlayoffLeg1 = scheduled.MatchType == MatchType.Playoff
+            && scheduled.Week == Constants.PlayoffSemiFinalFirstLegMatchday;
+        bool isPlayoffLeg2 = scheduled.MatchType == MatchType.Playoff
+            && scheduled.Week == Constants.PlayoffSemiFinalSecondLegMatchday;
+
+        int aggregateOurs   = ourScore;
+        int aggregateTheirs = theirScore;
+        if (isPlayoffLeg2)
+        {
+            aggregateOurs   += _gameState.Playoff.FirstLegOurScore   ?? 0;
+            aggregateTheirs += _gameState.Playoff.FirstLegTheirScore ?? 0;
+        }
+
+        bool goesToShootoutIfLevel = isPlayoffLeg2 ? aggregateOurs == aggregateTheirs : ourScore == theirScore;
+
         PenaltyShootoutResult? shootout = null;
-        if (isCupWeek && ourScore == theirScore)
+        if (isCupWeek && !isPlayoffLeg1 && goesToShootoutIfLevel)
             shootout = PenaltyShootoutService.Run(
                 _gameState.Squad, opponentName, scheduled.OpponentRatings, _random);
 
@@ -265,6 +319,11 @@ public class GameService
         bool weDrew     = ourScore == theirScore && shootout == null;
         bool weLost     = !weWon && !weDrew;
         bool cleanSheet = theirScore == 0;
+
+        // Tie-advancement outcome for the semi-final (aggregate/shootout-based),
+        // distinct from weWon above (which reflects only this leg's own result —
+        // used for morale/skill, exactly like any other match).
+        bool tieWonByUs = isPlayoffLeg2 && (shootout != null ? shootout.WeWon : aggregateOurs > aggregateTheirs);
 
         // ── Post-match updates ────────────────────────────────────────────────
         PlayerService.ApplyPostMatchSkillChanges(_gameState.Squad, weWon, weLost, cleanSheet);
@@ -314,6 +373,13 @@ public class GameService
         scheduled.OurScore   = ourScore;
         scheduled.TheirScore = theirScore;
 
+        if (shootout != null)
+        {
+            scheduled.WonOnPenalties = true;
+            scheduled.OurPenalties   = shootout.OurScore;
+            scheduled.TheirPenalties = shootout.TheirScore;
+        }
+
         // ── Cup recording ─────────────────────────────────────────────────────
         List<CupFixture> cupResults = [];
         if (isCupWeek && playerTie != null)
@@ -328,10 +394,6 @@ public class GameService
                 playerTie.WonOnPenalties = true;
                 playerTie.HomePenalties  = tieIsHome ? shootout.OurScore   : shootout.TheirScore;
                 playerTie.AwayPenalties  = tieIsHome ? shootout.TheirScore : shootout.OurScore;
-
-                scheduled.WonOnPenalties = true;
-                scheduled.OurPenalties   = shootout.OurScore;
-                scheduled.TheirPenalties = shootout.TheirScore;
             }
 
             // Highest round reached; the exit round stays on record if we lost.
@@ -372,11 +434,71 @@ public class GameService
         // ── Wembley gate (semi-final and final: neutral venue, split 50/50) ───
         if (neutralVenue)
         {
-            double wembleyAttendance = cupRound == CupRound.Final ? 100_000 : 80_000;
+            bool isFinal = cupRound == CupRound.Final
+                || (scheduled.MatchType == MatchType.Playoff && scheduled.Week == Constants.PlayoffFinalMatchday);
+            double wembleyAttendance = isFinal ? 100_000 : 80_000;
             double ourGateShare      = wembleyAttendance * _gameState.Club.TicketPriceInPounds / 2;
             _gameState.Finances.BankBalance         += ourGateShare;
             _gameState.Finances.LastMatchAttendance  = wembleyAttendance;
             _gameState.Finances.LastMatchGateMoney   = ourGateShare;
+        }
+
+        // ── Play-off progression (leg 1 → leg 2 → final → season wrap-up) ─────
+        bool seasonWrappedThisMatch = false;
+        if (scheduled.MatchType == MatchType.Playoff)
+        {
+            if (scheduled.Week == Constants.PlayoffSemiFinalFirstLegMatchday)
+            {
+                _gameState.Playoff.FirstLegOurScore   = ourScore;
+                _gameState.Playoff.FirstLegTheirScore = theirScore;
+
+                var leg2 = new ScheduledMatch
+                {
+                    MatchType         = MatchType.Playoff,
+                    Week              = Constants.PlayoffSemiFinalSecondLegMatchday,
+                    OpponentName      = opponentName,
+                    OpponentTeamIndex = scheduled.OpponentTeamIndex,
+                    IsHomeGame        = _gameState.Playoff.PlayerIsHigherSeed
+                };
+                _gameState.Fixtures = _gameState.Fixtures.Append(leg2).ToList();
+            }
+            else if (scheduled.Week == Constants.PlayoffSemiFinalSecondLegMatchday)
+            {
+                if (tieWonByUs)
+                {
+                    var final = new ScheduledMatch
+                    {
+                        MatchType         = MatchType.Playoff,
+                        Week              = Constants.PlayoffFinalMatchday,
+                        OpponentName      = _gameState.Playoff.OtherSemiFinalWinner,
+                        OpponentTeamIndex = FindTeamIndex(_gameState.Playoff.OtherSemiFinalWinner),
+                        IsHomeGame        = false
+                    };
+                    _gameState.Fixtures = _gameState.Fixtures.Append(final).ToList();
+                }
+                else
+                {
+                    // Eliminated on aggregate/penalties — our division is unchanged.
+                    // Resolve the final between our conqueror and the other semi's
+                    // winner so the third promotion slot is still decided.
+                    var conquerorPosition = FindLeaguePositionInCurrentTable(opponentName);
+                    var otherWinnerPosition = FindLeaguePositionInCurrentTable(_gameState.Playoff.OtherSemiFinalWinner);
+                    var final = PlayoffService.SimulateTie(
+                        opponentName, conquerorPosition,
+                        _gameState.Playoff.OtherSemiFinalWinner, otherWinnerPosition,
+                        _random);
+
+                    _gameState.Playoff.Winner = final.Winner;
+                    FinishSeason();
+                    seasonWrappedThisMatch = true;
+                }
+            }
+            else if (scheduled.Week == Constants.PlayoffFinalMatchday)
+            {
+                _gameState.Playoff.Winner = weWon ? _gameState.Club.Name.Trim() : opponentName.Trim();
+                FinishSeason();
+                seasonWrappedThisMatch = true;
+            }
         }
 
         bool    managerSacked  = tick.Crisis.ManagerSacked;
@@ -394,6 +516,7 @@ public class GameService
             IsHomeGame      = isHome,
             OurScore        = ourScore,
             TheirScore      = theirScore,
+            Week            = scheduled.Week,
             MatchLength     = sim.MatchLength,
             Goals           = matchGoals,
             OtherFixtures   = otherFixtures,
@@ -410,7 +533,8 @@ public class GameService
             ManagerSacked   = managerSacked,
             SackingReason   = sackingReason,
             NewClubName     = newClubName,
-            NewClubDivision = newClubDiv
+            NewClubDivision = newClubDiv,
+            WasEndOfSeason  = seasonWrappedThisMatch
         };
     }
 
@@ -541,7 +665,15 @@ public class GameService
 
     // ── End-of-season ─────────────────────────────────────────────────────────
 
-    private void RunEndOfSeason()
+    /// <summary>
+    /// Fires when a matchday has no scheduled fixture. Computes the final league
+    /// position and, for Championship/League One/League Two, checks whether a
+    /// promotion play-off (docs/specs/promotion-playoffs.md) needs to be set up
+    /// before the season can be wrapped up. Returns true if the season actually
+    /// ended this call, false if a play-off leg 1 fixture was just scheduled
+    /// instead (the season isn't over yet — more matchdays are coming).
+    /// </summary>
+    private bool RunEndOfSeason()
     {
         // Compute the player's final league position and cache it on Club
         // so SeasonService.WrapUpSeason can read it.
@@ -550,8 +682,117 @@ public class GameService
             _gameState.CurrentLeague.Entries
                 .FindIndex(e => e.TeamName.Trim() == _gameState.Club.Name.Trim()) + 1);
 
-        // Season wrap-up: manager rating, prize money, share price, season history,
-        // promotion/relegation, youth aging, skill drift, state reset.
+        if (SchedulePlayoffIfNeeded())
+            return false; // leg 1 is now on the calendar; season isn't over yet
+
+        FinishSeason();
+        return true;
+    }
+
+    /// <summary>
+    /// If the player's club is in a play-off division (Championship/League
+    /// One/League Two), builds the play-off field from the final table. When the
+    /// player's club is one of the four contenders, resolves the other semi-final
+    /// silently and schedules leg 1 for the player to play, returning true.
+    /// Otherwise (Division One, or the player finished outside the play-off
+    /// field) the whole play-off — both semis and the final — is resolved
+    /// silently right here and this returns false, so <see cref="RunEndOfSeason"/>
+    /// wraps up the season immediately, exactly as before this feature existed.
+    /// </summary>
+    private bool SchedulePlayoffIfNeeded()
+    {
+        // Already prepared this season — don't re-simulate/re-append on a
+        // repeat call (e.g. PreparePlayoffMatchday running again before the
+        // player has acted, or RunEndOfSeason running after preparation
+        // already resolved things).
+        if (_gameState.Playoff.Active) return true;
+        if (_gameState.Playoff.IsResolved) return false;
+
+        var division = _gameState.Club.Division;
+        if (division == Division.One) return false;
+
+        int autoSpots = Constants.AutomaticPromotionSpots(division);
+        var table     = _gameState.CurrentLeague;
+        if (table.Entries.Count < autoSpots + 4) return false; // safety guard for a short/legacy table
+
+        var (higherA, lowerA, higherB, lowerB) = PlayoffService.BuildSemiFinals(table, autoSpots);
+        string ourName = _gameState.Club.Name.Trim();
+
+        bool inTieA = higherA.Equals(ourName, StringComparison.OrdinalIgnoreCase) || lowerA.Equals(ourName, StringComparison.OrdinalIgnoreCase);
+        bool inTieB = higherB.Equals(ourName, StringComparison.OrdinalIgnoreCase) || lowerB.Equals(ourName, StringComparison.OrdinalIgnoreCase);
+
+        if (!inTieA && !inTieB)
+        {
+            // Resolve the whole play-off silently — the player isn't involved.
+            var semiA = PlayoffService.SimulateTie(higherA, autoSpots + 1, lowerA, autoSpots + 4, _random);
+            var semiB = PlayoffService.SimulateTie(higherB, autoSpots + 2, lowerB, autoSpots + 3, _random);
+            var final = PlayoffService.SimulateTie(semiA.Winner, 0, semiB.Winner, 0, _random);
+            _gameState.Playoff.Winner = final.Winner;
+            return false;
+        }
+
+        bool   playerIsHigherSeed;
+        string opponent;
+        PlayoffTieResult otherSemi;
+
+        if (inTieA)
+        {
+            playerIsHigherSeed = higherA.Equals(ourName, StringComparison.OrdinalIgnoreCase);
+            opponent           = playerIsHigherSeed ? lowerA : higherA;
+            otherSemi          = PlayoffService.SimulateTie(higherB, autoSpots + 2, lowerB, autoSpots + 3, _random);
+        }
+        else
+        {
+            playerIsHigherSeed = higherB.Equals(ourName, StringComparison.OrdinalIgnoreCase);
+            opponent           = playerIsHigherSeed ? lowerB : higherB;
+            otherSemi          = PlayoffService.SimulateTie(higherA, autoSpots + 1, lowerA, autoSpots + 4, _random);
+        }
+
+        _gameState.Playoff.Active               = true;
+        _gameState.Playoff.PlayerInvolved       = true;
+        _gameState.Playoff.PlayerIsHigherSeed   = playerIsHigherSeed;
+        _gameState.Playoff.OtherSemiFinalWinner = otherSemi.Winner;
+
+        var leg1 = new ScheduledMatch
+        {
+            MatchType         = MatchType.Playoff,
+            Week              = Constants.PlayoffSemiFinalFirstLegMatchday,
+            OpponentName      = opponent,
+            OpponentTeamIndex = FindTeamIndex(opponent),
+            IsHomeGame        = !playerIsHigherSeed // lower seed hosts leg 1
+        };
+        _gameState.Fixtures = _gameState.Fixtures.Append(leg1).ToList();
+
+        return true;
+    }
+
+    /// <summary>Locates a team's index in <see cref="GameState.AllTeamNames"/> by name.</summary>
+    private int FindTeamIndex(string teamName)
+    {
+        string trimmed = teamName.Trim();
+        for (int i = 1; i < _gameState.AllTeamNames.Length; i++)
+            if (_gameState.AllTeamNames[i].Trim().Equals(trimmed, StringComparison.OrdinalIgnoreCase))
+                return i;
+        return 0;
+    }
+
+    /// <summary>Looks up a team's 1-based position in the current league table (mid-table fallback if not found).</summary>
+    private int FindLeaguePositionInCurrentTable(string teamName)
+    {
+        string trimmed = teamName.Trim();
+        int index = _gameState.CurrentLeague.Entries.FindIndex(
+            e => e.TeamName.Trim().Equals(trimmed, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 ? index + 1 : 10;
+    }
+
+    /// <summary>
+    /// Wraps up the completed season: manager rating, prize money, share price,
+    /// season history, promotion/relegation (including any play-off just
+    /// resolved), youth aging, skill drift, and full state reset for the new
+    /// season.
+    /// </summary>
+    private void FinishSeason()
+    {
         SeasonService.WrapUpSeason(_gameState, _random);
 
         // Cup round trackers on Club are reset separately — WrapUpSeason records

@@ -29,7 +29,7 @@ internal static class CheckMatchScreen
         AnsiConsole.WriteLine();
 
         var ourRatings = PlayerService.CalculateTeamRatings(state.Squad);
-        bool isCup     = match.MatchType is MatchType.LeagueCup or MatchType.FACup;
+        bool isCup     = match.MatchType is MatchType.LeagueCup or MatchType.FACup or MatchType.Playoff;
 
         if (match.OpponentRatings == null)
         {
@@ -83,6 +83,7 @@ internal static class CheckMatchScreen
         MatchType.League            => "League",
         MatchType.LeagueCup         => "League Cup",
         MatchType.FACup             => "FA Cup",
+        MatchType.Playoff           => "Play-off",
         MatchType.EuropeanFirstLeg  => "Euro (1st leg)",
         MatchType.EuropeanSecondLeg => "Euro (2nd leg)",
         MatchType.EuropeanFriendly  => "Euro Friendly",

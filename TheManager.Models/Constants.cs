@@ -22,9 +22,40 @@ public static class Constants
     /// </summary>
     public static readonly int[] FACupMatchdays = [12, 18, 24, 30, 36, 42, 48, 54];
 
+    /// <summary>Play-off semi-final, leg 1: the lower seed's home leg. First matchday
+    /// after the regular 54-matchday calendar. Only scheduled for clubs whose table
+    /// position calls for it. See docs/specs/promotion-playoffs.md.</summary>
+    public const int PlayoffSemiFinalFirstLegMatchday = SeasonMatchdays + 1; // 55
+
+    /// <summary>Play-off semi-final, leg 2: the higher seed's home leg (decisive —
+    /// aggregate score over 90 minutes, straight to penalties if still level; no
+    /// extra time).</summary>
+    public const int PlayoffSemiFinalSecondLegMatchday = SeasonMatchdays + 2; // 56
+
+    /// <summary>Play-off final matchday, at Wembley (neutral venue, single match,
+    /// extra time then penalties on a draw).</summary>
+    public const int PlayoffFinalMatchday = SeasonMatchdays + 3; // 57
+
     /// <summary>Returns the number of teams in the given division.</summary>
     public static int TeamCount(Division division)
         => division == Division.One ? 20 : 24;
+
+    /// <summary>
+    /// Teams promoted automatically (before the play-off), per division. League Two
+    /// promotes 3 automatically; Premier League has no promotion; Championship and
+    /// League One promote 2. See docs/specs/promotion-playoffs.md.
+    /// </summary>
+    public static int AutomaticPromotionSpots(Division division)
+        => division == Division.Four ? 3 : 2;
+
+    /// <summary>
+    /// Teams relegated at the end of the season, per division. League One relegates
+    /// 4 (to keep pace with League Two's 4 promoted places: 3 automatic + 1
+    /// play-off); every other division relegates 3. Division Four has nothing below
+    /// it to relegate to. See docs/specs/promotion-playoffs.md.
+    /// </summary>
+    public static int RelegationSpots(Division division)
+        => division == Division.Three ? 4 : 3;
 
     /// <summary>Returns the number of league fixtures in a full season for the given division.</summary>
     public static int FixturesInSeason(Division division)
