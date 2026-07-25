@@ -18,11 +18,27 @@ internal static class PlayMatchScreen
 
         string header = result.MatchType == MatchType.FACup
             ? $"FA CUP — {result.CupRoundName?.ToUpperInvariant()}{(result.IsNeutralVenue ? "  ·  WEMBLEY" : "")}"
+            : result.MatchType == MatchType.Playoff
+            ? (result.IsNeutralVenue ? "PLAY-OFF FINAL  ·  WEMBLEY" : "PLAY-OFF SEMI FINAL")
             : "MATCH RESULT";
         Ui.Header(header);
 
         string homeTeam = result.IsHomeGame ? result.OurClubName.Trim() : result.OpponentName.Trim();
         string awayTeam = result.IsHomeGame ? result.OpponentName.Trim() : result.OurClubName.Trim();
+
+        // Second leg of a two-legged tie (currently only play-off semi-finals):
+        // show the running aggregate alongside the live score. First-leg goals
+        // count towards whichever side is home/away in *this* leg, which can
+        // differ from leg 1 since the venue flips between legs.
+        bool isSecondLeg = result.MatchType == MatchType.Playoff
+            && result.Week == Constants.PlayoffSemiFinalSecondLegMatchday
+            && state.Playoff.FirstLegOurScore.HasValue;
+        int? aggHomeBase = isSecondLeg
+            ? (result.IsHomeGame ? state.Playoff.FirstLegOurScore : state.Playoff.FirstLegTheirScore)
+            : null;
+        int? aggAwayBase = isSecondLeg
+            ? (result.IsHomeGame ? state.Playoff.FirstLegTheirScore : state.Playoff.FirstLegOurScore)
+            : null;
 
         var sortedGoals = result.Goals.OrderBy(g => g.Minute).ToList();
         int homeScore   = 0;
@@ -30,7 +46,7 @@ internal static class PlayMatchScreen
         var events      = new List<(string Minute, string Text, string Color)>();
 
         // Animate the match clock, revealing goals as they happen
-        AnsiConsole.Live(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, "0'", events, result.IsHomeGame))
+        AnsiConsole.Live(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, "0'", events, result.IsHomeGame, aggHomeBase, aggAwayBase))
             .AutoClear(false)
             .Overflow(VerticalOverflow.Ellipsis)
             .Start(ctx =>
@@ -73,7 +89,7 @@ internal static class PlayMatchScreen
                         events.Add((minuteStr, Markup.Escape(text), color));
                     }
 
-                    ctx.UpdateTarget(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, minuteStr, events, result.IsHomeGame));
+                    ctx.UpdateTarget(MatchDisplay(homeTeam, awayTeam, homeScore, awayScore, minuteStr, events, result.IsHomeGame, aggHomeBase, aggAwayBase));
                     ctx.Refresh();
                 }
             });
@@ -446,7 +462,9 @@ internal static class PlayMatchScreen
         int homeScore, int awayScore,
         string minute,
         IReadOnlyList<(string Minute, string Text, string Color)> events,
-        bool isHomeGame)
+        bool isHomeGame,
+        int? aggHomeBase = null,
+        int? aggAwayBase = null)
     {
         string homeEsc = Markup.Escape(homeTeam);
         string awayEsc = Markup.Escape(awayTeam);
@@ -454,9 +472,15 @@ internal static class PlayMatchScreen
         string homeStyle = isHomeGame ? "bold green" : "bold";
         string awayStyle = isHomeGame ? "bold"       : "bold green";
 
+        // Two-legged tie: the aggregate goes well clear of the away team's name
+        // so it doesn't read as part of the scoreline.
+        string aggText = aggHomeBase.HasValue
+            ? $"     [dim](agg {aggHomeBase.Value + homeScore}–{aggAwayBase!.Value + awayScore})[/]"
+            : "";
+
         var rows = new List<IRenderable>
         {
-            new Markup($"  [{homeStyle}]{homeEsc}[/]   [bold white]{homeScore} – {awayScore}[/]   [{awayStyle}]{awayEsc}[/]"),
+            new Markup($"  [{homeStyle}]{homeEsc}[/]   [bold white]{homeScore} – {awayScore}[/]   [{awayStyle}]{awayEsc}[/]{aggText}"),
             new Markup($"  [dim]{minute}[/]"),
         };
 

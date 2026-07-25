@@ -98,41 +98,52 @@ public static class SeasonService
     /// <summary>
     /// Determines the player's new division based on final league position.
     ///
-    /// BASIC line 2416 (adapted for variable division sizes):
-    ///   Bottom 3 (position > teamCount−3) and division &lt; 4: relegated (division + 1)
-    ///   Top 3 (position &lt; 4) and division > 1:              promoted (division - 1)
+    /// Adapted from BASIC line 2416 (variable division sizes) to the real English
+    /// promotion/relegation structure — see docs/specs/promotion-playoffs.md:
+    ///   Bottom <see cref="Constants.RelegationSpots"/> and division &lt; 4: relegated (division + 1)
+    ///   Top <see cref="Constants.AutomaticPromotionSpots"/> and division > 1:   promoted automatically (division - 1)
+    ///   Next 4 places (the play-off field) and division > 1:                   promoted only if <paramref name="promotedViaPlayoff"/>
     ///   Otherwise: no change
-    ///
-    /// Division One has 20 teams: relegation threshold = position > 17.
-    /// Divisions Two–Four have 24 teams: relegation threshold = position > 21.
     /// </summary>
     public static Division DetermineNewDivision(
         int      finalLeaguePosition,
-        Division currentDivision)
+        Division currentDivision,
+        bool     promotedViaPlayoff = false)
     {
-        int divisionNumber = (int)currentDivision;
-        int teamCount      = Constants.TeamCount(currentDivision);
+        int divisionNumber  = (int)currentDivision;
+        int teamCount       = Constants.TeamCount(currentDivision);
+        int relegationSpots = Constants.RelegationSpots(currentDivision);
+        int autoSpots       = Constants.AutomaticPromotionSpots(currentDivision);
 
-        if (finalLeaguePosition > teamCount - 3 && divisionNumber < 4)
+        if (finalLeaguePosition > teamCount - relegationSpots && divisionNumber < 4)
             return (Division)(divisionNumber + 1);
 
-        if (finalLeaguePosition < 4 && divisionNumber > 1)
+        // Automatic promotion.
+        if (finalLeaguePosition <= autoSpots && divisionNumber > 1)
+            return (Division)(divisionNumber - 1);
+
+        // Play-off promotion: the 4 places below the automatic spots, only if won.
+        if (finalLeaguePosition > autoSpots && finalLeaguePosition <= autoSpots + 4
+            && divisionNumber > 1 && promotedViaPlayoff)
             return (Division)(divisionNumber - 1);
 
         return currentDivision;
     }
 
     /// <summary>
-    /// Swaps the bottom 3 teams of an upper division with the top 3 of the
+    /// Swaps the bottom teams of an upper division with the top teams of the
     /// lower division in the all-teams name array, simulating promotion and
-    /// relegation for the AI-controlled divisions.
+    /// relegation for the AI-controlled divisions (no real table, no simulated
+    /// play-off).
     ///
     /// BASIC subroutines 2421–2428 process divisions 2 and 4 (i.e. the boundary
-    /// between Div1/Div2 and Div3/Div4).
+    /// between Div1/Div2 and Div3/Div4). The swap count follows
+    /// <see cref="Constants.RelegationSpots"/> for the upper division — a flat 3
+    /// everywhere except the League One/League Two boundary
+    /// (<paramref name="upperDivisionNumber"/> == 3), which swaps 4 to match the
+    /// real rule there.
     ///
     /// Team indices: upper division ends at its range End; lower division starts at its range Start.
-    ///   Bottom 3 of upper div = (upperEnd-2, upperEnd-1, upperEnd)
-    ///   Top 3 of lower div    = (lowerStart, lowerStart+1, lowerStart+2)
     /// </summary>
     public static void SwapPromotedRelegatedTeams(
         string[] allTeamNames,
@@ -141,57 +152,55 @@ public static class SeasonService
         var (_, upperEnd)   = Constants.DivisionRange((Division)upperDivisionNumber);
         var (lowerStart, _) = Constants.DivisionRange((Division)(upperDivisionNumber + 1));
 
-        // Bottom of upper division (last 3 entries)
-        int upperBottom1 = upperEnd - 2;
-        int upperBottom2 = upperEnd - 1;
-        int upperBottom3 = upperEnd;
+        int swapCount = Constants.RelegationSpots((Division)upperDivisionNumber);
 
-        // Top of lower division (first 3 entries)
-        int lowerTop1 = lowerStart;
-        int lowerTop2 = lowerStart + 1;
-        int lowerTop3 = lowerStart + 2;
+        for (int i = 0; i < swapCount; i++)
+        {
+            int upperSlot = upperEnd - swapCount + 1 + i;
+            int lowerSlot = lowerStart + i;
 
-        // Swap (line 2428)
-        (allTeamNames[upperBottom1], allTeamNames[lowerTop1]) =
-            (allTeamNames[lowerTop1], allTeamNames[upperBottom1]);
-
-        (allTeamNames[upperBottom2], allTeamNames[lowerTop2]) =
-            (allTeamNames[lowerTop2], allTeamNames[upperBottom2]);
-
-        (allTeamNames[upperBottom3], allTeamNames[lowerTop3]) =
-            (allTeamNames[lowerTop3], allTeamNames[upperBottom3]);
+            (allTeamNames[upperSlot], allTeamNames[lowerSlot]) =
+                (allTeamNames[lowerSlot], allTeamNames[upperSlot]);
+        }
     }
 
     /// <summary>
-    /// Moves the actual top 3 and bottom 3 teams of <paramref name="table"/>
+    /// Moves the actual promoted and relegated teams of <paramref name="table"/>
     /// (the player's division, sorted by final standings) into the adjacent
     /// divisions, swapping each with a placeholder slot in that division.
     ///
     /// This applies promotion/relegation based on the real, simulated league
-    /// table rather than fixed array slots, so all 3 promoted and all 3
-    /// relegated teams — including the player's club, if applicable — move
-    /// together. Extends BASIC subroutines 2421–2428 to the division actually
-    /// being played.
+    /// table rather than fixed array slots, so every promoted and relegated team
+    /// — including the player's club, if applicable — moves together. The
+    /// automatic-promotion count and relegation count both vary by division (see
+    /// docs/specs/promotion-playoffs.md); the final promoted slot is always filled
+    /// by <paramref name="playoffWinner"/>, resolved before this is called.
+    /// Extends BASIC subroutines 2421–2428 to the division actually being played.
     /// </summary>
-    public static void PromoteAndRelegateActualTeams(string[] allTeamNames, LeagueTable table)
+    public static void PromoteAndRelegateActualTeams(string[] allTeamNames, LeagueTable table, string playoffWinner)
     {
-        int divisionNumber = (int)table.Division;
+        int divisionNumber  = (int)table.Division;
+        int autoSpots       = Constants.AutomaticPromotionSpots(table.Division);
+        int relegationSpots = Constants.RelegationSpots(table.Division);
 
-        // Promotion: top 3 move up, swapping with the bottom 3 slots of the
-        // division above.
+        // Promotion: automatic spots move up, plus the play-off winner in the
+        // final slot of the division above.
         if (divisionNumber > 1)
         {
             var (_, aboveEnd) = Constants.DivisionRange((Division)(divisionNumber - 1));
-            for (int i = 0; i < 3; i++)
-                SwapTeamIntoSlot(allTeamNames, table.Entries[i].TeamName, aboveEnd - i);
+            for (int i = 0; i < autoSpots; i++)
+                SwapTeamIntoSlot(allTeamNames, table.Entries[i].TeamName, aboveEnd - autoSpots + i);
+
+            if (!string.IsNullOrWhiteSpace(playoffWinner))
+                SwapTeamIntoSlot(allTeamNames, playoffWinner, aboveEnd);
         }
 
-        // Relegation: bottom 3 move down, swapping with the top 3 slots of the
+        // Relegation: bottom teams move down, swapping with the top slots of the
         // division below.
         if (divisionNumber < 4)
         {
             var (belowStart, _) = Constants.DivisionRange((Division)(divisionNumber + 1));
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < relegationSpots; i++)
                 SwapTeamIntoSlot(allTeamNames, table.Entries[table.Entries.Count - 1 - i].TeamName, belowStart + i);
         }
     }
@@ -352,14 +361,18 @@ public static class SeasonService
         };
         RecordSeasonAndRoll(gameState.SeasonHistory, completedRecord);
 
-        // 5. Promotion / relegation for the player's club
-        Division newDivision = DetermineNewDivision(club.LeaguePosition, club.Division);
+        // 5. Promotion / relegation for the player's club, accounting for the
+        // play-off (docs/specs/promotion-playoffs.md), already resolved by now
+        // regardless of whether the player took part in it.
+        bool promotedViaPlayoff = !string.IsNullOrWhiteSpace(gameState.Playoff.Winner)
+            && club.Name.Trim().Equals(gameState.Playoff.Winner.Trim(), StringComparison.OrdinalIgnoreCase);
+        Division newDivision = DetermineNewDivision(club.LeaguePosition, club.Division, promotedViaPlayoff);
         club.Division        = newDivision;
 
-        // 6. Move the actual top 3 / bottom 3 of the division just played
-        // (including the player's club, if applicable) into the adjacent
+        // 6. Move the actual promoted / relegated teams of the division just
+        // played (including the player's club, if applicable) into the adjacent
         // divisions.
-        PromoteAndRelegateActualTeams(gameState.AllTeamNames, gameState.CurrentLeague);
+        PromoteAndRelegateActualTeams(gameState.AllTeamNames, gameState.CurrentLeague, gameState.Playoff.Winner);
 
         // 6b. Shuffle AI teams across whichever Div1/2 or Div3/4 boundary the
         // player's division did not touch — step 6 already handled the other.
@@ -382,6 +395,7 @@ public static class SeasonService
         gameState.FixturesPlayed         = 0;
         gameState.CurrentMatch           = null;
         gameState.InEuropeanFriendlyTour = false;
+        gameState.Playoff                = new PlayoffState();
         RecalculateDivisionFinancials(finances, newDivision);
 
         gameState.SeasonsPlayed++;

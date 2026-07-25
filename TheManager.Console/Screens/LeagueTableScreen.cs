@@ -22,11 +22,30 @@ internal static class LeagueTableScreen
             .AddColumn(new TableColumn("[bold]Pts[/]").RightAligned());
 
         string ourName = state.Club.Name.Trim();
-        int total = state.CurrentLeague.Entries.Count;
+        int total     = state.CurrentLeague.Entries.Count;
+        var division  = state.CurrentLeague.Division;
+
+        // Promotion (automatic spots, then the 4-team play-off field) and
+        // relegation boundaries, per docs/specs/promotion-playoffs.md. Premier
+        // League has no promotion; League Two has no relegation (nothing below it).
+        bool hasPromotion  = division != Division.One;
+        bool hasRelegation = division != Division.Four;
+        int  autoSpots     = hasPromotion  ? Constants.AutomaticPromotionSpots(division) : 0;
+        int  relegationSpots = hasRelegation ? Constants.RelegationSpots(division)       : 0;
+
+        var dividerBeforePosition = new HashSet<int>();
+        if (hasPromotion)
+        {
+            dividerBeforePosition.Add(autoSpots + 1);     // end of automatic promotion
+            dividerBeforePosition.Add(autoSpots + 4 + 1); // end of the play-off field
+        }
+        if (hasRelegation && relegationSpots > 0)
+            dividerBeforePosition.Add(total - relegationSpots + 1);
+
         int pos = 1;
         foreach (var entry in state.CurrentLeague.Entries)
         {
-            if (total >= 7 && (pos == 4 || pos == total - 2))
+            if (dividerBeforePosition.Contains(pos))
             {
                 AddDivider(table);
             }
