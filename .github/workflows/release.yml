@@ -56,13 +56,20 @@ jobs:
             echo "skip=false" >> $env:GITHUB_OUTPUT
           }
 
+      # Mirrors TheManager.Console/Properties/PublishProfiles/FolderProfile.pubxml
+      # (the local single-exe publish profile) rather than that file directly,
+      # since its PublishDir is a hardcoded local path.
       - name: Publish Console
         if: steps.tag.outputs.skip == 'false'
-        run: dotnet publish TheManager.Console -c Release -o publish/console
+        run: >
+          dotnet publish TheManager.Console -c Release
+          -r win-x86 --self-contained true
+          -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:PublishTrimmed=false
+          -o publish/console
 
       - name: Zip Console build
         if: steps.tag.outputs.skip == 'false'
-        run: Compress-Archive -Path publish/console/* -DestinationPath TheManager-${{ steps.tag.outputs.name }}.zip
+        run: Compress-Archive -Path publish/console/TheManager.exe -DestinationPath TheManager-${{ steps.tag.outputs.name }}.zip
 
       - name: Create GitHub Release
         if: steps.tag.outputs.skip == 'false'
