@@ -16,6 +16,11 @@ internal static class CheckMatchScreen
         if (match.MatchType == MatchType.NoFixture || string.IsNullOrWhiteSpace(match.OpponentName))
         {
             AnsiConsole.MarkupLine("  [dim]No fixture to check this matchday.[/]");
+            if (match.MatchType == MatchType.FACup)
+            {
+                AnsiConsole.WriteLine();
+                ShowOtherRoundFixtures(state);
+            }
             Ui.Pause();
             return;
         }
@@ -67,7 +72,44 @@ internal static class CheckMatchScreen
             weAreHome ? match.OpponentRatings.AttackRating     : ourRatings.AttackRating);
 
         AnsiConsole.Write(table);
+
+        if (match.MatchType == MatchType.FACup)
+        {
+            AnsiConsole.WriteLine();
+            ShowOtherRoundFixtures(state);
+        }
+
         Ui.Pause();
+    }
+
+    /// <summary>Lists the other ties drawn in this FA Cup round, alongside our own.</summary>
+    private static void ShowOtherRoundFixtures(GameState state)
+    {
+        string ourName = state.Club.Name.Trim();
+        var otherTies = state.FACup.CurrentRoundFixtures
+            .Where(t => !t.HomeTeam.Trim().Equals(ourName, StringComparison.OrdinalIgnoreCase)
+                     && !t.AwayTeam.Trim().Equals(ourName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (otherTies.Count == 0) return;
+
+        AnsiConsole.MarkupLine("  [bold dim]OTHER FIXTURES THIS ROUND[/]");
+        AnsiConsole.WriteLine();
+
+        var fixturesTable = new Table()
+            .Border(TableBorder.None)
+            .HideHeaders()
+            .AddColumn(new TableColumn("").RightAligned())
+            .AddColumn(new TableColumn("").Centered().Width(3))
+            .AddColumn(new TableColumn(""));
+
+        foreach (var tie in otherTies)
+            fixturesTable.AddRow(
+                $"[dim]{Markup.Escape(tie.HomeTeam.Trim())}[/]",
+                "[dim]v[/]",
+                $"[dim]{Markup.Escape(tie.AwayTeam.Trim())}[/]");
+
+        AnsiConsole.Write(fixturesTable);
     }
 
     private static void AddRatingRow(Table table, string label, int left, int right)
