@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>TheManager.ConsoleApp</RootNamespace>
+    <AssemblyName>TheManager</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Spectre.Console" Version="0.55.2" />
