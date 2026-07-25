@@ -90,6 +90,10 @@ public class GameState
     public CupCompetition LeagueCup { get; set; } = new() { Type = CupType.LeagueCup };
     public CupCompetition FACup     { get; set; } = new() { Type = CupType.FACup };
 
+    /// <summary>State of the current season's promotion play-off (Divisions Two–Four
+    /// only). Reset at the start of every season. See docs/specs/promotion-playoffs.md.</summary>
+    public PlayoffState Playoff { get; set; } = new();
+
     /// <summary>
     /// Active European competition. Null if the club is not in Europe.
     /// </summary>

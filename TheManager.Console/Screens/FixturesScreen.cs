@@ -75,6 +75,14 @@ internal static class FixturesScreen
             return $"FA Cup {CupService.RoundDisplayName(round)} (draw pending)";
         }
 
+        if (fixture.MatchType == MatchType.Playoff)
+        {
+            string prefix = fixture.Week == Constants.PlayoffFinalMatchday            ? "Final: "
+                           : fixture.Week == Constants.PlayoffSemiFinalFirstLegMatchday ? "SF 1st leg: "
+                           : "SF 2nd leg: ";
+            return $"{prefix}{Markup.Escape(fixture.OpponentName.Trim())}";
+        }
+
         return Markup.Escape(fixture.OpponentName.Trim());
     }
 
@@ -85,6 +93,9 @@ internal static class FixturesScreen
 
         if (fixture.MatchType == MatchType.FACup
             && CupService.IsNeutralVenue(WeekHubScreen.CupRoundForMatchday(fixture.Week)))
+            return "N";
+
+        if (fixture.MatchType == MatchType.Playoff && fixture.Week == Constants.PlayoffFinalMatchday)
             return "N";
 
         return fixture.IsHomeGame ? "H" : "A";
@@ -121,6 +132,7 @@ internal static class FixturesScreen
         MatchType.League    => "League",
         MatchType.LeagueCup => "LC",
         MatchType.FACup     => "FA",
+        MatchType.Playoff   => "PO",
         MatchType.NoFixture => "[dim]—[/]",
         _                   => type.ToString()
     };

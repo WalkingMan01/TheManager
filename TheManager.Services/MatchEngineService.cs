@@ -291,6 +291,7 @@ public class MatchEngineService
             Math.Min(input.OpponentAttack, input.OpponentMid)
             - input.OurDefence / 2
             - (input.OurDefence == input.OurMid && input.OurMid == input.OurAttack ?  1 : 0)
+            + (!input.IsHomeGame                                     ?  1 : 0)
             + (opponentMoraleRoll == 1 && input.OpponentMorale > 80 ?  1 : 0)
             - (opponentMoraleRoll == 3 && input.OpponentMorale < 30 ?  1 : 0)
             - (input.OurTemper - input.OpponentTemper > 29          ?  1 : 0));
