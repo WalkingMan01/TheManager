@@ -29,6 +29,7 @@ internal static class TeamSelectionScreen
         var teamName = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title("[bold]Select your club:[/]")
+                .PageSize(teams.Count)
                 .AddChoices(teams));
 
         AnsiConsole.WriteLine();

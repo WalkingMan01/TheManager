@@ -71,7 +71,10 @@ public static class FinancialCrisisService
         }
 
         // ── 3. Solvency check (line 5423: IF AI>-1 THEN 5439) ─────────────────
-        if (finances.BankBalance >= 0)
+        // Deviation: the original triggers the instant AI<0. Here the club may
+        // run a negative balance up to its division's overdraft ceiling
+        // (Constants.OverdraftScaleFactor) before the rescue sequence fires.
+        if (finances.BankBalance >= -finances.OverdraftMaximum)
             return new CrisisResult(CrisisOutcome.NoAction);
 
         // ── 4. Emergency rescue sequence ──────────────────────────────────────

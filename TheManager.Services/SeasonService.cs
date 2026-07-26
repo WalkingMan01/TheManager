@@ -311,12 +311,19 @@ public static class SeasonService
     /// BASIC subroutine 23000 (line 4673):
     ///   overdraftMaximum = INT(310000 / division) - (division * 10000)
     ///   overdraftAvailable = overdraftMaximum - loanOutstanding
+    ///
+    /// Deviation: scaled by <see cref="Constants.OverdraftScaleFactor"/> so the
+    /// ceiling is large enough to actually be used as a running negative balance
+    /// (see <see cref="FinancialCrisisService.Evaluate"/>) rather than being
+    /// consumed instantly as a one-off emergency loan.
     /// </summary>
     public static void RecalculateDivisionFinancials(Finances finances, Division division)
     {
-        double newOverdraftCeiling       = (int)(310_000.0 / (int)division) - ((int)division * 10_000);
+        double newOverdraftCeiling       = ((int)(310_000.0 / (int)division) - ((int)division * 10_000))
+                                          * Constants.OverdraftScaleFactor;
         finances.OverdraftMaximum        = newOverdraftCeiling;
         finances.OverdraftAvailable      = Math.Max(0, newOverdraftCeiling - finances.LoanOutstanding);
+        finances.VatPaidThisSeason       = false;
     }
 
     // ── Full season wrap-up ───────────────────────────────────────────────────

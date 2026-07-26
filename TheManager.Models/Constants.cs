@@ -16,6 +16,13 @@ public static class Constants
     public const int SeasonMatchdays = 54;
 
     /// <summary>
+    /// Width of the end-of-season window (in matchdays) during which the VAT bill
+    /// may fire — see FinanceService.CalculateWeeklyReport (in TheManager.Services).
+    /// A matchday counts if it falls on or after <c>SeasonMatchdays - VatBillWindowWeeks + 1</c>.
+    /// </summary>
+    public const int VatBillWindowWeeks = 5;
+
+    /// <summary>
     /// FA Cup matchdays: eight rounds, evenly spaced, final on the season's last
     /// matchday. R1=12, R2=18, R3=24, R4=30, R5=36, QF=42, SF=48, Final=54.
     /// Replaces the CI = 16,23,…,58 cup slots in FOOT.BAS.
@@ -100,6 +107,25 @@ public static class Constants
         _              => 8_000
     };
 
+    /// <summary>Lower clamp for <see cref="GroundCapacityRatio"/> — a tiny ground can't
+    /// shrink money below half of the division-typical figure.</summary>
+    public const double MinGroundCapacityRatio = 0.5;
+
+    /// <summary>Upper clamp for <see cref="GroundCapacityRatio"/> — a huge ground can't
+    /// inflate money past 2.5x the division-typical figure.</summary>
+    public const double MaxGroundCapacityRatio = 2.5;
+
+    /// <summary>
+    /// How large a club's ground is relative to a typical club in its division,
+    /// clamped to [<see cref="MinGroundCapacityRatio"/>, <see cref="MaxGroundCapacityRatio"/>].
+    /// Used to scale money that should track stadium size (starting bank balance,
+    /// sponsorship income) so a big-stadium club earns more than a small-ground
+    /// rival in the same division.
+    /// </summary>
+    public static double GroundCapacityRatio(int groundCapacity, Division division) => Math.Clamp(
+        (double)groundCapacity / FallbackGroundCapacity(division),
+        MinGroundCapacityRatio, MaxGroundCapacityRatio);
+
     /// <summary>
     /// Returns the inclusive [Start, End] team-index range within AllTeamNames for the given division.
     /// Div 1 = [1–20], Div 2 = [21–44], Div 3 = [45–68], Div 4 = [69–92].
@@ -164,4 +190,57 @@ public static class Constants
     /// money a wide division-based spread on its own.
     /// </summary>
     public const double TicketPriceScaleFactor = 12.0;
+
+    // ── Overdraft (docs/specs/… — deviation from FOOT.BAS) ────────────────────
+
+    /// <summary>
+    /// Multiplier applied to the FOOT.BAS overdraft ceiling formula
+    /// (<c>INT(310,000/Division) − Division×10,000</c>), so clubs can carry a
+    /// genuinely usable negative <see cref="Finances.BankBalance"/> instead of the
+    /// financial crisis rescue firing the instant it dips below zero. Used by
+    /// SeasonService.RecalculateDivisionFinancials and
+    /// FinancialCrisisService.Evaluate (both in TheManager.Services).
+    /// </summary>
+    public const double OverdraftScaleFactor = 50.0;
+
+    /// <summary>
+    /// The FOOT.BAS overdraft ceiling formula (<c>INT(310,000/Division) − Division×10,000</c>)
+    /// with no scaling applied — used as the base for weekly running costs, which
+    /// should stay at the original game's scale even though
+    /// <see cref="Finances.OverdraftMaximum"/> itself is now scaled up by
+    /// <see cref="OverdraftScaleFactor"/> for the debt-cushion feature. See
+    /// FinanceService.CalculateWeeklyReport (in TheManager.Services).
+    /// </summary>
+    public static double BaseFinancialCeiling(int divisionNumber)
+        => (int)(310_000.0 / divisionNumber) - (divisionNumber * 10_000);
+
+    /// <summary>
+    /// Multiplier widening running costs' week-to-week swing beyond the original
+    /// FOOT.BAS RA formula, reflecting unplanned costs (repairs, overtime, etc.)
+    /// that need covering — kept deliberately separate from sponsorship, which is
+    /// a stable flat weekly amount. See FinanceService.CalculateWeeklyReport
+    /// (in TheManager.Services).
+    /// </summary>
+    public const double RunningCostsVarianceScaleFactor = 3.0;
+
+    // ── Sponsorship (docs/specs/… — deviation from FOOT.BAS) ──────────────────
+
+    /// <summary>
+    /// Base weekly sponsorship figure, before <see cref="DivisionWageMultiplier"/>
+    /// and <see cref="GroundCapacityRatio"/> are applied. Deliberately independent
+    /// of <see cref="BaseFinancialCeiling"/> (running costs' base) so changing one
+    /// does not move the other — sponsorship is a stable flat weekly amount, with
+    /// no randomness and no dependency on running costs. See
+    /// FinanceService.CalculateWeeklyReport (in TheManager.Services).
+    /// </summary>
+    public const double SponsorshipWeeklyBase = 7_500.0;
+
+    // ── Starting bank balance (docs/specs/… — deviation from FOOT.BAS) ────────
+
+    /// <summary>
+    /// Base starting bank balance for a new club, before <see cref="DivisionWageMultiplier"/>
+    /// and ground-capacity scaling are applied. Used by
+    /// InitializationService.GenerateStartingSquad (in TheManager.Services).
+    /// </summary>
+    public const double StartingBankBalanceBase = 1_500_000.0;
 }

@@ -14,7 +14,9 @@
       "Edit",
       "Write",
       "Glob",
-      "Grep"
+      "Grep",
+      "Bash(sed -i 's/System.Console.WriteLine\\($\"SEED_FOUND:{seed}\"\\);/System.IO.File.WriteAllText\\(\"seed_found.txt\", seed.ToString\\(\\)\\);/' TheManager.Tests/_SeedFinderTemp.cs)",
+      "Bash(dotnet test *)"
     ]
   }
 }

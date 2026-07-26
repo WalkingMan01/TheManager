@@ -60,9 +60,6 @@ public static class WeeklyTickService
         gameState.Finances.LastMatchAttendance = attendance;
         gameState.Finances.LastMatchGateMoney  = gateMoney;
 
-        bool hasLongServingPlayer = Enumerable.Range(1, 20)
-            .Any(i => (gameState.Squad[i]?.GamesPlayed ?? 0) > 400);
-
         int    divNum     = (int)gameState.Club.Division;
         double staffWages = StaffService.TotalStaffWageBill(gameState.Coach, gameState.Physio, gameState.Scouts, gameState.YouthTeam);
 
@@ -76,8 +73,9 @@ public static class WeeklyTickService
             WonLeagueMatch           = ctx.WonLeagueMatch,
             WonCupMatch              = ctx.WonCupMatch,
             IsManagerOfMonthEligible = false,
-            HasLongServingPlayer     = hasLongServingPlayer,
-            Division                 = divNum
+            Division                 = divNum,
+            GroundCapacity           = gameState.Club.GroundCapacity,
+            CurrentWeek              = gameState.CurrentWeek
         };
 
         int leaguePosition = Math.Max(1,

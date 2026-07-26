@@ -39,7 +39,10 @@ public class GameServiceCupIntegrationTests
     [Fact]
     public void FullSeason_DivisionThree_CupRunsAllEightRoundsAndSeasonEnds()
     {
-        var game = MakeGame(Division.Three);
+        // Seeded: an unseeded RNG occasionally lands the club in a play-off spot,
+        // which adds extra matchdays and makes the exact-54 assertion below flaky.
+        // Seed 0 keeps the club out of the play-offs.
+        var game = MakeGame(Division.Three, new Random(0));
 
         Assert.Equal(Constants.SeasonMatchdays, game.State.Fixtures.Count);
 

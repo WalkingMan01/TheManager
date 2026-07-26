@@ -54,13 +54,17 @@ public static class InitializationService
         double playerWageBill =
             squad.Skip(1).Take(20).Where(p => p is not null).Sum(p => p!.WeeklyWage);
 
-        // Bank balance setup (lines 1104–1110), scaled by ground size relative to
-        // the division's typical capacity — a big-stadium club starts richer than
-        // a small-ground rival in the same division.
+        // Bank balance setup (lines 1104–1110).
+        // Deviation: replaces the original flat-base/shrinking-random-range formula
+        // with StartingBankBalanceBase scaled by the same DivisionWageMultiplier used
+        // for wages and TV income, plus a ground-capacity ratio — a big-stadium club
+        // starts richer than a small-ground rival in the same division.
         double capacityRatio = Math.Clamp(
             (double)groundCapacity / Constants.FallbackGroundCapacity(division),
             MinGroundCapacityRatio, MaxGroundCapacityRatio);
-        double bankBalance = (150_000 + rng.Next((int)(500_000.0 / divNum))) * capacityRatio;
+        double bankBalance = Constants.StartingBankBalanceBase
+                            * Constants.DivisionWageMultiplier(divNum)
+                            * capacityRatio;
 
         return new SquadGenerationResult(squad, teamMorale, playerWageBill, (int)bankBalance);
     }

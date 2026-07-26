@@ -104,6 +104,13 @@ public class Finances
     /// <summary>Net profit or loss for the current week. Corresponds to JR.</summary>
     public double WeeklyProfit { get; set; }
 
+    /// <summary>
+    /// True once the VAT bill has fired this season. VAT is only rolled for in the
+    /// last few weeks of the season and at most once — reset to false on season
+    /// rollover by SeasonService.RecalculateDivisionFinancials.
+    /// </summary>
+    public bool VatPaidThisSeason { get; set; }
+
     // ── Insurance ─────────────────────────────────────────────────────────────
 
     /// <summary>

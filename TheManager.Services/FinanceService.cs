@@ -33,16 +33,23 @@ public static class FinanceService
         report.PlayerWageBill = input.PlayerWageBill;
 
         // ── General running costs (lines 2561–2562) ──────────────────────────
-        // FT = co/4  (sponsorship payment base)
         // FP = co/31 (base running costs, then randomised upward)
         // FQ = co/59, FR = co/99 (variance factors)
-        double sponsorshipBase         = finances.OverdraftMaximum / 4.0;
-        double runningCostsBase        = finances.OverdraftMaximum / 31.0;
-        double runningCostMidFactor    = finances.OverdraftMaximum / 59.0;
-        double runningCostLowFactor    = finances.OverdraftMaximum / 99.0;
-        double costVariance            = runningCostLowFactor
+        // Deviation: co here is Constants.BaseFinancialCeiling(division), the
+        // unscaled FOOT.BAS ceiling formula — not finances.OverdraftMaximum, which
+        // is deliberately inflated by Constants.OverdraftScaleFactor for the
+        // debt-cushion feature. The random swing (RA) is further widened by
+        // Constants.RunningCostsVarianceScaleFactor so weekly costs move a lot more
+        // than sponsorship, which is a flat, independent, stable payment (below).
+        double financialCeiling        = Constants.BaseFinancialCeiling(input.Division);
+        double groundCapacityRatio     = Constants.GroundCapacityRatio(input.GroundCapacity, (Division)input.Division);
+        double runningCostsBase        = financialCeiling / 31.0;
+        double runningCostMidFactor    = financialCeiling / 59.0;
+        double runningCostLowFactor    = financialCeiling / 99.0;
+        double costVariance            = (runningCostLowFactor
                                        + rng.NextDouble() * runningCostMidFactor
-                                       + runningCostsBase / input.Division;
+                                       + runningCostsBase / input.Division)
+                                       * Constants.RunningCostsVarianceScaleFactor;
         double weeklyRunningCosts      = (int)(runningCostsBase + costVariance);
 
         double bankInterestEarned      = (int)(finances.BankBalance * 0.3 / 100);
@@ -65,18 +72,6 @@ public static class FinanceService
             weeklyBalance       += input.LotteryIncome;
         }
 
-        // ── Long-service sponsorship (lines 2506–2508) ────────────────────────
-        // Fires when a player has >400 games played (ABS(x(I))>400). The
-        // original called this a testimonial; it is now reported as sponsorship
-        // income alongside the random sponsor payment below.
-        if (input.HasLongServingPlayer)
-        {
-            // Amount = INT(FT - FP) = sponsorshipBase - runningCostsBase
-            double longServiceAmount = (int)(sponsorshipBase - runningCostsBase);
-            report.SponsorPayment    += longServiceAmount;
-            weeklyBalance            += longServiceAmount;
-        }
-
         // ── Insurance payout (line 2509) ──────────────────────────────────────
         if (finances.InsuranceWeeksRemaining > 0 && input.InsurancePayout > 0)
         {
@@ -96,14 +91,16 @@ public static class FinanceService
             weeklyBalance      -= report.CupBonusPaid;
         }
 
-        // ── Sponsor payment (lines 2516–2517: random 1/35 chance, = FT-FP) ───
-        int sponsorRoll = 1 + rng.Next(35);
-        if (sponsorRoll == 3)
-        {
-            double sponsorPayment  = (int)(sponsorshipBase - runningCostsBase);
-            report.SponsorPayment += sponsorPayment;
-            weeklyBalance         += sponsorPayment;
-        }
+        // ── Sponsor payment (lines 2516–2517) ─────────────────────────────────
+        // Deviation: paid every week rather than on a 1/35 roll, on an independent
+        // base (Constants.SponsorshipWeeklyBase) scaled by division and ground
+        // capacity — no randomness, and no dependency on running costs, so a
+        // change to one never moves the other.
+        double sponsorPayment  = (int)(Constants.SponsorshipWeeklyBase
+                                * Constants.DivisionWageMultiplier(input.Division)
+                                * groundCapacityRatio);
+        report.SponsorPayment += sponsorPayment;
+        weeklyBalance         += sponsorPayment;
 
         // ── TV broadcast income (lines 2518) — every 5+ weeks, scaled by division
         // (docs/specs/player-wage-scaling.md) using the same multiplier as player
@@ -160,19 +157,14 @@ public static class FinanceService
         }
 
         // ── VAT returns (line 2546: 1/15 chance, 15% of balance) ─────────────
-        if (rng.Next(15) == 0 && finances.BankBalance > 0)
+        // Deviation: only rolled in the last Constants.VatBillWindowWeeks matchdays
+        // of the season, and at most once per season (finances.VatPaidThisSeason).
+        bool inVatWindow = input.CurrentWeek > Constants.SeasonMatchdays - Constants.VatBillWindowWeeks;
+        if (!finances.VatPaidThisSeason && inVatWindow && rng.Next(15) == 0 && finances.BankBalance > 0)
         {
-            report.VatBill = (int)(finances.BankBalance / 100) * 15;
-            weeklyBalance -= report.VatBill;
-        }
-
-        // ── Directors withdraw (line l2547: triggered by large balance) ───────
-        if ((rng.Next(9) == 0 && finances.BankBalance > 300_000)
-            || finances.BankBalance > 1_500_000)
-        {
-            double directorsWithdrawal      = (int)(finances.BankBalance / 2);
-            report.DirectorsWithdrawal      = directorsWithdrawal;
-            weeklyBalance                  -= directorsWithdrawal;
+            report.VatBill              = (int)(finances.BankBalance / 100) * 15;
+            weeklyBalance               -= report.VatBill;
+            finances.VatPaidThisSeason   = true;
         }
 
         // ── Apply net result ──────────────────────────────────────────────────
@@ -267,6 +259,7 @@ public class WeeklyReportInput
     public bool   WonLeagueMatch             { get; set; }   // ot flag
     public bool   WonCupMatch                { get; set; }   // os flag
     public bool   IsManagerOfMonthEligible   { get; set; }   // MA>=10 AND ag<=3 AND CI==MB
-    public bool   HasLongServingPlayer       { get; set; }   // ABS(x(I))>400 → sponsorship payment
     public int    Division                   { get; set; }   // AP
+    public int    GroundCapacity             { get; set; }   // used to scale sponsorship income
+    public int    CurrentWeek                { get; set; }   // used to gate the VAT bill to the season's last few weeks
 }

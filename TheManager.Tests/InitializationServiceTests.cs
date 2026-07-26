@@ -212,12 +212,13 @@ public class InitializationServiceTests
     {
         // A tiny (1-seat) ground and a huge (500,000-seat) one should both hit the
         // 0.5x/2.5x clamp rather than producing arbitrarily small/large balances.
-        // For Division Three the unscaled range is 150,000 to ~316,666.
+        // For Division Three the unscaled figure is StartingBankBalanceBase (1,500,000)
+        // x DivisionWageMultiplier(3) (2.0) = 3,000,000.
         var tiny = InitializationService.GenerateStartingSquad(Division.Three, 1,       new Random(0));
         var huge = InitializationService.GenerateStartingSquad(Division.Three, 500_000, new Random(0));
 
-        Assert.InRange(tiny.BankBalance, 150_000 * 0.5, 316_666 * 0.5);
-        Assert.InRange(huge.BankBalance, 150_000 * 2.5, 316_666 * 2.5);
+        Assert.Equal(3_000_000 * 0.5, tiny.BankBalance);
+        Assert.Equal(3_000_000 * 2.5, huge.BankBalance);
     }
 
     // ── GenerateStartingStaff ─────────────────────────────────────────────────

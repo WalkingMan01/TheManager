@@ -23,6 +23,5 @@ public class WeeklyReport
     public double LoanRepayment        { get; set; }
     public double MortgageRepayment    { get; set; }
     public double VatBill              { get; set; }
-    public double DirectorsWithdrawal  { get; set; }
     public double WeeklyProfit         { get; set; }
 }

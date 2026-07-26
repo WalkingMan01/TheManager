@@ -341,7 +341,6 @@ internal static class PlayMatchScreen
         Line("Loan repayment",    -report.LoanRepayment);
         Line("Mortgage",          -report.MortgageRepayment);
         Line("VAT bill",          -report.VatBill);
-        Line("Directors withdrew",-report.DirectorsWithdrawal);
         Line("Insurance payout",   report.InsurancePayout);
         Line("Manager of Month",   report.ManagerOfMonthBonus);
 
