@@ -51,6 +51,24 @@ public class Player
     public int PeakAge { get; set; }
 
     /// <summary>
+    /// Hidden Skill gain applied for every first-team appearance. Rolled once at
+    /// creation from the player's headroom to PotentialSkill and a random pace
+    /// multiplier, so two players with identical potential can still develop at
+    /// different speeds. Never displayed. No FOOT.BAS equivalent (new mechanic).
+    /// 0 = not yet assigned (legacy save) — assigned on load.
+    /// See docs/specs/player-development.md.
+    /// </summary>
+    public double DevelopmentRate { get; set; }
+
+    /// <summary>
+    /// Total Skill gained from appearance-based development so far this season,
+    /// reset to 0 alongside <see cref="YellowCardsThisSeason"/>. Used to enforce
+    /// the season growth cap in PlayerService.ApplyAppearanceGrowth. Never
+    /// displayed. No FOOT.BAS equivalent (new mechanic).
+    /// </summary>
+    public double SkillGainedThisSeason { get; set; }
+
+    /// <summary>
     /// Skill rating 1.0–9.9+. Star players have Skill > 9.7 (status = Star, J=105).
     /// Capped at the player's hidden <see cref="PotentialSkill"/>.
     /// Corresponds to H(I).

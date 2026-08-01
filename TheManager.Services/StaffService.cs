@@ -178,6 +178,7 @@ public static class StaffService
         player.PeakAge        = 26 + rng.Next(5);
         player.PotentialSkill = Math.Max(skill + 0.3 + rng.Next(3) / 10.0,
                                          youth.PotentialSkillPercent / 10.0);
+        PlayerService.AssignDevelopmentRate(player, rng);
 
         PlayerService.RecalculateStatus(player);
 

@@ -271,11 +271,16 @@ internal static class ScoutReportsScreen
 
         AnsiConsole.WriteLine();
 
-        // Step 5: affordability, then evaluate
-        double totalCost = askingPrice + offeredFee;
-        if (totalCost > state.Finances.BankBalance)
+        // Step 5: affordability, then evaluate. The club can dip into its
+        // overdraft to fund a signing, same as it already can for weekly
+        // running costs — blocked only once the resulting balance would
+        // cross the same threshold FinancialCrisisService treats as trouble
+        // (BankBalance < -OverdraftMaximum).
+        double totalCost      = askingPrice + offeredFee;
+        double availableFunds = state.Finances.BankBalance + state.Finances.OverdraftMaximum;
+        if (totalCost > availableFunds)
         {
-            AnsiConsole.MarkupLine($"  [red]You cannot afford this deal[/] — total cost would be {Ui.FormatMoney(totalCost)}.");
+            AnsiConsole.MarkupLine($"  [red]You cannot afford this deal, even using the overdraft[/] — total cost would be {Ui.FormatMoney(totalCost)}.");
             Ui.Pause();
             return;
         }

@@ -24,7 +24,10 @@ public static class WeeklyTickService
     {
         // Rest days and cup-elimination weeks have no match — no appearances.
         if (ctx.MatchPlayed)
+        {
             PlayerService.UpdateSquadAppearances(gameState.Squad);
+            PlayerService.ApplyAppearanceGrowth(gameState.Squad);
+        }
         ApplyYouthCoaching(gameState, rng);
 
         gameState.Club.ManagerContractWeeks = Math.Max(0, gameState.Club.ManagerContractWeeks - 1);

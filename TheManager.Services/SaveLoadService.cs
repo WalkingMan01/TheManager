@@ -129,10 +129,14 @@ public static class SaveLoadService
 
     /// <summary>
     /// One-time migration for saves created before the hidden-potential
-    /// mechanic: players with PeakAge 0 (never assigned) get a PeakAge and
-    /// PotentialSkill rolled via <see cref="PlayerService.AssignPotential"/>.
-    /// AssignPotential always sets the ceiling above current skill, so no
-    /// loaded player loses ability.
+    /// mechanic: players with PeakAge 0 (never assigned) get a PeakAge,
+    /// PotentialSkill, and DevelopmentRate rolled via
+    /// <see cref="PlayerService.AssignPotential"/>. AssignPotential always sets
+    /// the ceiling above current skill, so no loaded player loses ability.
+    /// Players saved after the potential mechanic shipped but before
+    /// DevelopmentRate existed have a valid PeakAge already, so that branch
+    /// won't fire for them — backfill just the rate via
+    /// <see cref="PlayerService.AssignDevelopmentRate"/> instead.
     /// </summary>
     private static void MigrateLegacyPotentials(GameState state, Random rng)
     {
@@ -140,6 +144,8 @@ public static class SaveLoadService
         {
             if (player is { PeakAge: 0 })
                 PlayerService.AssignPotential(player, rng);
+            else if (player is { DevelopmentRate: <= 0 })
+                PlayerService.AssignDevelopmentRate(player, rng);
         }
     }
 

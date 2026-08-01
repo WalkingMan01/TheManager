@@ -19,7 +19,6 @@ public class MatchEngineService
     private const int    MaxGoalEvents             = 8;    // event-array capacity
     private const int    GoalkeeperSlot             = 1;    // squad index of the GK
     private const double PhysioEffectiveness        = 0.6;  // fraction of physio skill applied to injury reduction
-    private const double SkillBoostPerGoal          = 0.04; // skill gain awarded to the scorer
     private const int    TemperIncidentDenominator  = 472;  // probability denominator for crowd incidents
     private const int    YellowCardChancePercent    = 6;    // per starting slot, per match (~0.7 cards/match on average)
     private const int    GoalStartMinute            = 2;
@@ -240,8 +239,6 @@ public class MatchEngineService
 
         scorer.SeasonGoals++;
         scorer.Appearances++;
-        scorer.Skill += SkillBoostPerGoal;
-        PlayerService.RecalculateStatus(scorer);
         return scorer.Name;
     }
 

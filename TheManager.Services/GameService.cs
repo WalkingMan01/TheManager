@@ -15,7 +15,7 @@ namespace TheManager.Services;
 public class GameService
 {
     private const int MoraleShiftDivisor = 6;
-    private const int MinimumMorale = 50;
+    private const int MinimumMorale = 10;
 
     private GameState    _gameState;
     private readonly Random       _random;
@@ -318,16 +318,13 @@ public class GameService
         bool weWon      = ourScore > theirScore || (shootout?.WeWon ?? false);
         bool weDrew     = ourScore == theirScore && shootout == null;
         bool weLost     = !weWon && !weDrew;
-        bool cleanSheet = theirScore == 0;
 
         // Tie-advancement outcome for the semi-final (aggregate/shootout-based),
         // distinct from weWon above (which reflects only this leg's own result —
-        // used for morale/skill, exactly like any other match).
+        // used for morale, exactly like any other match).
         bool tieWonByUs = isPlayoffLeg2 && (shootout != null ? shootout.WeWon : aggregateOurs > aggregateTheirs);
 
         // ── Post-match updates ────────────────────────────────────────────────
-        PlayerService.ApplyPostMatchSkillChanges(_gameState.Squad, weWon, weLost, cleanSheet);
-
         // BASIC 3305: win → me += INT(me/2), loss → me -= INT(me/2), draw → unchanged
         if      (weWon)  _gameState.Club.TeamMorale += _gameState.Club.TeamMorale / MoraleShiftDivisor;
         else if (weLost) _gameState.Club.TeamMorale -= _gameState.Club.TeamMorale / MoraleShiftDivisor;

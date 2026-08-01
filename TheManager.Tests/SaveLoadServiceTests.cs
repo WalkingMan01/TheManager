@@ -77,6 +77,51 @@ public class SaveLoadServiceTests
         var player = loaded.Squad[1]!;
         Assert.InRange(player.PeakAge, 26, 30);
         Assert.True(player.PotentialSkill > player.Skill);
+        Assert.True(player.DevelopmentRate > 0);
+    }
+
+    [Fact]
+    public void Deserialize_PlayerWithPotentialButNoDevelopmentRate_BackfillsRate()
+    {
+        // A player saved after the potential mechanic shipped but before
+        // DevelopmentRate existed: PeakAge/PotentialSkill are already valid,
+        // so the PeakAge==0 migration branch won't fire — only the
+        // DevelopmentRate backfill should run.
+        var state = MakeStateWithPlayer(new Player
+        {
+            Position       = PlayerPosition.Defender,
+            Skill          = 6.0,
+            PotentialSkill = 7.0,
+            Age            = 24,
+            PeakAge        = 28
+        });
+        string json = JsonSerializer.Serialize(state, SaveLoadService.SerializerOptions);
+
+        var loaded = SaveLoadService.Deserialize(json, new Random(42));
+
+        var player = loaded.Squad[1]!;
+        Assert.Equal(28, player.PeakAge);
+        Assert.Equal(7.0, player.PotentialSkill);
+        Assert.True(player.DevelopmentRate > 0);
+    }
+
+    [Fact]
+    public void Deserialize_PlayerWithDevelopmentRateAlready_RoundTripsUnchanged()
+    {
+        var state = MakeStateWithPlayer(new Player
+        {
+            Position        = PlayerPosition.Defender,
+            Skill           = 6.0,
+            PotentialSkill  = 7.0,
+            Age             = 24,
+            PeakAge         = 28,
+            DevelopmentRate = 0.015
+        });
+        string json = JsonSerializer.Serialize(state, SaveLoadService.SerializerOptions);
+
+        var loaded = SaveLoadService.Deserialize(json, new Random(42));
+
+        Assert.Equal(0.015, loaded.Squad[1]!.DevelopmentRate);
     }
 
     [Fact]

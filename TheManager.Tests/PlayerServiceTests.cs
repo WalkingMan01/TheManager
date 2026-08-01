@@ -102,28 +102,112 @@ public class PlayerServiceTests
         Assert.True(young.PotentialSkill > old.PotentialSkill);
     }
 
-    // ── ApplyPostMatchSkillChanges ────────────────────────────────────────────
+    // ── AssignDevelopmentRate ──────────────────────────────────────────────────
 
     [Fact]
-    public void ApplyPostMatchSkillChanges_Win_SkillNeverExceedsPotential()
+    public void AssignDevelopmentRate_PositiveHeadroom_ProducesPositiveRate()
     {
-        var squad = new Player?[29];
-        squad[9] = new Player { Position = PlayerPosition.Attacker, Skill = 5.0, PotentialSkill = 5.0, Age = 24 };
+        var player = new Player { Position = PlayerPosition.Midfielder, Skill = 4.0, PotentialSkill = 6.8, Age = 21, PeakAge = 27 };
 
-        PlayerService.ApplyPostMatchSkillChanges(squad, won: true, lost: false, cleanSheet: false);
+        PlayerService.AssignDevelopmentRate(player, new Random(1));
 
-        Assert.Equal(5.0, squad[9]!.Skill);
+        Assert.True(player.DevelopmentRate > 0);
     }
 
     [Fact]
-    public void ApplyPostMatchSkillChanges_Win_SkillIncreasesBelowPotential()
+    public void AssignDevelopmentRate_NoHeadroom_ProducesZeroRate()
+    {
+        var player = new Player { Position = PlayerPosition.Midfielder, Skill = 6.8, PotentialSkill = 6.8, Age = 21, PeakAge = 27 };
+
+        PlayerService.AssignDevelopmentRate(player, new Random(1));
+
+        Assert.Equal(0.0, player.DevelopmentRate);
+    }
+
+    [Fact]
+    public void AssignDevelopmentRate_PaceRoll_VariesAcrossSeeds()
+    {
+        var rates = new HashSet<double>();
+        for (int seed = 0; seed < 30; seed++)
+        {
+            var player = new Player { Position = PlayerPosition.Midfielder, Skill = 4.0, PotentialSkill = 6.8, Age = 21, PeakAge = 27 };
+            PlayerService.AssignDevelopmentRate(player, new Random(seed));
+            rates.Add(player.DevelopmentRate);
+        }
+
+        Assert.True(rates.Count > 1, "Expected the pace roll to produce more than one distinct rate across seeds.");
+    }
+
+    // ── ApplyAppearanceGrowth ──────────────────────────────────────────────────
+
+    [Fact]
+    public void ApplyAppearanceGrowth_Starter_GrowsByFullDevelopmentRate()
     {
         var squad = new Player?[29];
-        squad[9] = new Player { Position = PlayerPosition.Attacker, Skill = 5.0, PotentialSkill = 9.9, Age = 24 };
+        squad[3] = new Player { Position = PlayerPosition.Defender, Skill = 5.0, PotentialSkill = 9.9, DevelopmentRate = 0.02 };
 
-        PlayerService.ApplyPostMatchSkillChanges(squad, won: true, lost: false, cleanSheet: false);
+        PlayerService.ApplyAppearanceGrowth(squad);
 
-        Assert.Equal(5.03, squad[9]!.Skill, precision: 5);
+        Assert.Equal(5.02, squad[3]!.Skill, precision: 5);
+        Assert.Equal(0.02, squad[3]!.SkillGainedThisSeason, precision: 5);
+    }
+
+    [Fact]
+    public void ApplyAppearanceGrowth_UnusedSubstitute_GrowsByHalfRate()
+    {
+        var squad = new Player?[29];
+        squad[12] = new Player { Position = PlayerPosition.Attacker, Skill = 5.0, PotentialSkill = 9.9, DevelopmentRate = 0.02 };
+
+        PlayerService.ApplyAppearanceGrowth(squad);
+
+        Assert.Equal(5.01, squad[12]!.Skill, precision: 5);
+    }
+
+    [Fact]
+    public void ApplyAppearanceGrowth_Reserve_GrowsByHalfRate()
+    {
+        var squad = new Player?[29];
+        squad[15] = new Player { Position = PlayerPosition.Midfielder, Skill = 5.0, PotentialSkill = 9.9, DevelopmentRate = 0.02 };
+
+        PlayerService.ApplyAppearanceGrowth(squad);
+
+        Assert.Equal(5.01, squad[15]!.Skill, precision: 5);
+    }
+
+    [Fact]
+    public void ApplyAppearanceGrowth_TransferTargetSlot_IsUntouched()
+    {
+        var squad = new Player?[29];
+        squad[21] = new Player { Position = PlayerPosition.Attacker, Skill = 5.0, PotentialSkill = 9.9, DevelopmentRate = 0.5 };
+
+        PlayerService.ApplyAppearanceGrowth(squad);
+
+        Assert.Equal(5.0, squad[21]!.Skill);
+    }
+
+    [Fact]
+    public void ApplyAppearanceGrowth_ClampsAtPotential()
+    {
+        var squad = new Player?[29];
+        squad[3] = new Player { Position = PlayerPosition.Defender, Skill = 9.85, PotentialSkill = 9.9, DevelopmentRate = 0.5 };
+
+        PlayerService.ApplyAppearanceGrowth(squad);
+
+        Assert.Equal(9.9, squad[3]!.Skill, precision: 5);
+    }
+
+    [Fact]
+    public void ApplyAppearanceGrowth_RepeatedAppearances_NeverExceedsSeasonCap()
+    {
+        var squad = new Player?[29];
+        var player = new Player { Position = PlayerPosition.Attacker, Skill = 1.1, PotentialSkill = 9.9, DevelopmentRate = 1.0 };
+        squad[9] = player;
+
+        for (int week = 0; week < 50; week++)
+            PlayerService.ApplyAppearanceGrowth(squad);
+
+        Assert.Equal(4.0, player.SkillGainedThisSeason, precision: 5);
+        Assert.Equal(5.1, player.Skill, precision: 5);
     }
 
     // ── ApplyEndOfSeasonSkillUpdate ───────────────────────────────────────────
@@ -137,6 +221,17 @@ public class PlayerServiceTests
         PlayerService.ApplyEndOfSeasonSkillUpdate(squad, new Random(0));
 
         Assert.Equal(0, squad[1]!.YellowCardsThisSeason);
+    }
+
+    [Fact]
+    public void ApplyEndOfSeasonSkillUpdate_PlayerWithSkillGainedThisSeason_ResetsToZero()
+    {
+        var squad = new Player?[29];
+        squad[1] = new Player { Position = PlayerPosition.Defender, Skill = 5.0, SkillGainedThisSeason = 3.5 };
+
+        PlayerService.ApplyEndOfSeasonSkillUpdate(squad, new Random(0));
+
+        Assert.Equal(0.0, squad[1]!.SkillGainedThisSeason);
     }
 
     [Fact]
@@ -206,17 +301,59 @@ public class PlayerServiceTests
     }
 
     [Fact]
-    public void ApplyEndOfSeasonSkillUpdate_WithinPeakWindow_NoDeclinePenalty()
+    public void ApplyEndOfSeasonSkillUpdate_Under30_NoDeclinePenalty()
     {
+        // Two different under-30 ages both draw from the same range and
+        // carry no yearsPastPeak penalty (0 for anyone <= PeakWindowEndAge),
+        // so with the same seed they land on the same result.
         var squadYoung = new Player?[29];
-        var squadPeak  = new Player?[29];
+        var squadOlder = new Player?[29];
         squadYoung[1] = MakePlayer(age: 22, peakAge: 26, skill: 5.0);
-        squadPeak[1]  = MakePlayer(age: 29, peakAge: 26, skill: 5.0);
+        squadOlder[1] = MakePlayer(age: 28, peakAge: 26, skill: 5.0);
 
         PlayerService.ApplyEndOfSeasonSkillUpdate(squadYoung, new Random(5));
-        PlayerService.ApplyEndOfSeasonSkillUpdate(squadPeak,  new Random(5));
+        PlayerService.ApplyEndOfSeasonSkillUpdate(squadOlder, new Random(5));
 
-        Assert.Equal(squadYoung[1]!.Skill, squadPeak[1]!.Skill);
+        Assert.Equal(squadYoung[1]!.Skill, squadOlder[1]!.Skill);
+    }
+
+    [Fact]
+    public void ApplyEndOfSeasonSkillUpdate_Under30_DriftStaysWithinNarrowRange()
+    {
+        for (int seed = 0; seed < 200; seed++)
+        {
+            var squad = new Player?[29];
+            squad[1] = MakePlayer(age: 24, peakAge: 28, skill: 5.0, potential: 9.9);
+
+            PlayerService.ApplyEndOfSeasonSkillUpdate(squad, new Random(seed));
+
+            double drift = squad[1]!.Skill - 5.0;
+            Assert.InRange(drift, -0.5, 0.5);
+        }
+    }
+
+    [Fact]
+    public void ApplyEndOfSeasonSkillUpdate_Age30_DriftCanGoLowerThanUnder30Range()
+    {
+        // At exactly PeakWindowEndAge (30) the wider pre-existing range
+        // (-0.7 to +0.5) still applies — only ages strictly under 30 get the
+        // narrower range.
+        bool sawBelowNarrowRangeFloor = false;
+        for (int seed = 0; seed < 200; seed++)
+        {
+            var squad = new Player?[29];
+            squad[1] = MakePlayer(age: 29, peakAge: 30, skill: 5.0, potential: 9.9);
+
+            PlayerService.ApplyEndOfSeasonSkillUpdate(squad, new Random(seed));
+
+            if (squad[1]!.Skill - 5.0 < -0.5)
+            {
+                sawBelowNarrowRangeFloor = true;
+                break;
+            }
+        }
+
+        Assert.True(sawBelowNarrowRangeFloor);
     }
 
     [Fact]

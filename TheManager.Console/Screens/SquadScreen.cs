@@ -193,9 +193,6 @@ internal static class SquadScreen
             offeredWeeks = AnsiConsole.Prompt(
                 new TextPrompt<int>($"  Contract length in weeks (max {demand.StatedContractWeeks}): > "));
 
-            if (offeredFee > state.Finances.BankBalance)
-                return $"You cannot afford a signing-on fee of £{offeredFee}";
-
             if (!ContractService.EvaluateOffer(demand, offeredWage, offeredFee, offeredWeeks))
                 return $"{player.Name.Trim()} rejects your offer";
         }
@@ -203,6 +200,15 @@ internal static class SquadScreen
         {
             return null;
         }
+
+        // The club can dip into its overdraft to fund a renewal, same as it
+        // can for a new signing — blocked only once the resulting balance
+        // would cross the same threshold FinancialCrisisService treats as
+        // trouble (BankBalance < -OverdraftMaximum). Checked for both the
+        // accepted-demand and custom-offer paths.
+        double availableFunds = state.Finances.BankBalance + state.Finances.OverdraftMaximum;
+        if (offeredFee > availableFunds)
+            return $"You cannot afford a signing-on fee of £{offeredFee}, even using the overdraft";
 
         player.WeeklyWage    = offeredWage;
         player.ContractWeeks = offeredWeeks;
